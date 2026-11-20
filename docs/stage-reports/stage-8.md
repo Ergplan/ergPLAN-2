@@ -1,0 +1,306 @@
+# Stage 8 report — breadth and launch
+
+Date: 1 Nov 2026 · Builder: Claude (subscription), cloud build workspace · Reviewer: gpt-5.1 (OpenAI), fresh context
+
+## Built
+
+**Sign-in and access (`platform/auth.py`, `platform/mail.py`, `routers/auth.py`; migration 0009).**
+- Sign-in is by email link. The link works once and lasts 15 minutes. The session cookie lasts 30 days and is HttpOnly. Only SHA-256 digests of the link and the cookie are stored.
+- Two roles. Emails at `ERGPLAN_ANALYST_DOMAIN` (joulewise.in) or listed in `ERGPLAN_ANALYST_EMAILS` are analysts; everyone else is a client.
+- One app-wide guard applies the policy:
+  - public routes: the shared plan, documents, sign-in, health, shapes, the price vintage a market citation opens, and voice/chat (which check the plan token or sign-in themselves);
+  - every other route needs sign-in;
+  - any route carrying a connection, site, bill, scenario or run id is checked for ownership, and ids sent in a request body are checked too.
+- Bills are read by billx once per file but owned per uploader: a second uploader of the same PDF gets their own rows and cannot reach the first uploader's.
+- In production the development headers are ignored. Without a mail server, production refuses to issue a link (503); a mail server that refuses answers 502.
+- Security headers come from both the API and Caddy, with CORS limited to the public URL. `tools/dev/secrets-check.py` runs in the watcher and in CI.
+- The web app has `/login`, `/login/verify`, a signed-in bar with sign-out, and redirects to sign-in in production.
+
+**Breadth.** Rulebooks approved through `rulebook.service`, with golden tests, from the orders on the Mac mini:
+
+| State | Jurisdiction | Families approved | Golden tests |
+| --- | --- | --- | --- |
+| Karnataka | `ka_escoms` (BESCOM, MESCOM, CESC, HESCOM, GESCOM) | tariff_schedule (HT-2(a)), tod_slots | 12 |
+| Telangana | `tg_discoms` (TGSPDCL, TGNPDCL) | tariff_schedule (HT-I(A), kVAh by voltage), tod_slots | 11 |
+| Punjab | `pspcl` | tariff_schedule (LS general industry, two contract-demand bands, 80 % floor) | 7 |
+
+Gujarat, Rajasthan, Haryana, Tamil Nadu and Andhra Pradesh are registered but **not yet sourced**; the reasons are below. `GET /rulebooks/coverage` gives the honest map per state, the `/rulebooks` page shows it, and the options board and the live plan say "not yet sourced" where a state has no approved rule. Eighteen DISCOMs were added to the jurisdictions and to the intake defaults (names, billx aliases, printed categories, usual voltages), each named once (a test checks this).
+
+**Performance.**
+- The worker runs several processes (`--concurrency`, `ERGPLAN_WORKER_CONCURRENCY`), each claiming runs with `FOR UPDATE SKIP LOCKED`.
+- Approved rules are cached per process. The cache is dropped whenever the approved set changes; the stamp is a hash of the approved version ids and their effective windows, read in the caller's transaction.
+- A settled plan answers in about 30 ms from the API and about 220 ms for the page. The suite checks it stays under 1 s.
+
+**Deployment, prepared but not done.** `docker/compose.prod.yaml`: only Caddy is exposed, with automatic TLS for `SITE_ADDRESS`, `ERGPLAN_ENV=prod` and worker concurrency. The API image installs Chromium for PDF export. `tools/dev/backup.sh` takes a nightly pg_dump and a data/ archive, keeps 14 days and can copy to a bucket. `docs/deploy.md` is the VM runbook.
+
+**Release note.** `docs/release-notes/2026-11-01-ergplan-1.0.md`.
+
+## Definition of done
+
+| Check | State |
+| --- | --- |
+| Eight states approved | **Not met: 5 of the 10 states the plan names have approved rules** (UP, MH from Stage 1; KA, TS, PB now). Rule rows sourced over rows present: 100 %. States attempted over states in the prompt: 8 of 8, of which 3 approved and 5 recorded as not yet sourced with a reason. "Not yet sourced" is the correct answer where the document is missing or the schema cannot hold it (section 9). |
+| Login and roles | Met (`tests/platform/test_auth.py`: sign-in, roles, logout, expiry, development headers ignored in production, ownership across clients, mail refusal) |
+| Deployed with TLS | **Not met: needs the VM, the hostname and SMTP** (open question 1). The production compose, Caddy TLS, backup and runbook are ready. |
+| Final full pass green | Met. Watcher green (295 tests plus web typecheck and tests, rulebooks, field-trace, secrets). Slow suite: the 5 MW UP and MH sites at 15 minutes and the Stage 6 end-to-end, 3 passed in 5 min 38 s; the two Stage 7 journey tests skip there by design. Browser journey (`tools/dev/e2e-journey.sh`, NPCL and MSEDCL real bills): 2 passed in 4 min 46 s. Stage 8 states end-to-end (KA, TS, PB avoided cost; coverage): passed. |
+| Release note | Met |
+
+## Why five states are not yet sourced
+
+- **Gujarat (GERC).** The HTP-I demand charge is in slabs of billing demand; `tariff_schedule` has no slab table. Needs a schema change.
+- **Rajasthan.** The file on the mini is an HTML/JS page, not the RERC order.
+- **Haryana.** A 7-page scanned notice, not the HERC schedule.
+- **Tamil Nadu.** The order holds FY 2025-26 rates indexed by CPI from July 2026; the indexed FY 2026-27 schedule is not in the corpus.
+- **Andhra Pradesh.** The schedule pages have a garbled text layer, and page 230 has none, so the grounding check cannot pass.
+
+In the approved states, open-access charges, losses and banking are not yet sourced, and Punjab's ToD (mid-month seasons, a Rs 5.50 cap) cannot be expressed by `tod_slots`. All of this is in `docs/known-gaps.md`.
+
+## Skipped, and why
+
+- **Deployment**, for the reason above. The Mac mini session reaches only a Linux sandbox with no Docker, so Compose has still not been run on real Docker. That is the first step on the VM.
+- **Rate limiting on sign-in requests.** Links are single-use and expire in 15 minutes, but repeated requests are not throttled. Listed as a launch gap.
+
+## Deviations
+
+These are dated in `docs/decisions.md` (1 Nov 2026, Stage 8):
+- **Three states approved instead of eight**, as above.
+- **Reader drafts corrected by the analyst.** The reader read KERC's ToD paise as rupees, and its TGERC 33/132 kV and −50 paise quotes failed grounding. Those drafts were rejected and the rows typed from the same pages with verbatim quotes, then golden-tested and approved. The review notes say so.
+- **Access policy lives in one guard,** not on each route.
+- **Ops scripts stay in `tools/dev/`** to keep the section 5 layout.
+- **The Stage 3 real-bill replay is scoped to UP and MH.** This is a test change, recorded in the commit message: a cached PSPCL bill entered it once PSPCL became a known DISCOM, and its printed "nature of industry" is not a tariff category.
+
+## Reviewer findings and fixes
+
+Nine rounds; the ninth reported no code defect (its by-design and unprovable items are the ones below). The last round is in `docs/stage-reports/stage-8-review.md` (kept locally, like earlier stages' reviews).
+
+| Round | Finding | Fix |
+| --- | --- | --- |
+| 1 | `ERGPLAN_SECRET` had a code default | The setting was read by nothing (sessions are random tokens stored as digests), so it was removed from settings, `.env.example`, compose and the runbook. The line in your local `.env` is now unused and can be deleted. |
+| 1 | DISCOMs listed twice in `jurisdictions.yaml` | Deduplicated (TANGEDCO folded into TNPDCL); a test asserts unique ids and that parents exist |
+| 2 | Without SMTP, the page said "we sent a link" | Production answers 503 naming the setting; the page says mail is not set up; the runbook marks SMTP mandatory |
+| 3 | Coverage endpoint had no direct test | `tests/platform/test_api_coverage.py` |
+| 3 | Development sign-in untested; SMTP failure gave a 500 | Tests added; a refusing mail server answers 502 |
+| 3 | HSTS set by both the API and Caddy | By design (defence in depth); the Caddyfile says so, and Caddy replaces rather than duplicates |
+| 4 | `backup.sh` assumed `gsutil` | Checked before any work, with a clear message |
+| 5 | New DISCOM aliases may not match billx's profile ids | Checked against billx's 11 DISCOM profiles; a test pins each to its DISCOM and state |
+| 5 | Rule cache ignores the evaluation date | No defect: the date is part of the cache key `(family, jurisdictions, on)`; the stamp only says when the approved set changed. Unchanged |
+| 5 | Coverage lists group ids (e.g. `ka_escoms`), not each DISCOM | By design: the list names the jurisdictions that hold the approved rows; the DISCOMs under a group are in `/rulebooks/jurisdictions` |
+
+| 6 | Secrets check missed database passwords | `POSTGRES_PASSWORD` and a password inside `DATABASE_URL` in a committed env file now fail the check (probed with a throwaway file) |
+| 6 | `backup.sh` assumes the production compose | By design (VM only); the header says so |
+| 6 | Ownership of ids sent in a request body relies on each route calling `owned_bills` / `owned_connection` | By design for now: every current body-id route calls them and is tested; a central check would need a resource-kind map per body model. Listed in known gaps |
+| 6 | Public routes matched by template | No defect: the guard compares FastAPI's matched route template (`/p/{token}`), and the production tests reach the public routes logged out |
+| 6 | Fewer than eight states | Not resolvable by code; see the definition of done |
+| 7 | Logout revocation and headers on a private route untested | Tested: a revoked session's cookie replayed gets 401; a signed-in route carries the security headers |
+| 8 | Bearer use of the session token untested | Tested (a non-browser client sends the token as a bearer) |
+| 8 | A plain-http public URL in production breaks the Secure cookie silently | The API logs a warning at start (tested) |
+| 7 | An anonymous uploader could own a bill | No defect: `/bills` needs sign-in in production, and the router stores `uploaded_by` only for a signed-in caller |
+
+Round 5's other four "code defects" are confirmations that the auth and coverage endpoints are tested and that the worker is not an endpoint.
+
+Not changed, because a diff cannot prove them:
+- the approvals themselves (they are in the exported `packages/rulebooks/states/`, which the reviewer does not see, and are asserted by `tests/e2e/test_stage8_states.py`);
+- the `stage-8-done` tag named in the release note (recorded with this report);
+- the deployment statement.
+
+## Open questions
+
+1. **Deployment.** Which Google Cloud project and VM (asia-south2), and which jouleWise hostname? Which SMTP account should send sign-in links?
+2. **Missing documents.**
+   - Rajasthan: the RERC tariff order PDF.
+   - Haryana: the HERC order with its schedule.
+   - Tamil Nadu: the CPI-indexed FY 2026-27 rates.
+   - Andhra Pradesh: a copy with a text layer.
+   - The OA-charge and banking orders for KA, TS and PB.
+3. **Gujarat and Punjab schema changes.** Should demand slabs (Gujarat) and mid-month ToD seasons with a cap (Punjab) be added to the rule schemas in the next round?
+4. **Analyst emails.** Besides @joulewise.in, which addresses should sign in as analysts?
+5. **Re-approval.** The seeded rulebooks are approved by `build-agent@ergplan`. Should a jouleWise analyst re-approve each under their own name before client use?
+
+## Cost
+
+- Regulation reader: 5 gpt-5.1 calls, 20,948 tokens in and 6,276 out, USD 0.089 (from `model_calls`).
+- Reviewer: nine gpt-5.1 rounds of about 37,000–40,000 tokens in each, about USD 0.50 in all.
+- No billx reads (stored readings were reused).
+- Builder: Claude subscription.
+
+## Addendum, 1 Nov 2026 — the Mac mini as the server
+
+You chose the mini as the server, so deployment now targets it instead of a VM.
+
+- **Built:** `docker/compose.mini.yaml` (production mode, Caddy on LAN port 80), `tools/dev/mini.sh`, and `tools/dev/mini-install.sh`, delivered with a git bundle to `~/Downloads/ergplan-server/`. The installer sets up the code, settings, documents, rulebooks, prices, nightly backup and the first sign-in link. Supporting changes: operator-issued sign-in links, an IEX loader that reads from disk, a session cookie that is Secure only on https, the UP CRE Regulations added to the corpus index, and unreadable bill readings retried.
+- **First real Docker run** (in the build workspace):
+  - postgres, api, worker, web, billx and caddy are all healthy;
+  - the 12 documents registered with the same ids as in development;
+  - the rulebooks restored and the DAM and RTM prices loaded;
+  - sign-in works through Caddy;
+  - a client built three settled scenarios, shared the plan (opens logged out in 30 ms for the data, 130 ms for the page) and printed the PDF (3 pages, 1.6 s);
+  - billx read the real NPCL bill (it needs its model key; without it the bill came back unreadable, which is now retried).
+- **Fixed on the way:** there was no `.dockerignore`, so the build context carried `data/`, the virtualenvs and `node_modules`; the API image had no tesseract; pnpm was unpinned.
+- **Not done by me:** the installer has to be run on the mini by you. I can only click in terminals there, not type, and the mini's sandbox shell cannot host a server. On Linux the script was dry-run with stand-ins for Docker and launchd; the macOS run itself is untested.
+- **Still open:**
+  - https and a public hostname (Cloudflare Tunnel, or a port forward);
+  - an SMTP account, so sign-in links are mailed instead of issued by hand;
+  - a DHCP reservation for the mini's address.
+- **Reviewer:** three more rounds on the deployment work. Fixed: a logout test that checks the database (revoked rows, cleared cookie), and a test that pins the public routes to real routes. The reviewer also said `/voice/tool` was not a route; it is, and the new test confirms it.
+
+## Addendum, 1 Nov 2026 afternoon — the VM, open access, Gujarat and Andhra Pradesh
+
+**Deployed** on the Google Cloud VM `replanner` at https://34-131-62-161.sslip.io, with a Let's Encrypt certificate. The flow you chose is in place: commit here → push to GitHub → SSH from the Mac mini → `tools/dev/vm-install.sh`.
+- The first install carried billx, the 24 indexed regulation files, the IEX files and the settings. The OpenAI key was read from Keys.rtf on the mini and never printed; the payload was deleted from the VM and the mini afterwards.
+- Updates send a git bundle of `main` only.
+- Console steps you did: the project SSH key, the web firewall rule and the 50 GB disk.
+- The API image now installs its dependencies before copying the code, so code-only updates build quickly.
+
+**Open access sourced from the tariff orders already in the corpus:**
+
+| State | Approved | Golden tests |
+| --- | --- | --- |
+| Telangana | CSS per DISCOM and voltage; the aggregate T&D charge | 15 |
+| Karnataka | CSS common to all ESCOMs; additional surcharge not levied; each ESCOM's HT wheeling charge and HT loss | 25 |
+| Punjab | Wheeling per MW; 2 % in kind for renewable power within the State; T&D losses by voltage; CSS | 8 |
+
+A charge levied in kind is applied as a loss and named "Losses and charges in kind".
+
+**Two more states with approved tariffs:**
+- **Gujarat** (HTP-I, common to the four state DISCOMs). The schemas grew to hold telescopic demand slabs, an excess-over-contract rate, a least billing demand, energy and ToD bands by billing demand, and an energy rebate by voltage. The evaluator, avoided cost, optimizer inputs and the judge use them.
+- **Andhra Pradesh** (Category III(A) HT), from Table 11, which has a readable text layer.
+
+States with approved tariffs: **7 of the 10** the plan names (UP, MH, KA, TS, PB, GJ, AP). Still not yet sourced:
+- **Rajasthan:** the stored file is an HTML page.
+- **Haryana:** the file is a UHBVN sales circular implementing the HERC order, with scanned tables whose OCR is too uncertain to quote. It was not seeded, on purpose (traceability beats speed).
+- **Tamil Nadu:** the indexed FY 2026-27 rates are missing.
+
+**Reviewer** (two rounds on the afternoon's diff):
+- Fixed: the in-kind charge line label; explicit coverage assertions per state.
+- By design: the VM forces `ERGPLAN_ENV=prod` through `compose.prod.yaml`; approvals live in `packages/rulebooks/states/`, which the reviewer does not see.
+
+**Model cost:** none this afternoon. Every rule was authored from the page text with verbatim quotes, without the reader. Reviewer: four gpt-5.1 rounds, about USD 0.20.
+
+
+## Addendum, 1 Nov 2026 evening — bill reading upgraded, the reading view, search
+
+**Asked:** make bill extraction as exact as possible with Docling, LlamaParse and Haystack; show the bill on the left and the extracted values on the right, placed exactly where they are printed; hand the useful values to the planning screens. The person chose to put the new readers in billx (invariant 7 unchanged).
+
+**Built in billx** (branch `readers-docling-llamaparse`, seven commits on `f84fa95`; `main` untouched): page sorting of multi-bill files; slot-wise open-access and net units (prompt `read_bill_v5`); the `docling` reader (docling-serve: tables, cells and boxes; a local layout reader, proof rule 3); the `llamaparse` reader (LlamaExtract v2 beside Model A, family `llamaindex`); every reader's reading in contract 1.1. billx's unit suite is green; its OCR-marked contract-example test fails on linux on `main` too and is regenerated on the Mac at merge (billx known gaps).
+
+**Built in ergPLAN:** `docling` compose service; background bill reads (`bill_reads`, migration 0011, the worker's bill thread); the reading view (`/plan/intake/bill/[id]`: page and read page side by side, values in their printed boxes, zoom with synced scrolling, replay of the stored reading reader by reader, slots, values to confirm with each reader's reading, the bill's checks); the hand-off (`/plan-inputs`, every figure a SourcedValue); accepting a bill whose planning values are verified; reading a file again; search and analytics with Haystack BM25 (`/bills`).
+
+**Measured on the person's PVVNL open-access file (live, on the server):** two bills found in the four pages; on each, all twelve slot figures (consumption, open access, billed for four slots) verified by Docling and Model A, each with its box; tariff category, demand, energy and billed totals, current charges, rebate and net payable verified; nothing outstanding for planning. Still for the client: the March power factor (both local readers dropped the decimal point), the names as printed, one due date. Model spend about US$0.24 per two-bill file. LlamaParse did not run: LlamaIndex refused the key (401, both regions).
+
+**Reviewer** (gpt-5.1, diff fc233eb..working tree): 12 findings, 0 code defects. Acted on: a test that the search path imports no model SDK and switches Haystack's telemetry off; a test for analytics with no bills. The API rows for search it asked for are present. By design or later: optional unverified values left out of planning (recorded in decisions); ownership of `bill-reads` pages follows the per-route pattern already in known gaps.
+
+**Open:** a working LlamaParse key; the billx team's merge of the branch (and a profile change for the PVVNL open-access G08/G09/G21 lines, measured on their golden set).
+
+
+## Addendum, 2 Nov 2026 — billx in the repository; recognition and the state's settlement
+
+**Asked:** pull billx into this repository; make the software recognise a bill's DISCOM, state and open-access regime and settle under that state's rules in the next stage.
+
+**Built:**
+- `billx/` holds billx's source as one squashed commit (the repository is public: no history, synthetic figures only; three real figures in an ergPLAN test were replaced). Compose and the installers build billx from it.
+- billx readers, measured on the person's 15 files (22 bills) on the server: two readers now agree on contract demand on 9 bills (was 2), recorded demand 8 (3), kWh 7 (2), kVAh 5 (3), net payable 14 (10); slot figures verified on a DVVNL and a PVVNL bill for the first time. Changes: Docling column layouts and UPPCL meter tables, a label rule that takes a typed value only next to its label, footnote markers, rate annotations, sanity ranges, more common labels.
+- `intake/recognise.py`: the DISCOM (billx profile, else the printed name), the state, the open access the bill shows (units set off, open-access charge lines, green tariff, printed kinds), each with its bill page; the approved settlement rule per ownership for the state, or a plain statement that the state has none. On the hand-off screen, carried into `SiteIntake.open_access`, recorded on the connection, and used as the default ownership when settling and costing new open-access sources; the client can state it on the intake review.
+- billx identifies HPSEBL and APDCL (new draft profiles), TGSPDCL as "... Company of TG", and a DISCOM whose name only a model read.
+
+**Reviewer** (gpt-5.1, diff aacb99d..working tree): 19 findings, 3 marked code defects, none a defect on inspection: (1, 3) "`profile.id` is never None when the local text named no DISCOM": it is (`_identify` returns an empty `Profile()` then; a comment at the call now says so); (2) "the TGSPDCL `match` entry may be a substring, not a regex": `match_discom` applies `re.search`, and the new test matches "Co. of T.S.".
+
+**Model cost:** the 15-file re-read on the server, about USD 2.56 (Model A); one gpt-5.1 reviewer round. The OpenAI account ran out of credit mid-run on 1 Nov (shared key) and was topped up on 2 Nov.
+
+**Open:** ten states (Karnataka, Telangana, Punjab, Andhra Pradesh, Gujarat, Rajasthan, Tamil Nadu, Haryana, Himachal Pradesh, Assam) have no approved settlement rules; billx per-layout templates (profile versions) for the team's layouts; the billx team's merge of the branch into GitLab.
+
+
+
+## Addendum, 2 Nov 2026 — the audit of a plan
+
+**Asked:** the whole chain of charges and losses to the landed cost; a screen where users audit the chain and the savings; a chat where they upload their own working and keep closing the landed cost, the savings and each state's settlement rules. The person chose: differences close by kind (the client's own figures become plan inputs marked "you said"; a regulatory figure becomes a proposed rule change for an analyst), and the screen serves clients and analysts.
+
+**Built:**
+- The engine records every link of the landed-cost waterfall (`engine.landed_cost.Step`: price, each charge at injection, each exemption, each loss stage as the energy lost and paid for, capacity charges, each charge at drawal, banking), with the rate as the rule states it, the rule id and the JSON pointer of the field; lines and totals unchanged, and a test asserts the links add up to the landed cost for every source.
+- Each run stores the links (`sizes[].chain`), the delivered share, the ownership, the year's consumption and the settlement rule's id and citation.
+- `GET /connections/{id}/chain`: per source, landed cost link by link with a running total; the energy settled (at the meter, set off, banked, not banked); the site's consumption, withdrawals, lapse and grid draw; the money for the year line by line before and with the plan; the saving and the grid energy cost avoided per kWh displaced. Read from the run's stored summary only; every value a `SourcedValue`.
+- Workings (`.xlsx`, `.csv`, `.pdf`, `.txt`) stored with their text by page; a figure is set against a link with the words it stands in, which the API checks are on that page and print the figure; the API converts and computes the difference.
+- Closing by kind: the client's price or capacity becomes the input of a scenario "… (your figures)", cited to their working, and the plan is run again; the open-access arrangement likewise; a regulatory rate becomes a `rule_proposals` row; accepting it (analyst, with the regulation's page and a quote that prints the figure) drafts a new rulebook version through `rulebook.service`, which reaches plans only after approval with golden tests; a computed figure is explained or accepted.
+- The audit chat (OpenAI through `providers/`, prompt `audit_v1`) transcribes and closes through typed tools; it computes nothing.
+- Web: `/plan/audit?c=` linked from the plan (the chain tables with "yours" and "difference" columns, figures not in the plan, the workings line by line with their actions, the chat with upload; analysts also see the proposals), `/proposals` for analysts across connections.
+- Migration 0012: `workings`, `working_lines`, `audit_messages`, `rule_proposals`.
+
+**Tests:** the chain adds up to the plan (sources, money, energy); a named scenario and the misses; a run without the stored chain; grounding refusals (words not on the page, a figure not in the words, units that do not compare, a page that does not exist); closing by kind with a real re-run whose price carries `client_stated` and the working's citation; a proposal accepted into a draft (field ref to the regulation page) while the client's chain is unchanged (invariant 2); a proposal rejected; the chat with the model mocked (a quote the working does not have is refused); the ownership endpoint; web helpers.
+
+**Open questions:**
+1. Should an accepted "(your figures)" scenario become the plan's recommendation when its saving is the best, or always be shown beside the jouleWise plan?
+2. Should clients see the proposals they raised and their outcome on the audit screen (today they see their own connection's proposals, without the analyst's queue controls)?
+
+**Reviewer** (gpt-5.1, four rounds on 7207005..working tree):
+- Fixed: the working-file route now opens its session with the caller as actor, like the router's other routes; an accepted rule change never writes a float (a decimal string, an integer stays an integer, a JSON fraction is refused with a pointer to the rulebook editor), with a test; the rulebook service import is named `rulebook_service` so the single writer is visible at the call site.
+- Not defects: "the chain's ref kinds may not include client_stated or assumption" (they are `RefKind` members since Stage 0); "accept_proposal bypasses the single writer" (`duplicate` and `update_row` are `rulebook.service`, and the `ergplan_audit` trigger records every row they write); "report.audit_chat imports a provider" (it imports `ergplan.providers.openai_client`, which is the required path; no SDK is imported outside `providers/`, and the import-graph test passes; an earlier round marked the same line by design); "some endpoints lack tests" (the finding names none; all fifteen routes are called in `test_api_audit.py`).
+
+**Model cost:** reviewer four gpt-5.1 rounds, about USD 0.25. No app model call in the tests (the audit assistant is mocked); one live audit chat on the server (below).
+
+**On the server (ac1fe82, migration 0012), the DVVNL plan from five real bills:** the three scenarios run again so their runs store the chain. The recommended plan (rooftop, captive open-access solar, battery) shows, for the open-access solar: price ₹3.10/kWh → STU transmission ₹0.3075 → wheeling ₹0.9318 → STU losses 3.18% (₹0.1425) → wheeling losses 8% (₹0.3897) → CSS ₹0.38 and its 100% captive exemption → ₹4.8715/kWh at the meter, each link with its UPERC page; energy at the meter 10.13 lakh kWh, 89.07% delivered, 6.19 lakh set off, 3.63 lakh banked; for the site 3.43 lakh kWh withdrawn, 0.20 lakh lapsed, 8.82 lakh drawn from the DISCOM; ₹2.27 crore before, ₹1.77 crore with the plan, saving ₹0.50 crore; grid energy avoided at ₹7.35 per kWh displaced. Additional surcharge and electricity duty show as not yet sourced. A sample working (PPA ₹3.15, CSS ₹1.25, duty ₹0.10, saving ₹55 lakh) uploaded and read by the audit assistant in one turn: four lines recorded, the API computed each difference (+₹0.05 on the price, +₹0.87 on the CSS rate, ₹5.03 lakh on the saving) and kept the duty as "not in the plan"; the assistant offered the right closing for each kind.
+
+
+## Addendum, 3 Nov 2026 — the client's own mix
+
+**Asked:** a user goes through the whole transition journey, chooses several sources (solar, wind, hybrid, the exchange), and the optimizer finds the least-cost one-year 15-minute dispatch, showing the size of each source and the energy bought on the exchange. The consumer only buys on the exchange.
+
+**Built:**
+- Step 5 opens with "Build your own mix". The client ticks any of: open-access solar, wind or hybrid (intra-state or ISTS, with arrangement and tariff); group captive; rooftop solar and a battery at the site; any IEX segment whose clearing prices are uploaded. Each source can have a largest size.
+- `POST /connections/{id}/mix` sizes the choice over a 15-minute year (or an hourly preview), one scenario per name.
+- Exchange energy is priced per 15-minute block of the day, not per ToD slot. The landed cost is affine in the clearing price; a test checks this for both states' rules, for exchange and PPA sources.
+- Exchange purchases follow the rule's set-off order. Without this the first real mix failed re-settlement: the solver bought cheap exchange energy and banked captive generation for the peak slot, against the rule. A model test covers it.
+- The result shows:
+  - each plant's size and its energy at the meter;
+  - for each exchange segment: energy bought, hours, peak, average landed cost, share of consumption;
+  - "Your year, month by month", with each month's consumption split by source, bank and DISCOM as the judge settled it.
+- Exchange power outside the green segments is counted at the grid's emission factor.
+- The shared plan shows exchange rows too.
+
+**Tests:** options; per-block exchange pricing (collinear within a slot); a solar, wind and DAM mix sized and re-settled with the month-by-month balance; emissions; the API's refusals; the set-off-order model test; the affinity of the landed cost. Five sources at 15 minutes on the 5 MW MSEDCL test site solve and re-settle in 42 s.
+
+**Reviewer** (gpt-5.1, four rounds on 9c42961..working tree):
+- Fixed:
+  - the exchange peak is computed in Decimal;
+  - a tautological assertion is replaced with a collinearity check;
+  - the "priced exactly" claim is now backed by the affinity test;
+  - the exchange energy counted at the grid factor is exposed as `emissions.exchange_grid_kwh`.
+- Not defects:
+  - Solver floats are read into Decimal once, to the watt-hour (`Decimal(f"{x:.3f}")`, the pattern of `optimizer.resettle.dec` since Stage 6).
+  - `exact_of(p).load_kwh` is already Decimal.
+  - The web formats numbers for display only.
+  - `exchange_grid_kwh` is written into `run_results.summary`, its stated owner.
+
+**Real data:**
+- **First server run.** On the server the DVVNL client's mix (captive solar, wind and hybrid, DAM and RTM, at 15 minutes) first failed re-settlement by 2.4 kWh. Locally, a UP mix of the three renewable sources alone failed by 401 kWh, because the solver and the judge carried banked energy over in different buckets when the ceiling bound.
+- **Fixes:**
+  - one keep order for the bank;
+  - set-off weighted by the rule's order;
+  - a fair time floor for each month's dispatch.
+- **Result.** Both UP mixes settle within 0.02 kWh. A new slow end-to-end (`tests/e2e/test_mix_journey.py`) runs them at 15 minutes.
+
+## Addendum, 9 Nov 2026 — the application redone around the consumer's journey; 25 years, hourly; the comprehensive report
+
+**Asked:** the application was not usable in its form; follow the flow of NREL's REopt (one page of inputs in the order a consumer gives them — the factory, the DISCOM from the bills, today's bill and open access, then the technologies: solar, wind, the exchange and a battery, behind the meter and through open access — sized by the optimizer, asking wherever something is needed; the UI could be redone completely); keep working and test the application fully; "solver should be 25 years hourly"; "report should be comprehensive".
+
+**Built:**
+- `/evaluate`: one inputs page, six numbered sections (your factory; DISCOM and connection with the bill drop; consumption from the bills, the year's units or month by month; today's bill and open access; what to evaluate, every source with its key inputs first and an Advanced fold; analysis settings), every field with a "?" that says what it means and where it is used, a rail that shows each section's state and what is still needed, "Get results", and the assistant beside the form (a drawer under 1500 px) that fills it from what the person says and asks for what is missing. The unsent draft stays in the browser; a saved evaluation reopens with everything.
+- `/results`: the report in full — summary, the recommended system with landed costs, the cost comparison line by line (from the chain, each line cited), the 25-year view (NPV, lifecycle cost today and with the plan, payback, IRR, the cumulative cash flow, the year table), the dispatch explorer, month by month, settlement and emissions, what binds, inputs and assumptions with their values, share, audit and CSV downloads. `/` lists the person's evaluations.
+- "25 years hourly": the optimizer sizes and dispatches one hourly year (the default is now 60 minutes; 15 minutes stays a choice) and `engine/lifecycle.py` projects it 25 years (tariff, PPA and O&M escalation, discounting, degradation, replacement at end of life); the assumptions are cited and editable in the settings section.
+- The shared page `/p/{token}` and its PDF carry the same sections (cost comparison, 25-year view, busiest week, month by month, settlement), server-fetched for the recommended scenario; the PDF went from 3 pages to 8 on the NPCL example.
+- API: router `evaluate` (`/intake/discoms`, `/intake/typed`, `/connections`, `/connections/{id}/today` with sourced figures, `/runs/{id}/dispatch.csv`), `GET /mix/options`, `FinanceSpec` on the mix, `PlanInputs.category_code`, assumptions with their values on the plan, headline payback and IRR from the lifecycle.
+- Found by the browser tests and fixed: a bill's printed category ("HV-2(L & H POWER)") reached the connection unmapped and the run found no schedule; the worker in `e2e-journey.sh` had no billx address, so bill reads failed in the background; the lifecycle chart clipped its axis labels; the technology cards' fields overflowed their columns.
+
+**Tests:** `tests/engine/test_lifecycle.py` (escalation, degradation, replacement, payback and IRR), `tests/platform/test_api_evaluate.py` (DISCOM list, typed intake, today with invariant-1 refs, evaluations, lifecycle on an hourly run, the dispatch file, refusals), `tests/e2e/test_stage8_evaluate.py` (Playwright: the typed journey to the full report, the share page and PDF with every section; the bills journey on two real NPCL bills — both pass through `tools/dev/e2e-journey.sh`). Screenshots at desktop and phone width were reviewed by hand.
+
+**Skipped:** re-optimising later years (the 25-year view escalates the settled year); a return on the owned plant alone; peak-ratio scaling of hourly demand charges — all in `docs/known-gaps.md`.
+
+**Deviations:** the six-step rail of Stages 2–7 is replaced by the two pages above; the old pages remain as the deeper checks the report links to (decision of 9 Nov 2026).
+
+**Reviewer** (gpt-5.1, diff aaa17e1..working tree, 17 findings):
+- Fixed: `next-env.d.ts` and `tsconfig.json` had been rewritten by Next for the e2e and build dist dirs; both point at `.next` again and `e2e-journey.sh` restores them after a run. Added the invariant-2 check (an absurd draft tariff changes nothing) for `/intake/discoms` and `/connections/{id}/today`.
+- Not defects: finding (b) is the reviewer confirming every new endpoint has a test; the rest are "unprovable from the diff" (invariants enforced by the suite's existing import-graph, replay and audit tests, which the watcher runs green) or by-design notes.
+- Second round (13 findings): the lifecycle's totals (NPV, nominal saving, payback, IRR) are now computed from the full-precision series and quantized once for the report, with the year rows quantized for display; the test asserts year one of the plan equals the settled lines (grid as settled, contracted energy as settled, the owned plant's annualised line replaced by capital and O&M) and year one of "today" equals the plan's `annual.before`. The output lost to degradation is priced at the year's average grid energy rate, now stated as an assumption in the lifecycle notes.
+- Third round (14 findings): `/connections` filters by ownership for clients in development too, with a test (another client does not see the evaluation; an analyst does); the "today" endpoint reads the avoided-cost card's two year totals by their named constants (`avoided_cost.ENERGY_YEAR`, `DEMAND_YEAR`) rather than label prefixes; the lifecycle says when it cannot price degradation; the shared plan is asserted to carry the lifecycle and the months of the recommended run (the browser test checks the headings on the page and in the PDF). Not a defect: the capital at year 0 carries discount factor 1 and `nominal_saving` is Σ saving − Σ capital (year 0 and replacements), as the dataclass says and the tests assert; the comment now says so.
+- Fourth round (14 findings): the IRR bisection moved from `optimizer.scenarios` to `engine.lcoe` (the engine no longer imports the optimizer); every assumption listed on the results page carries its "assumed" chip. Not defects: `/runs/{id}/dispatch.csv` is tested in `test_a_typed_site_is_saved_costed_and_listed` (status, content type, header, 8,761 rows) and `test_misses` (404), and `/mix/options` in `test_the_sources_a_client_may_choose`; `LifecycleOut`'s totals carry the summary's owner (`run_results.summary`) through the router's field helper, as the field trace shows.
+- Fifth round (18 findings): every figure in the lifecycle's year rows is now a SourcedValue (invariant 1) with a `derived` ref naming the year, the full citations staying on the totals (the field trace lists `LifecycleYearOut`); the web's `inr`/`num` are marked display-only. Not defects: `_q(displaced, "0.01")` calls `platform.runs._q(x, places)`, which takes the places; `/connections` has had its role test since round three; the other (b) entries are the reviewer confirming coverage.
+- Sixth round (21 findings): the flat year-one payback and IRR are gone; the lifecycle is the one computation (`optimizer.scenarios.payback_years` removed). Not defects: with no grid energy line the lifecycle neither prices nor models degradation (a zero displaced value makes the term zero), as its note says; the Next type references are restored by `e2e-journey.sh` after a run, by design.
+- Seventh round (12 findings, none a defect in the code): the results page says so when a settled run has no readable result rather than rendering nothing; "today" sums the card's Decimals directly. Noted as not defects: `SourcedValue.value` is a Decimal in the model, so no string is coerced; `_q(displaced, "0.01")` is `platform.runs._q(x, places)` (raised again, same answer). The review loop stops here: seven rounds, every code defect fixed, the remaining entries by design or unprovable from a diff.

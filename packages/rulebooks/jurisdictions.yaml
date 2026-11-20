@@ -1,0 +1,72 @@
+# States, regulators and distribution licensees. DISCOM ids are billx profile ids where billx has one.
+# A DISCOM's parent is its state or a group sharing one tariff order (uppcl). Synced into the
+# jurisdictions table by `python -m ergplan.rulebook.cli sync-jurisdictions` (idempotent).
+regulators:
+  - {id: CERC, name: Central Electricity Regulatory Commission}
+  - {id: UPERC, name: Uttar Pradesh Electricity Regulatory Commission, state: UP}
+  - {id: MERC, name: Maharashtra Electricity Regulatory Commission, state: MH}
+  - {id: KERC, name: Karnataka Electricity Regulatory Commission, state: KA}
+  - {id: GERC, name: Gujarat Electricity Regulatory Commission, state: GJ}
+  - {id: RERC, name: Rajasthan Electricity Regulatory Commission, state: RJ}
+  - {id: TNERC, name: Tamil Nadu Electricity Regulatory Commission, state: TN}
+  - {id: TGERC, name: Telangana Electricity Regulatory Commission, state: TS}
+  - {id: APERC, name: Andhra Pradesh Electricity Regulatory Commission, state: AP}
+  - {id: PSERC, name: Punjab State Electricity Regulatory Commission, state: PB}
+  - {id: HERC, name: Haryana Electricity Regulatory Commission, state: HR}
+  - {id: HPERC, name: Himachal Pradesh Electricity Regulatory Commission, state: HP}
+  - {id: AERC, name: Assam Electricity Regulatory Commission, state: AS}
+states:
+  - {id: UP, name: Uttar Pradesh}
+  - {id: MH, name: Maharashtra}
+  - {id: KA, name: Karnataka}
+  - {id: GJ, name: Gujarat}
+  - {id: RJ, name: Rajasthan}
+  - {id: TN, name: Tamil Nadu}
+  - {id: TS, name: Telangana}
+  - {id: AP, name: Andhra Pradesh}
+  - {id: PB, name: Punjab}
+  - {id: HR, name: Haryana}
+  - {id: OD, name: Odisha}
+  - {id: BR, name: Bihar}
+  - {id: HP, name: Himachal Pradesh}
+  - {id: AS, name: Assam}
+groups:
+  - {id: uppcl, name: "UPPCL state DISCOMs (one tariff order: PVVNL, MVVNL, PuVVNL, DVVNL, KESCO)", state: UP}
+  - {id: ka_escoms, name: "Karnataka ESCOMs (one combined KERC tariff order: BESCOM, MESCOM, CESC, HESCOM, GESCOM)", state: KA}
+  - {id: tg_discoms, name: "Telangana DISCOMs (one TGERC tariff order: TGSPDCL, TGNPDCL)", state: TS}
+  - {id: ap_discoms, name: "Andhra Pradesh DISCOMs (one APERC tariff order: APSPDCL, APCPDCL, APEPDCL)", state: AP}
+  - {id: gj_discoms, name: "Gujarat state DISCOMs (one GERC tariff schedule: DGVCL, MGVCL, PGVCL, UGVCL)", state: GJ}
+discoms:
+  - {id: npcl, name: Noida Power Company Limited, state: UP}
+  - {id: pvvnl, name: Paschimanchal Vidyut Vitran Nigam Limited, state: UP, parent: uppcl}
+  - {id: mvvnl, name: Madhyanchal Vidyut Vitran Nigam Limited, state: UP, parent: uppcl}
+  - {id: puvvnl, name: Purvanchal Vidyut Vitran Nigam Limited, state: UP, parent: uppcl}
+  - {id: dvvnl, name: Dakshinanchal Vidyut Vitran Nigam Limited, state: UP, parent: uppcl}
+  - {id: kesco, name: Kanpur Electricity Supply Company Limited, state: UP, parent: uppcl}
+  - {id: msedcl, name: Maharashtra State Electricity Distribution Co. Ltd., state: MH}
+  - {id: aeml, name: Adani Electricity Mumbai Limited (Distribution), state: MH}
+  - {id: tpcd, name: Tata Power Company Limited (Distribution), state: MH}
+  - {id: best, name: BEST Undertaking, state: MH}
+  - {id: bescom, name: Bangalore Electricity Supply Company Ltd., state: KA, parent: ka_escoms}
+  - {id: mescom, name: Mangalore Electricity Supply Company Ltd., state: KA, parent: ka_escoms}
+  - {id: cesc, name: Chamundeshwari Electricity Supply Corporation Ltd., state: KA, parent: ka_escoms}
+  - {id: hescom, name: Hubli Electricity Supply Company Ltd., state: KA, parent: ka_escoms}
+  - {id: gescom, name: Gulbarga Electricity Supply Company Ltd., state: KA, parent: ka_escoms}
+  - {id: mgvcl, name: Madhya Gujarat Vij Company Limited, state: GJ, parent: gj_discoms}
+  - {id: ugvcl, name: Uttar Gujarat Vij Company Limited, state: GJ, parent: gj_discoms}
+  - {id: dgvcl, name: Dakshin Gujarat Vij Company Limited, state: GJ, parent: gj_discoms}
+  - {id: pgvcl, name: Paschim Gujarat Vij Company Limited, state: GJ, parent: gj_discoms}
+  - {id: jvvnl, name: Jaipur Vidyut Vitran Nigam Limited, state: RJ}
+  - {id: avvnl, name: Ajmer Vidyut Vitran Nigam Limited, state: RJ}
+  - {id: jdvvnl, name: Jodhpur Vidyut Vitran Nigam Limited, state: RJ}
+  - {id: tgspdcl, name: Southern Power Distribution Company of Telangana Ltd., state: TS, parent: tg_discoms}
+  - {id: apcpdcl, name: A.P. Central Power Distribution Corporation Ltd., state: AP, parent: ap_discoms}
+  - {id: pspcl, name: Punjab State Power Corporation Limited, state: PB}
+  - {id: dhbvn, name: Dakshin Haryana Bijli Vitran Nigam, state: HR}
+  - {id: uhbvn, name: Uttar Haryana Bijli Vitran Nigam, state: HR}
+  - {id: tgnpdcl, name: Northern Power Distribution Company of Telangana Ltd., state: TS, parent: tg_discoms}
+  - {id: apspdcl, name: Southern Power Distribution Company of A.P. Ltd., state: AP, parent: ap_discoms}
+  - {id: apepdcl, name: Eastern Power Distribution Company of A.P. Ltd., state: AP, parent: ap_discoms}
+  - {id: tnpdcl, name: Tamil Nadu Power Distribution Corporation Ltd., state: TN}
+  - {id: hpsebl, name: Himachal Pradesh State Electricity Board Limited, state: HP}
+  - {id: apdcl, name: Assam Power Distribution Company Limited, state: AS}
