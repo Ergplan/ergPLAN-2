@@ -58,7 +58,7 @@ Run 3: 14 findings, 4 marked code defects.
 | The consumer's own tariff is a `RuleView` with no version and the DISCOM as its jurisdiction | reported as a defect; by design | A DISCOM is a jurisdiction; the empty version is what marks it as outside the rulebook (it is never pinned or approved). Now pinned by a unit test, and in known gaps |
 | `_stated` wraps a Decimal through `str` | reported as a defect; by design | Harmless; bounds are enforced by `CandidateSpec` |
 
-Run 4: see `stage-9-review.md` (kept beside this report on the build machine, not in git).
+Run 4: 21 findings, 1 marked a code defect and none that a code change fixes: "the import script reads `Rule` and `RulebookVersion` directly; a future direct write there would bypass the audit". It only reads them; every write is `rulebook.service.propose` and `approve` inside `session_scope(actor=...)`, and the database trigger refuses a write without the actor (the import ran and was audited). Listed here as by design. The review file is kept beside this report on the build machine, not in git.
 
 ## Open questions
 
