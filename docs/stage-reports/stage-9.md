@@ -15,7 +15,7 @@
 
 ## Checked
 
-- Watcher: see the last section.
+- Watcher green on the final tree: ruff, format, mypy, pytest (the whole suite), alembic drift, web type-check and tests, rulebook schemas, secrets, field trace, CLAUDE.md.
 - Browser, end to end (`tests/e2e/test_ergplan2_journey.py`): a Rajasthan factory typed in with its charges, the five components on with targets, a CUF and a cost, the drawing showing the targets, the run, the results with the sized drawing, the 25-year view, "register" and "you said" chips. Passed (4 min 22 s).
 - API (`tests/platform/test_api_ergplan2.py`): five components sized together on an MSEDCL site with the judge's agreement; a target taken as given; a plant battery refused without a plant; a register state on the consumer's own tariff.
 - Hand-worked months on the approved UP and Maharashtra rules (`tests/settlement/test_cycle_rules.py`).
@@ -43,7 +43,13 @@ Run 1 (gpt-5.1, 178k tokens in, 3k out): 22 findings, 2 marked code defects, 20 
 | Floats inside the optimizer | by design | Unchanged: floats stay inside the solver; every stored or returned value is a Decimal from `exact_of` |
 | Register and "you said" chips on every screen cannot be proved from the diff | unprovable | Checked in the browser journey on the results page |
 
-Run 2: see the last section.
+Run 2 (after the fixes above): 15 findings, 1 marked a code defect.
+
+| Finding | Kind | What was done |
+| --- | --- | --- |
+| `import-register.py` maps any loss that is not a transmission loss to a wheeling loss; a new loss type in the register would be misfiled silently | code defect (low) | The mapping is now strict: transmission, wheeling, or skipped and printed. The import's output is unchanged on today's register |
+
+Run 3: no code defect (see `stage-9-review.md`, kept beside this report on the build machine).
 
 ## Open questions
 

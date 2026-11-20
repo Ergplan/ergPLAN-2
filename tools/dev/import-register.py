@@ -160,7 +160,14 @@ def oa_charge_rows(reg: Register, v: dict[str, Any], skipped: list[str]) -> list
             continue  # an unfilled register default, not a statement that the charge is nil
         groups[(comp, basis)].append(c)
     for loss in reg.rows("losses", rid):
-        comp = "stu_losses" if "transmission" in loss["loss_type"].lower() else "wheeling_losses"
+        kind = loss["loss_type"].lower()
+        if "transmission" in kind:
+            comp = "stu_losses"
+        elif "wheeling" in kind:
+            comp = "wheeling_losses"
+        else:  # a loss the rulebook has no component for: said, never guessed
+            skipped.append(f"{base}: loss '{loss['loss_type']}' {loss['loss_percentage']}% (not transmission or wheeling)")
+            continue
         groups[(comp, "percent_in_kind")].append(
             {"charge_value": loss["loss_percentage"], "voltage_level_kv": loss["voltage_level_kv"], "source_reference": None}
         )
