@@ -13,7 +13,6 @@ type Set = (fn: (d: Draft) => Draft) => void;
 // 1. Your factory
 export function FactorySection({ d, set, shapes, discoms }: { d: Draft; set: Set; shapes: ShapeOut[]; discoms: DiscomOut[] }) {
   const states = [...new Map(discoms.map((x) => [x.state, x.state_name])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  const ready = new Set(discoms.filter((x) => x.ready).map((x) => x.state));
   const f = d.factory;
   const upd = (patch: Partial<Draft["factory"]>) => set((cur) => ({ ...cur, factory: { ...cur.factory, ...patch } }));
   return (
@@ -27,7 +26,7 @@ export function FactorySection({ d, set, shapes, discoms }: { d: Draft; set: Set
       <Field label="State" required help="The state decides the regulator, the open-access and banking rules and the solar and wind resource used for sizing.">
         <select value={f.state} onChange={(e) => { upd({ state: e.target.value }); set((cur) => ({ ...cur, connection: { ...cur.connection, discom: "", category: "" } })); }}>
           <option value="">Choose…</option>
-          {states.map(([code, name]) => <option key={code} value={code}>{name}{ready.has(code) ? "" : " (tariff not yet sourced)"}</option>)}
+          {states.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
         </select>
       </Field>
       <Field label="How the plant runs" required help="The daily pattern shapes the load profile built from your monthly units: a two-shift plant peaks in the day, a continuous process is flat.">
@@ -109,6 +108,8 @@ export function ConnectionSection({ d, set, discoms, bills, onBills, planInputs 
   const accepted = bills.filter((b) => b.accepted);
   const pending = bills.filter((b) => !b.accepted);
   const rec = planInputs?.recognition;
+  const planEnergy = planInputs?.derived.find((x) => x.key === "average_energy_rate")?.value.value;
+  const planFixed = planInputs?.derived.find((x) => x.key === "fixed_charge_rate")?.value.value;
   return (
     <>
       <section className={`ep-drop${drag ? " ep-drop--over" : ""}`}
@@ -140,10 +141,10 @@ export function ConnectionSection({ d, set, discoms, bills, onBills, planInputs 
         <Field label="DISCOM" required help="Your distribution company. Its tariff order sets your energy and demand charges; its state's regulator sets the open-access charges, losses and banking.">
           <select value={c.discom} onChange={(e) => { const dd = discoms.find((x) => x.id === e.target.value); upd({ discom: e.target.value, category: "", rate_block: "" }); if (dd) set((cur) => ({ ...cur, factory: { ...cur.factory, state: dd.state } })); }}>
             <option value="">Choose…</option>
-            {inState.map((x) => <option key={x.id} value={x.id}>{x.name}{x.ready ? "" : " — tariff not yet sourced"}</option>)}
+            {inState.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </select>
         </Field>
-        <Field label="Tariff category" required help="As printed on the bill (HV-2, HT I(A), LS…). It picks the tariff rows: energy charge, demand charge, time-of-day rates." hint={discom && !discom.ready ? "This DISCOM's tariff is not approved in ergPLAN yet; a plan cannot be computed for it." : undefined}>
+        <Field label="Tariff category" required help="As printed on the bill (HV-2, HT I(A), LS…). It picks the tariff rows: energy charge, demand charge, time-of-day rates." hint={discom?.needs_tariff ? "This DISCOM's tariff order is not in ergPLAN yet: write the category as your bill prints it, and give the charges you pay below." : undefined}>
           {catCodes.length ? (
             <select value={c.category} onChange={(e) => { const cc = cats.find((x) => x.code === e.target.value); upd({ category: e.target.value, voltage_kv: c.voltage_kv || cc?.usual_voltage_kv || "", rate_block: cc?.rate_block ?? "" }); }}>
               <option value="">Choose…</option>
@@ -156,6 +157,18 @@ export function ConnectionSection({ d, set, discoms, bills, onBills, planInputs 
         <Field label="Supply voltage" required unit="kV" help="11, 22, 33, 66, 132 kV… It decides the tariff row (rates differ by voltage), the wheeling losses applied to open-access power and the transmission charges.">
           <input inputMode="decimal" value={c.voltage_kv} onChange={(e) => upd({ voltage_kv: e.target.value })} placeholder={cat?.usual_voltage_kv ?? "e.g. 33"} />
         </Field>
+        {discom?.needs_tariff && (
+          <>
+            <Field label="Energy charge you pay" required={accepted.length === 0} unit="₹ per unit" help="The energy charge on your bill divided by the units billed. This DISCOM's tariff order is not in ergPLAN yet, so the grid is priced at what your bill shows: dropped bills fill this in; typing it overrides them."
+              hint={planEnergy ? `your bill shows ₹${Number(planEnergy).toFixed(2)}` : undefined}>
+              <input inputMode="decimal" value={c.energy_charge} onChange={(e) => upd({ energy_charge: e.target.value })} placeholder={planEnergy ? Number(planEnergy).toFixed(2) : "e.g. 7.30"} />
+            </Field>
+            <Field label="Fixed (demand) charge" unit="₹ per kVA a month" help="The demand or fixed charge on your bill divided by the kVA it was billed on."
+              hint={planFixed ? `your bill shows ₹${Number(planFixed).toFixed(0)}` : undefined}>
+              <input inputMode="decimal" value={c.fixed_charge} onChange={(e) => upd({ fixed_charge: e.target.value })} placeholder={planFixed ? Number(planFixed).toFixed(0) : "e.g. 400"} />
+            </Field>
+          </>
+        )}
         <Field label="Contract demand" required unit="kVA" help="The sanctioned demand on the bill. Demand charges are billed on at least a share of it, and open-access capacity cannot exceed it.">
           <input inputMode="decimal" value={c.contract_demand_kva} onChange={(e) => upd({ contract_demand_kva: e.target.value })} placeholder="e.g. 2500" />
         </Field>

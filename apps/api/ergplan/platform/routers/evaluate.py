@@ -57,7 +57,10 @@ class DiscomOut(BaseModel):
     state_name: str
     categories: list[CategoryOut]
     sourced: dict[str, bool]  # family -> approved and in force today
-    ready: bool  # a plan can be computed: a tariff schedule is approved
+    ready: bool  # a plan can be computed
+    # no approved retail schedule: the consumer's own energy and fixed charges (from the bill, or
+    # typed) price the grid
+    needs_tariff: bool = False
 
 
 def _categories(rows: list[RuleView]) -> list[CategoryOut]:
@@ -117,7 +120,8 @@ def discoms(on: Annotated[date | None, Query()] = None) -> list[DiscomOut]:
                     state_name=states[st].name if st in states else st,
                     categories=cats,
                     sourced=sourced,
-                    ready=sourced["tariff_schedule"],
+                    ready=True,
+                    needs_tariff=not sourced["tariff_schedule"],
                 )
             )
     return out

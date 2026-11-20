@@ -156,3 +156,45 @@ def test_sizing_stops_at_the_banking_limit() -> None:
     assert s.cap_kw["pv"] == pytest.approx(12, rel=1e-4)
     assert total(rs, "grid") == pytest.approx(40 - 10.8, abs=1e-2)
     assert "banking_limit" in s.binding
+
+
+def test_a_battery_at_the_open_access_plant_moves_generation_to_the_evening() -> None:
+    """No banking: midday generation the load cannot take is stored at the plant and delivered in the
+    evening block, less the round trip (0.9 × 0.9)."""
+    from ergplan.optimizer.model import OABattery
+
+    n = 3
+    blocks = [
+        BlockMeta(APR, c, frozenset({f"cat:{c}"}), i) for i, c in enumerate(["normal", "normal", "peak"])
+    ]
+    pv = Candidate("pv", shape=[1, 0, 0], energy_inr_per_kwh=[3.0] * n, min_kw=20, max_kw=20, may_bank=False)
+    bess = Candidate(
+        "oa_bess",
+        shape=[1.0] * n,
+        energy_inr_per_kwh=[0.0] * n,
+        max_kw=100,
+        dispatchable=True,
+        renewable=False,
+    )
+    ob = OABattery(
+        "oa_bess", ("pv",), min_hours=1, max_hours=4, eff_charge=0.9, eff_discharge=0.9, inr_per_kwh_year=1.0
+    )
+    body = rule(allowed=False)
+    r = RuleView(
+        id="r", family="settlement", version_id="v", jurisdiction_id="X", scope={}, body=body, source_ref={}
+    )
+    p = Problem(
+        blocks=blocks, hours=1.0, load_kwh=[10, 0, 8.1], grid=Grid(rate=[8.0, 8.0, 10.0], demand_rate={}),
+        candidates=[pv, bess], oa_batteries=[ob], rule=r,
+    )  # fmt: skip
+    s, rs = check(p)
+    # 20 generated: 10 set off at once, 10 stored → 9 in the battery → 8.1 delivered in the evening
+    assert s.cap_kw["oa_bess"] == pytest.approx(10.0, abs=1e-3)  # charging 10 kWh in the hour
+    assert s.bess_kwh["oa_bess"] == pytest.approx(10.0, abs=1e-3)  # at least one hour of its power
+    assert sum(s.delivered["oa_bess"]) == pytest.approx(8.1, abs=1e-3)
+    assert s.oa_charged["pv"][0] == pytest.approx(10.0, abs=1e-3) and s.delivered["pv"][0] == pytest.approx(
+        10.0
+    )
+    assert total(rs, "grid") == pytest.approx(0, abs=1e-2)
+    # the stored energy was generated and is paid for: 20 kWh × ₹3; the battery: 10 kWh × ₹1
+    assert rs.costs["energy:pv"] == Decimal("60.00") and rs.costs["fixed:oa_bess"] == Decimal("10.00")

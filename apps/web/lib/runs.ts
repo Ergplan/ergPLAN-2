@@ -10,6 +10,7 @@ export type MonthMix = { month: string; load_kwh: SourcedValue; grid_kwh: Source
 export type SourceOption = {
   kind: string; label: string; group: string; connection: string; price_kind: string; default_price_inr_per_kwh: string | null;
   price_note: string | null; ownerships: string[]; available: boolean; reason: string | null;
+  inputs?: Record<string, string>;
 };
 export type SummaryOut = {
   sizes: SizeOut[];
@@ -35,7 +36,11 @@ export type RunOut = {
   summary: SummaryOut | null; analyst: { resettle: { agrees: boolean; max_diff_kwh: string; tolerance_kwh: string; solver_objective_inr: string; resettled_cost_inr: string } } | null;
   identical_to_original: boolean | null;
 };
-export type CandidateSpec = { kind: string; ownership?: string; price_inr_per_kwh?: string; max_mw?: string; min_mw?: string; commissioned?: string };
+export type CandidateSpec = {
+  kind: string; ownership?: string; price_inr_per_kwh?: string; max_mw?: string; min_mw?: string; commissioned?: string;
+  fix_at_max?: boolean; capex_inr_per_kw?: string; capex_inr_per_kwh?: string; om_pct_of_capex?: string; cuf_pct?: string;
+  life_years?: number; degradation_pct?: string; round_trip_pct?: string; min_hours?: string; max_hours?: string;
+};
 export type LifecycleYear = {
   year: number; bau: SourcedValue; grid: SourcedValue; contracted: SourcedValue; om: SourcedValue; capex: SourcedValue;
   saving: SourcedValue; cash: SourcedValue; cumulative: SourcedValue; pv_cash: SourcedValue; discount: string;

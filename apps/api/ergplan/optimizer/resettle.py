@@ -124,11 +124,19 @@ def costs(p: Problem, sol: Solution, res: Result, blocks: list[Block]) -> dict[s
         c[f"energy:{cand.id}"] += sum(
             (dec(series[t]) * rates[t] for t in range(p.n) if series[t]), Decimal(0)
         )
+        # what a battery at the plant stored was generated too, and is paid for like the rest
+        stored = sol.oa_charged.get(cand.id)
+        if stored:
+            c[f"energy:{cand.id}"] += sum(
+                (dec(stored[t]) * rates[t] for t in range(p.n) if stored[t]), Decimal(0)
+            )
     c["grid_energy"] = sum((res.grid_kwh[t] * x.rate[t] for t in range(p.n)), Decimal(0))
     for b in p.batteries:
         c[f"fixed:{b.id}"] += dec(sol.bess_kw[b.id]) * x.fixed_kw.get(b.id, Decimal(0)) + dec(
             sol.bess_kwh[b.id]
         ) * x.fixed_kwh.get(b.id, Decimal(0))
+    for ob in p.oa_batteries:
+        c[f"fixed:{ob.id}"] += dec(sol.bess_kwh.get(ob.id, 0.0)) * x.fixed_kwh.get(ob.id, Decimal(0))
     for u in p.thermals:
         c[f"energy:{u.id}"] += sum((dec(v) for v in sol.thermal[u.id]), Decimal(0)) * x.fuel[u.id]
     c.update(demand_costs(p, [b.load_kwh for b in blocks], dec(sol.cd_kva)))

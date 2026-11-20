@@ -43,6 +43,7 @@ export type SiteIntake = {
   contract_demand_kva: Fact<string>;
   consumer_number?: Fact<string> | null;
   rate_block?: Fact<string> | null;
+  energy_charge_inr_per_unit?: Fact<string> | null; fixed_charge_inr_per_kva_month?: Fact<string> | null; billing_basis?: Fact<string> | null;
   open_access?: Fact<string> | null;
   industry_shape: Fact<string>;
   weekly_off: Fact<number[]>;

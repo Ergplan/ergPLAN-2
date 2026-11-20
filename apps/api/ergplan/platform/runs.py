@@ -61,6 +61,7 @@ GRID_FACTOR = (
     "0.71–0.73 tCO2/MWh); state the version you report against",
 )
 ROOF_SQM_PER_KWP = Decimal(10)
+STORAGE = ("btm_bess", "oa_bess")
 ZERO = Decimal(0)
 
 
@@ -116,6 +117,30 @@ def _f(x: Decimal | float) -> float:
 
 def _sv(value: Decimal, unit: Unit, ref: SourceRef, label: str) -> SourcedValue:
     return SourcedValue(value=value, unit=unit, source_refs=(ref,), label=label)
+
+
+def _stated(v: Decimal | int | None, default: SourcedValue, what: str) -> SourcedValue:
+    """The client's figure for a cost or yield input when they gave one (shown as theirs), else the
+    assumption."""
+    if v is None:
+        return default
+    return SourcedValue(
+        value=Decimal(str(v)),
+        unit=default.unit,
+        source_refs=(SourceRef(kind=RefKind.CLIENT_STATED, note=what),),
+        label=default.label,
+    )
+
+
+def _storage_cost(cs: CandidateSpec) -> lcoe.StorageCost:
+    st = lcoe.default_bess()
+    return dataclasses.replace(
+        st,
+        capex_inr_per_kwh=_stated(cs.capex_inr_per_kwh, st.capex_inr_per_kwh, "battery capital cost per kWh"),
+        om_pct_of_capex=_stated(cs.om_pct_of_capex, st.om_pct_of_capex, "battery O&M"),
+        life_years=_stated(cs.life_years, st.life_years, "battery life"),
+        round_trip_pct=_stated(cs.round_trip_pct, st.round_trip_pct, "battery round-trip efficiency"),
+    )
 
 
 def _iex_prices(
@@ -361,23 +386,48 @@ def assemble(
         energy_d[cid] = [by_slot.get((b.month.month, b.slot), ZERO) for b in blocks]
         return [_f(x) for x in energy_d[cid]]
 
+    # batteries at the open-access plant are added once the sources they store are known
+    deferred_oa_bess: list[
+        tuple[str, CandMeta, CandidateSpec, float, float, tuple[float, float], float, Decimal]
+    ] = []
+    oa_batteries: list[om.OABattery] = []
+
     for idx, cs in enumerate(spec.candidates):
         src = landed_cost.SOURCE_BY_ID[cs.kind]
         cid = f"{cs.kind}_{idx}" if sum(1 for x in spec.candidates if x.kind == cs.kind) > 1 else cs.kind
         meta = CandMeta(spec=cs, cid=cid, label=src.label)
         ownership = cs.ownership or ("group_captive" if cs.kind == "group_captive" else "third_party")
         meta.ownership = ownership
-        if cs.kind == "btm_bess":
-            st = lcoe.default_bess()
+        lo_kw = (cs.max_mw if cs.fix_at_max and cs.max_mw else cs.min_mw) * 1000
+        if cs.kind in ("btm_bess", "oa_bess"):
+            st = _storage_cost(cs)
             f = lcoe.crf(st.discount_pct, st.life_years)
             yearly = st.capex_inr_per_kwh.value * (f.value + st.om_pct_of_capex.value / 100)
             rt = math.sqrt(_f(st.round_trip_pct.value) / 100)
             mx = cs.max_mw * 1000 if cs.max_mw else cd_kva * Decimal("0.5")
+            hrs = (_f(cs.min_hours or Decimal(1)), _f(cs.max_hours or Decimal(4)))
+            hrs = (min(hrs), max(hrs))
+        if cs.kind == "oa_bess":
+            deferred_oa_bess.append((cid, meta, cs, _f(mx), _f(lo_kw), hrs, rt, yearly))
+            meta.capex_inr, meta.crf, meta.life_years = (
+                st.capex_inr_per_kwh.value,
+                f,
+                int(st.life_years.value),
+            )
+            meta.om_pct, meta.life_sv = st.om_pct_of_capex, st.life_years
+            fixed_kwh[cid] = yearly
+            energy_d[cid] = [ZERO] * n
+            meta.inputs = [st.capex_inr_per_kwh, st.om_pct_of_capex, st.round_trip_pct, f]
+            cands.append(meta)
+            continue
+        if cs.kind == "btm_bess":
             batteries.append(
                 om.Battery(
                     cid,
                     max_kw=_f(mx),
-                    min_kw=_f(cs.min_mw * 1000),
+                    min_kw=_f(lo_kw),
+                    min_hours=hrs[0],
+                    max_hours=hrs[1],
                     eff_charge=rt,
                     eff_discharge=rt,
                     inr_per_kwh_year=_f(yearly),
@@ -399,7 +449,17 @@ def assemble(
             cands.append(meta)
             continue
         if cs.kind == "rooftop_pv":
-            g = lcoe.default_rooftop()
+            g0 = lcoe.default_rooftop()
+            g = dataclasses.replace(
+                g0,
+                capex_inr_per_kw=_stated(
+                    cs.capex_inr_per_kw, g0.capex_inr_per_kw, "rooftop capital cost per kW"
+                ),
+                om_pct_of_capex=_stated(cs.om_pct_of_capex, g0.om_pct_of_capex, "rooftop O&M"),
+                cuf_pct=_stated(cs.cuf_pct, g0.cuf_pct, "rooftop CUF"),
+                life_years=_stated(cs.life_years, g0.life_years, "rooftop life"),
+                degradation_pct=_stated(cs.degradation_pct, g0.degradation_pct, "module degradation"),
+            )
             f = lcoe.crf(g.discount_pct, g.life_years)
             yearly = g.capex_inr_per_kw.value * (f.value + g.om_pct_of_capex.value / 100)
             raw, cuf = generation.profile(
@@ -437,7 +497,7 @@ def assemble(
                     shape=shape,
                     energy_inr_per_kwh=[0.0] * n,
                     fixed_inr_per_kw_year=_f(yearly),
-                    min_kw=_f(cs.min_mw * 1000),
+                    min_kw=min(_f(lo_kw), _f(mx2)),
                     max_kw=_f(mx2),
                     btm=True,
                 )
@@ -506,6 +566,18 @@ def assemble(
                 ),
                 "CUF",
             )
+            if cs.cuf_pct is not None:
+                # the client's CUF: the normative curve keeps its shape and is scaled to it
+                raw = [v * cs.cuf_pct / cuf for v in raw]
+                cuf_sv = _sv(
+                    cs.cuf_pct,
+                    Unit.PERCENT,
+                    SourceRef(
+                        kind=RefKind.CLIENT_STATED,
+                        note=f"CUF you stated; shape of the normative {src.source} curve, {site.state}",
+                    ),
+                    "CUF",
+                )
             meta.cuf = cuf_sv
             mx = cs.max_mw * 1000 if cs.max_mw else cd_kva * 3
             oa_shape = None  # after the delivered share is known
@@ -583,7 +655,7 @@ def assemble(
                 cid,
                 shape=oa_shape,
                 energy_inr_per_kwh=block_rates,
-                min_kw=_f(cs.min_mw * 1000),
+                min_kw=min(_f(lo_kw), _f(mx)),
                 max_kw=_f(mx),
                 category="exchange" if src.price_kind == "iex" else CATEGORY[ownership],
                 may_bank=False,  # set below once the governing rule is known
@@ -601,6 +673,51 @@ def assemble(
         meta.inputs = [x for x in (meta.price, delivered, cuf_sv) if x is not None]
         meta.gaps = list(dict.fromkeys(meta.gaps))
         cands.append(meta)
+    # batteries at the open-access plant: they store the output of the plan's own open-access plant
+    # (not exchange purchases) and deliver it later as a source of their own
+    charge_from = tuple(
+        c.id for c in problem_cands if not c.btm and not c.dispatchable and c.category != "exchange"
+    )
+    for cid, meta, _cs, mx_kw, lo, hrs, rt, yearly in deferred_oa_bess:
+        if not charge_from:
+            notes.append(
+                f"{meta.label}: left out, as the plan has no open-access solar, wind or hybrid plant "
+                "for it to store"
+            )
+            cands.remove(meta)
+            continue
+        first = next(c for c in problem_cands if c.id == charge_from[0])
+        problem_cands.append(
+            om.Candidate(
+                cid,
+                shape=[hours * 1.0] * n,
+                energy_inr_per_kwh=[0.0] * n,
+                min_kw=min(lo, mx_kw),
+                max_kw=mx_kw,
+                category=first.category,
+                may_bank=False,
+                renewable=False,
+                dispatchable=True,
+                delivered_share=first.delivered_share,
+            )
+        )
+        oa_batteries.append(
+            om.OABattery(
+                cid,
+                charge_from,
+                min_hours=hrs[0],
+                max_hours=hrs[1],
+                eff_charge=rt,
+                eff_discharge=rt,
+                inr_per_kwh_year=_f(yearly),
+            )
+        )
+        meta.rule = next((x.rule for x in cands if x.cid == charge_from[0]), None)
+        notes.append(
+            f"{meta.label}: stores the output of the open-access plant and delivers it later; the energy "
+            "it stores carries the plant's own landed cost (losses and charges as for the plant), and "
+            "its round-trip loss is energy generated and paid for but not delivered"
+        )
     # who may bank: the sources the governing rule's scope covers
     final: list[om.Candidate] = []
     for c in problem_cands:
@@ -632,6 +749,11 @@ def assemble(
             if governing.get("/banking/cap") is not None
             else [],
         )
+    if governing is not None and governing.get("/banking/limit") is not None:
+        limit_words["banking_limit"] = (
+            "The most that may be banked in a banking cycle is reached: more surplus would lapse",
+            [_sv(ZERO, Unit.COUNT, governing.ref("/banking/limit"), "Banking limit")],
+        )
     if cd_sv is not None and floor:
         sch = rules_for(month_firsts[0]).schedule
         assert sch is not None
@@ -657,6 +779,7 @@ def assemble(
         grid=grid,
         candidates=final,
         batteries=batteries,
+        oa_batteries=oa_batteries,
         thermals=thermals,
         rule=governing,
         limits=limits,
@@ -792,7 +915,7 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
             continue
         size = (
             Decimal(str(sol.bess_kwh.get(m.cid, 0.0)))
-            if m.spec.kind == "btm_bess"
+            if m.spec.kind in STORAGE
             else Decimal(str(sol.cap_kw.get(m.cid, 0.0)))
         )
         capex += _q(size) * m.capex_inr
@@ -802,7 +925,7 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
     ppa = any(m.crf is None and Decimal(str(sol.cap_kw.get(m.cid, 0.0))) > 0 for m in a.cands)
     if ppa and capex > 0:
         sized = {
-            m.cid: sol.bess_kwh.get(m.cid, 0.0) if m.spec.kind == "btm_bess" else sol.cap_kw.get(m.cid, 0.0)
+            m.cid: sol.bess_kwh.get(m.cid, 0.0) if m.spec.kind in STORAGE else sol.cap_kw.get(m.cid, 0.0)
             for m in a.cands
         }
         owned = ", ".join(m.label for m in a.cands if m.crf is not None and sized[m.cid] > 0)
@@ -821,15 +944,14 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
     lifecycle_json = _lifecycle(a, sol, before_lines, after_lines, grid_total, all_inputs)
     sizes = []
     for m in a.cands:
-        if m.spec.kind == "btm_bess":
+        if m.spec.kind in STORAGE:
+            power = sol.bess_kw[m.cid] if m.spec.kind == "btm_bess" else sol.cap_kw[m.cid]
             sizes.append(
                 {
                     "id": m.cid,
                     "kind": m.spec.kind,
                     "label": m.label,
-                    "kw": sv(
-                        Decimal(str(sol.bess_kw[m.cid])), Unit.KW, "Battery power", [*m.inputs, *grid_inputs]
-                    ),
+                    "kw": sv(Decimal(str(power)), Unit.KW, "Battery power", [*m.inputs, *grid_inputs]),
                     "kwh": sv(
                         Decimal(str(sol.bess_kwh[m.cid])),
                         Unit.KWH,
@@ -921,7 +1043,7 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
             "before": sv(before, Unit.INR, "Grid cost today, for the year", grid_inputs),
             "after": sv(after, Unit.INR, "Cost with the plan, for the year (re-settled)", all_inputs),
             "saving": sv(saving, Unit.INR, "Saving for the year", all_inputs),
-            "capex": sv(capex, Unit.INR, "Capital cost (rooftop and battery)", all_inputs),
+            "capex": sv(capex, Unit.INR, "Capital cost (rooftop and batteries)", all_inputs),
         },
         "lines_before": {k: str(v) for k, v in before_lines.items()},
         "lines_after": {k: str(v) for k, v in after_lines.items()},
@@ -1007,7 +1129,7 @@ def _lifecycle(
     for m in a.cands:
         if m.crf is None or m.om_pct is None or m.life_sv is None:
             continue
-        if m.spec.kind == "btm_bess":
+        if m.spec.kind in STORAGE:
             size = _q(Decimal(str(sol.bess_kwh.get(m.cid, 0.0))))
             displaced = ZERO
         else:

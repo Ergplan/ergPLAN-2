@@ -50,6 +50,17 @@ DISCOM_STATE = {
     "jdvvnl": "RJ",
     "hpsebl": "HP",
     "apdcl": "AS",
+    "mppkvvcl": "MP",
+    "mpmkvvcl": "MP",
+    "mppokvvcl": "MP",
+    "nbpdcl": "BR",
+    "sbpdcl": "BR",
+    "cspdcl": "CG",
+    "tpcodl": "OD",
+    "tpnodl": "OD",
+    "tpsodl": "OD",
+    "tpwodl": "OD",
+    "upcl": "UK",
 }
 
 # A DISCOM from its name as the bill prints it, when billx has no layout profile for the bill.

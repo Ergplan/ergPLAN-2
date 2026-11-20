@@ -5,7 +5,7 @@ import { Shell } from "@/components/Shell";
 import "./ergplan.css";
 
 export const metadata: Metadata = {
-  title: "ergPLAN · jouleWise",
+  title: "ergPLAN 2 · jouleWise",
   description: "Landed cost of green power and the RE mix that replaces grid and thermal power, every number sourced.",
 };
 

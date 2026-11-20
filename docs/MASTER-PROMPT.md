@@ -358,6 +358,23 @@ Run Stage 8: breadth and launch.
 Done when: eight states approved; deployed; the final pass is green; the release note is in docs/release-notes/. STOP.
 ```
 
+### Stage 9 — ergPLAN 2
+
+Goal (the person's words, 20 Nov 2026): "We upload the bill of a state. The bill is parsed, autodetects state, tariff, ToD, consumer, energy charges, fixed charges. Then the application asks what is the target installed OA solar, rooftop solar, wind, BESS BTM, OA BESS. The isometric view of the factory is made and the ergPLAN optimizer optimises the sizes of each component. Costs of each are taken as inputs, also CUF and other required parameters. Settlement logic is in the new app and flow in the old app. Merge the two intelligently and make a new application. Allow remote connection also. The logic is to replace high-price grid with cheaper energy. Call it ergPLAN 2."
+
+The two applications: this repository's flow and engines (the "old app": bill upload through billx, detection, inputs, the HiGHS optimizer with its judge, the cited report with the 25-year view), and erg_plan 2.0 (the "new app": jouleWise's settlement and banking engine and its State Regulation Master for fifteen states).
+
+Build:
+1. `settlement/cycle.py`: the erg_plan 2.0 settlement in Decimal — real-time set-off per 15-minute block or per month's ToD category, the banking limit of a cycle, the charge in kind, banked energy drawn within the cycle by the rule's drawal matrix with the highest-rate category first, lapse at the cycle's end. Held to the original TypeScript on fixtures it produced (`tools/dev/erg2-fixtures/harness.ts`), every pool and every block.
+2. A settlement rule states `method: cycle_pooled` to use it (`banking.drawal_rule`, `banking.matrix`, `banking.limit`); `settlement.simulate()` remains the one judge and routes such a rule to the cycle engine. The optimizer nets one step per banking cycle with a bucket per ToD category and the cycle's limit, so the solver and the judge agree (invariant 6).
+3. The State Regulation Master imported through `rulebook.service` (`tools/dev/import-register.py` from `packages/rulebooks/register/erg-plan-2.0.json`): open-access charges and losses, ToD slots, settlement, capacity limits, with golden tests. Each value carries a `source_ref` of kind `register` (the analyst's citation; no stored page), shown as "register" and never as a sourced page. A family already cited to an order page stays as cited.
+4. Where no retail schedule is approved for a DISCOM, the consumer's own tariff prices the grid: the energy charge per unit and the fixed charge per kVA the bill shows (bill refs) or the consumer types (`client_stated`).
+5. Five components with targets and inputs: rooftop solar, open-access solar, open-access wind, a battery behind the meter, a battery at the open-access plant (`oa_bess`: it stores the plant's output and delivers it later through the same open access). Per component: target size (a ceiling, or taken as given), capital cost, O&M, CUF, life, degradation, round-trip efficiency, duration. What is left blank is an assumption shown as such.
+6. The isometric drawing of the site, the grid and the open-access plant (`components/site/IsoSite.tsx`): targets on the Evaluate page, optimised sizes on the results.
+7. Remote access through an outbound tunnel (`docker/compose.remote.yaml`, `tools/dev/remote.sh`), the app in production mode behind it.
+
+Done when: the differential tests pass; a state from the register runs end to end in the browser from typed charges and targets to the drawn, optimised plan (`tests/e2e/test_ergplan2_journey.py`); the five components are sized together with the judge's agreement (`tests/platform/test_api_ergplan2.py`); the watcher is green; the reviewer's code findings are fixed.
+
 ---
 
 ## 8. Reference data

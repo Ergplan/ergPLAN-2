@@ -80,9 +80,9 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="ep-shell">
       <aside className="eg-side ep-side" aria-label="Navigation">
         <div className="eg-brand">
-          <Link href="/" aria-label="ergPLAN home" style={{ textDecoration: "none" }}>
+          <Link href="/" aria-label="ergPLAN 2 home" style={{ textDecoration: "none" }}>
             <span className="eg-wordmark">
-              erg<i>PLAN</i>
+              erg<i>PLAN</i> <sup className="ep-two">2</sup>
             </span>
           </Link>
         </div>
@@ -119,7 +119,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <main className="ep-content">
         <header className="eg-topbar">
           <div className="eg-crumbs">
-            jouleWise <span data-icon="chevron-right" data-size="14"></span> <b>ergPLAN</b>
+            jouleWise <span data-icon="chevron-right" data-size="14"></span> <b>ergPLAN 2</b>
           </div>
           <div className="eg-topbar__end">
             {me?.signed_in ? (

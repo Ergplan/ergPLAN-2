@@ -9,12 +9,13 @@ export default async function Home() {
     <>
       <div className="ep-hero">
         <div>
-          <div className="eg-overline">ergPLAN</div>
-          <h1 className="eg-h1">Plan your factory&apos;s move to green power</h1>
+          <div className="eg-overline">ergPLAN 2</div>
+          <h1 className="eg-h1">Replace costly grid power with cheaper green power</h1>
           <p className="eg-muted ep-lede">
-            Describe the factory, drop its bills, tick the sources you would consider: rooftop solar, a battery, open-access solar, wind or hybrid,
-            the power exchange. ergPLAN sizes them at least cost over a year, settles the energy under your state&apos;s banking rules, and shows
-            the saving over 25 years — every figure linked to the tariff order or regulation it comes from.
+            Drop your electricity bill: ergPLAN 2 reads the state, the DISCOM, the tariff category, the time-of-day slots, and your energy and
+            fixed charges. Give your targets for rooftop solar, open-access solar and wind, and batteries behind the meter and at the plant,
+            with their costs and CUF. The optimizer sizes each one at least cost, settles the energy under your state&apos;s banking rules,
+            and shows the saving over 25 years, each figure with its source.
           </p>
           <div className="ep-row">
             <Link className="eg-btn eg-btn--primary eg-btn--lg" href="/evaluate">
@@ -24,12 +25,12 @@ export default async function Home() {
           </div>
         </div>
         <ol className="ep-hero__steps">
-          <li><b>Your factory</b><span>name, state, how it runs</span></li>
-          <li><b>DISCOM and connection</b><span>read from your bills, or picked</span></li>
-          <li><b>Consumption</b><span>twelve months of units</span></li>
-          <li><b>Today&apos;s bill</b><span>rebuilt from the tariff order</span></li>
-          <li><b>What to evaluate</b><span>solar, wind, battery, exchange</span></li>
-          <li><b>Results</b><span>sizes, savings, 25-year cash flows</span></li>
+          <li><b>Your bill</b><span>state, DISCOM, tariff, ToD, charges read from it</span></li>
+          <li><b>Your factory</b><span>name, how it runs, twelve months of units</span></li>
+          <li><b>Today&apos;s cost</b><span>what the grid costs you, slot by slot</span></li>
+          <li><b>Targets</b><span>solar, wind and batteries: size, cost, CUF</span></li>
+          <li><b>Your plan, drawn</b><span>the site and the open-access plant</span></li>
+          <li><b>Results</b><span>optimised sizes, savings, 25-year cash flows</span></li>
         </ol>
       </div>
 

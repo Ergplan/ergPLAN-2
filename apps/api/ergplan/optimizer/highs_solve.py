@@ -57,6 +57,9 @@ class Solution:
     md_kva: dict[date, float]
     settled: dict[date, dict[str, float]]  # the solver's own settlement, per month
     binding: list[str] = field(default_factory=list)
+    # open-access candidate → kWh per block a battery at the plant took before delivery (the energy
+    # was generated and is paid for; `delivered` is net of it)
+    oa_charged: dict[str, list[float]] = field(default_factory=dict)
 
 
 def _run(m: Any, time_limit_s: float, mip_gap: float) -> tuple[Any, float | None, bool]:
@@ -180,6 +183,10 @@ def _merge(size: Solution, parts: list[Solution]) -> Solution:
         metered=[x for pt in parts for x in pt.metered],
         md_kva=md,
         settled={},
+        oa_charged={
+            k: [x for pt in parts for x in pt.oa_charged.get(k, [0.0] * len(pt.metered))]
+            for k in {k for pt in parts for k in pt.oa_charged}
+        },
     )
 
 
@@ -202,11 +209,19 @@ def read(m: Any, p: Problem) -> Solution:
         for c in p.candidates
         if not c.btm
     }
+    oa_charged: dict[str, list[float]] = {}
+    for (k, t), vs in getattr(m, "taken", {}).items():
+        got = sum(_v(v) for v in vs)
+        if got > 0:
+            row = oa_charged.setdefault(k, [0.0] * n)
+            row[t] = min(r3(got), delivered[k][t])
+            delivered[k][t] = r3(delivered[k][t] - row[t])
     gvals = m.gen.extract_values()
     gen = {c.id: [_clean(gvals.get((c.id, t))) for t in range(n)] for c in p.candidates if c.btm}
     ch = {b.id: _series(m.ch, b.id, n) for b in p.batteries}
     dis = {b.id: _series(m.dis, b.id, n) for b in p.batteries}
     soc = {b.id: _series(m.soc, b.id, n) for b in p.batteries}
+    soc.update({ob.id: _series(m.osoc, ob.id, n) for ob in p.oa_batteries if ob.id in m.okwh})
     th = {u.id: _series(m.out, u.id, n) for u in p.thermals}
     metered = []
     for t in range(n):
@@ -225,7 +240,10 @@ def read(m: Any, p: Problem) -> Solution:
         solver=SOLVER_VERSION,
         cap_kw=cap,
         bess_kw={b.id: _v(m.bkw[b.id]) for b in p.batteries},
-        bess_kwh={b.id: _v(m.bkwh[b.id]) for b in p.batteries},
+        bess_kwh={
+            **{b.id: _v(m.bkwh[b.id]) for b in p.batteries},
+            **{ob.id: _v(m.okwh[ob.id]) for ob in p.oa_batteries if ob.id in m.okwh},
+        },
         cd_kva=float(pyo.value(m.cd_expr)),
         delivered=delivered,
         gen=gen,
@@ -237,6 +255,7 @@ def read(m: Any, p: Problem) -> Solution:
         md_kva=md,
         settled={},
     )
+    sol.oa_charged = oa_charged
     sol.binding = binding(m, p)
     return sol
 

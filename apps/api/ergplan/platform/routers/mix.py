@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 from ...db.base import session_scope
 from ...db.models import Connection, PriceVintage, Run, Scenario
+from ...engine import lcoe
 from ...engine.landed_cost import SOURCE_BY_ID
 from ...optimizer.scenarios import SIZEABLE, CandidateSpec, FinanceSpec, ScenarioSpec
 from .. import runs as svc
@@ -29,6 +30,29 @@ GROUP = {
     "hybrid": "Solar-wind hybrid",
     "iex": "Power exchange (buy only)",
     "behind_meter": "At your site",
+    "bess": "Storage at the open-access plant",
+}
+# What the consumer may state for each kind beside its target, with ergPLAN's assumption shown as the
+# placeholder (engine.lcoe defaults): key → the default as text
+_ROOF, _BESS = lcoe.default_rooftop(), lcoe.default_bess()
+_STORAGE_INPUTS = {
+    "capex_inr_per_kwh": str(_BESS.capex_inr_per_kwh.value),
+    "om_pct_of_capex": str(_BESS.om_pct_of_capex.value),
+    "life_years": str(_BESS.life_years.value),
+    "round_trip_pct": str(_BESS.round_trip_pct.value),
+    "min_hours": "1",
+    "max_hours": "4",
+}
+INPUTS: dict[str, dict[str, str]] = {
+    "rooftop_pv": {
+        "capex_inr_per_kw": str(_ROOF.capex_inr_per_kw.value),
+        "om_pct_of_capex": str(_ROOF.om_pct_of_capex.value),
+        "cuf_pct": str(_ROOF.cuf_pct.value),
+        "life_years": str(_ROOF.life_years.value),
+        "degradation_pct": str(_ROOF.degradation_pct.value),
+    },
+    "btm_bess": _STORAGE_INPUTS,
+    "oa_bess": _STORAGE_INPUTS,
 }
 
 
@@ -43,6 +67,8 @@ class SourceOption(BaseModel):
     ownerships: list[str]
     available: bool
     reason: str | None = None
+    # cost and yield inputs the consumer may state for this kind → ergPLAN's default (an assumption)
+    inputs: dict[str, str] = Field(default_factory=dict)
 
 
 class MixIn(BaseModel):
@@ -57,9 +83,17 @@ class MixIn(BaseModel):
     @model_validator(mode="after")
     def one_each_on_site(self) -> MixIn:
         kinds = [c.kind for c in self.sources]
-        for k in ("btm_bess", "rooftop_pv"):
+        for k in ("btm_bess", "oa_bess", "rooftop_pv"):
             if kinds.count(k) > 1:
                 raise ValueError(f"at most one {SOURCE_BY_ID[k].label.lower()}")
+        if (
+            "oa_bess" in kinds
+            and not any(k.startswith("oa_") and k != "oa_bess" for k in kinds)
+            and ("group_captive" not in kinds)
+        ):
+            raise ValueError(
+                "a battery at the open-access plant needs an open-access solar, wind or hybrid plant"
+            )
         if all(k == "btm_bess" for k in kinds):
             raise ValueError("a battery needs a source of energy beside it (or the grid's off-peak hours)")
         if len(set(kinds)) != len(kinds):
@@ -119,6 +153,7 @@ def _options() -> list[SourceOption]:
                 ownerships=(["captive", "group_captive", "third_party"] if src.price_kind == "ppa" else []),
                 available=available,
                 reason=reason,
+                inputs=INPUTS.get(kind, {"cuf_pct": ""} if src.price_kind == "ppa" else {}),
             )
         )
     return out

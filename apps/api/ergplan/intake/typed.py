@@ -8,7 +8,7 @@ from __future__ import annotations
 import calendar
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -40,6 +40,10 @@ class TypedIn(BaseModel):
     contract_demand_kva: Decimal = Field(gt=0)
     consumer_number: str | None = Field(default=None, max_length=64)
     rate_block: str | None = Field(default=None, max_length=32)
+    # the tariff as the consumer pays it, for a DISCOM whose retail schedule ergPLAN does not hold
+    energy_charge_inr_per_unit: Decimal | None = Field(default=None, gt=0, le=100)
+    fixed_charge_inr_per_kva_month: Decimal | None = Field(default=None, ge=0, le=5000)
+    billing_basis: Literal["kwh", "kvah"] | None = None
     industry_shape: str = Field(min_length=1, max_length=32)
     weekly_off: list[int] | None = None
     shifts: list[Shift] | None = None
@@ -150,6 +154,15 @@ def build(body: TypedIn, today: date | None = None) -> SiteIntake:
         contract_demand_kva=f(body.contract_demand_kva),
         consumer_number=f(body.consumer_number) if body.consumer_number else None,
         rate_block=_rate_block(body),
+        energy_charge_inr_per_unit=(
+            f(body.energy_charge_inr_per_unit) if body.energy_charge_inr_per_unit is not None else None
+        ),
+        fixed_charge_inr_per_kva_month=(
+            f(body.fixed_charge_inr_per_kva_month)
+            if body.fixed_charge_inr_per_kva_month is not None
+            else None
+        ),
+        billing_basis=f(body.billing_basis) if body.billing_basis else None,
         industry_shape=f(body.industry_shape),
         weekly_off=(
             Fact(value=off_days, provenance="assumption", ref=off_ref) if off_ref is not None else f(off_days)

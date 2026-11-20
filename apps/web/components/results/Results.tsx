@@ -5,7 +5,9 @@ import { RefChips } from "@/components/cost/RefChips";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { WhatIf } from "@/components/plan/WhatIf";
 import type { Chain } from "@/lib/audit";
+import { IsoSite } from "@/components/site/IsoSite";
 import { inr } from "@/lib/evaluate";
+import { isoFromSizes } from "@/lib/iso";
 import { clientFetch, type ConnectionOut } from "@/lib/intake";
 import type { PlanOut } from "@/lib/plan";
 import type { DispatchOut, RunOut, ScenarioOut } from "@/lib/runs";
@@ -52,6 +54,10 @@ export function Results({ connectionId, scenarioId }: { connectionId: string; sc
   useEffect(() => { void load(); }, [load]);
 
   const scenario = scenarios.find((s) => s.id === current) ?? null;
+  const targets = useMemo(
+    () => Object.fromEntries((scenario?.spec.candidates ?? []).filter((c) => c.max_mw).map((c) => [c.kind, String(c.max_mw)])),
+    [scenario],
+  );
   const run: RunOut | null = scenario?.latest_run ?? null;
   const settling = !!run && (run.status === "queued" || run.status === "running");
   const anyPending = scenarios.some((s) => !s.latest_run || s.latest_run.status === "queued" || s.latest_run.status === "running");
@@ -151,6 +157,8 @@ export function Results({ connectionId, scenarioId }: { connectionId: string; sc
             <section id="system" className="eg-card ep-panel ep-report">
               <h2 className="eg-card__title">Recommended system</h2>
               <p className="eg-card__sub">What to build or contract, how much energy each source brings to your meter in a year, and what a unit of it costs there after charges and losses.</p>
+              <IsoSite parts={isoFromSizes(run.summary.sizes, targets, { factory: conn?.site.name, discom: conn?.discom_id.toUpperCase(), state: conn?.site.state })}
+                caption="The system the optimizer chose, against the targets you gave. Solid components are in the plan; faded ones were left out." />
               <Sizes s={run.summary} chain={chain} />
               {chain && chain.sources.some((x) => x.landed.length) && (
                 <p className="ep-small"><Link href={`/plan/audit?c=${connectionId}&s=${current}`}>See the full chain of charges and losses behind each landed cost →</Link></p>

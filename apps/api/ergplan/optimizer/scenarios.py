@@ -19,6 +19,7 @@ SIZEABLE = (
     "group_captive",
     "rooftop_pv",
     "btm_bess",
+    "oa_bess",
     "iex_dam",
     "iex_rtm",
     "iex_gdam",
@@ -39,6 +40,18 @@ class CandidateSpec(BaseModel):
     commissioned: date | None = None
     # where the client stated the price or capacity (their working's page and words), for its ref
     stated_in: str | None = Field(default=None, max_length=300)
+    # ergPLAN 2: the target (max_mw) may be taken as given instead of as a ceiling, and the client
+    # may state the plant's cost and yield; whatever is left blank is an assumption shown as such
+    fix_at_max: bool = False  # install exactly max_mw (the target) instead of sizing up to it
+    capex_inr_per_kw: Decimal | None = Field(default=None, gt=0)  # owned generation (rooftop)
+    capex_inr_per_kwh: Decimal | None = Field(default=None, gt=0)  # batteries, per kWh of energy
+    om_pct_of_capex: Decimal | None = Field(default=None, ge=0, le=20)
+    cuf_pct: Decimal | None = Field(default=None, gt=0, le=100)  # the plant's annual CUF
+    life_years: int | None = Field(default=None, ge=1, le=40)
+    degradation_pct: Decimal | None = Field(default=None, ge=0, le=5)
+    round_trip_pct: Decimal | None = Field(default=None, gt=30, le=100)  # batteries
+    min_hours: Decimal | None = Field(default=None, gt=0, le=12)  # batteries: energy ÷ power
+    max_hours: Decimal | None = Field(default=None, gt=0, le=12)
 
 
 class ContractDemandSpec(BaseModel):

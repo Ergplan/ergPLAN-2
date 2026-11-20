@@ -93,6 +93,22 @@ class Battery:
 
 
 @dataclass(frozen=True)
+class OABattery:
+    """A battery at the open-access plant: it stores the output of the listed open-access sources and
+    delivers it later through the same open access. Its power is the capacity of the dispatchable
+    candidate with the same id (which carries its settlement category and whether it may bank); this
+    holds its energy side. All energy is at the meter (after losses), like every candidate's shape."""
+
+    id: str
+    sources: tuple[str, ...]  # candidates it may charge from
+    min_hours: float = 1.0
+    max_hours: float = 4.0
+    eff_charge: float = 0.95
+    eff_discharge: float = 0.95
+    inr_per_kwh_year: float = 0.0
+
+
+@dataclass(frozen=True)
 class Thermal:
     id: str
     capacity_kw: float
@@ -169,6 +185,7 @@ class Problem:
     grid: Grid
     candidates: list[Candidate] = field(default_factory=list)
     batteries: list[Battery] = field(default_factory=list)
+    oa_batteries: list[OABattery] = field(default_factory=list)
     thermals: list[Thermal] = field(default_factory=list)
     rule: RuleView | None = None
     limits: list[Limit] = field(default_factory=list)
@@ -442,11 +459,53 @@ def build(p: Problem) -> pyo.ConcreteModel:
     oa_by = {c.id: c for c in oa}
     S = {c.id: [sum(c.shape[t] for t in idx) for idx in net.groups] for c in oa}
 
+    # batteries at the open-access plant: they take the sources' output before it is delivered and
+    # deliver it later as the dispatchable candidate of the same id
+    obs = [ob for ob in p.oa_batteries if ob.id in oa_by]
+    m.okwh = pyo.Var([ob.id for ob in obs], within=nonneg)
+    och_idx = [
+        (ob.id, k, t) for ob in obs for k in ob.sources if k in oa_by for t in T if oa_by[k].shape[t] > 0
+    ]
+    m.ochg = pyo.Var(och_idx, within=nonneg)
+    m.osoc = pyo.Var([(ob.id, t) for ob in obs for t in T], within=nonneg)
+    taken: dict[tuple[str, int], list[Any]] = defaultdict(list)  # (source, block) → charge variables
+    for ob in obs:
+        if p.fixed is not None:
+            m.okwh[ob.id].fix(p.fixed.bess_kwh.get(ob.id, 0.0))
+        add(m.okwh[ob.id] >= ob.min_hours * m.cap[ob.id], f"bess_min_hours:{ob.id}")
+        add(m.okwh[ob.id] <= ob.max_hours * m.cap[ob.id])
+        if p.start is not None and n > 0:
+            add(m.osoc[ob.id, n - 1] >= p.start.soc_kwh.get(ob.id, 0.0))
+        srcs = [k for k in ob.sources if k in oa_by]
+        for t in T:
+            into = [m.ochg[ob.id, k, t] for k in srcs if oa_by[k].shape[t] > 0]
+            for k in srcs:
+                if oa_by[k].shape[t] > 0:
+                    taken[(k, t)].append(m.ochg[ob.id, k, t])
+            if t > 0:
+                prev_o: Any = m.osoc[ob.id, t - 1]
+            elif p.start is None:
+                prev_o = m.osoc[ob.id, n - 1]
+            else:
+                prev_o = p.start.soc_kwh.get(ob.id, 0.0)
+            out_t: Any = m.x[ob.id, t] if oa_by[ob.id].shape[t] > 0 else 0
+            add(m.osoc[ob.id, t] == prev_o + ob.eff_charge * sum(into) - out_t / ob.eff_discharge)
+            add(m.osoc[ob.id, t] <= m.okwh[ob.id])
+            if into:
+                add(sum(into) <= h * m.cap[ob.id])
+    for (k, t), vs in taken.items():
+        add(sum(vs) <= oa_by[k].shape[t] * m.cap[k])
+    m.taken = taken
+
     def supplied(k: str, g: int) -> Any:
         c = oa_by[k]
         if c.dispatchable:
             return sum(m.x[k, t] for t in net.groups[g] if c.shape[t] > 0)
-        return S[k][g] * m.cap[k]
+        e: Any = S[k][g] * m.cap[k]
+        for t in net.groups[g]:
+            for v in taken.get((k, t), ()):
+                e = e - v
+        return e
 
     def group_load(g: int) -> Any:
         idx = net.groups[g]
@@ -524,6 +583,8 @@ def build(p: Problem) -> pyo.ConcreteModel:
     obj += settle_cost
     for b in p.batteries:
         obj += b.inr_per_kw_year * m.bkw[b.id] + b.inr_per_kwh_year * m.bkwh[b.id]
+    for ob in obs:
+        obj += ob.inr_per_kwh_year * m.okwh[ob.id]
     for u in p.thermals:
         obj += sum(u.fuel_inr_per_kwh * m.out[u.id, t] + u.start_inr * m.su[u.id, t] for t in T)
     for mo in months:
@@ -876,6 +937,7 @@ def coarsen(p: Problem, factor: int) -> Problem:
         grid=grid,
         candidates=cands,
         batteries=p.batteries,
+        oa_batteries=p.oa_batteries,
         thermals=[
             Thermal(
                 **{
@@ -913,6 +975,7 @@ def chunk(p: Problem, idx: list[int], start: Start | None, fixed: Fixed | None) 
             for c in p.candidates
         ],
         batteries=p.batteries,
+        oa_batteries=p.oa_batteries,
         thermals=p.thermals,
         rule=p.rule,
         limits=p.limits,
@@ -966,7 +1029,10 @@ def exact_of(p: Problem) -> Exact:
             **{c.id: d(c.fixed_inr_per_kw_year) for c in p.candidates},
             **{b.id: d(b.inr_per_kw_year) for b in p.batteries},
         },
-        fixed_kwh={b.id: d(b.inr_per_kwh_year) for b in p.batteries},
+        fixed_kwh={
+            **{b.id: d(b.inr_per_kwh_year) for b in p.batteries},
+            **{ob.id: d(ob.inr_per_kwh_year) for ob in p.oa_batteries},
+        },
         fuel={u.id: d(u.fuel_inr_per_kwh) for u in p.thermals},
         lapse=d(p.lapse_inr_per_kwh),
         cd_change=d(p.grid.cd_change_inr_per_kva_year),

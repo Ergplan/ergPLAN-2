@@ -11,7 +11,7 @@ export type CategoryOut = {
 };
 export type DiscomOut = {
   id: string; name: string; state: string; state_name: string; categories: CategoryOut[];
-  sourced: Record<string, boolean>; ready: boolean;
+  sourced: Record<string, boolean>; ready: boolean; needs_tariff?: boolean;
 };
 export type EvaluationOut = {
   connection_id: string; client: string; site: string; state: string | null; discom: string; category: string | null;
@@ -25,6 +25,21 @@ export type TodayOut = {
 
 export type TechPick = {
   on: boolean; ownership: string; price: string; max_mw: string; min_mw: string; commissioned: string;
+  // ergPLAN 2: the target may be taken as given; cost and yield inputs by key (INPUT_FIELDS), as typed
+  fix?: boolean; inputs?: Record<string, string>;
+};
+
+// The cost and yield inputs a technology takes, in the order shown.
+export const INPUT_FIELDS: Record<string, { label: string; unit: string; help: string }> = {
+  cuf_pct: { label: "CUF", unit: "%", help: "The plant's capacity utilisation factor over a year: energy generated ÷ (capacity × 8,760 hours). Blank uses the normative figure for your state; the hourly and monthly shape stays the state's." },
+  capex_inr_per_kw: { label: "Capital cost", unit: "₹/kW", help: "Installed cost per kW (DC), all in." },
+  capex_inr_per_kwh: { label: "Capital cost", unit: "₹/kWh", help: "Installed cost per kWh of battery energy, with its power conversion and installation." },
+  om_pct_of_capex: { label: "O&M", unit: "% of capex a year", help: "Annual operation and maintenance as a share of the capital cost." },
+  life_years: { label: "Life", unit: "years", help: "Economic life. The capital is recovered over it; a battery is replaced when it ends inside the analysis period." },
+  degradation_pct: { label: "Degradation", unit: "% a year", help: "How much the output falls each year." },
+  round_trip_pct: { label: "Round-trip efficiency", unit: "%", help: "Energy out per unit of energy in (AC to AC)." },
+  min_hours: { label: "Shortest duration", unit: "hours", help: "The least energy per unit of power the battery may be built with (1 = a one-hour battery)." },
+  max_hours: { label: "Longest duration", unit: "hours", help: "The most energy per unit of power." },
 };
 
 export type Draft = {
@@ -35,6 +50,8 @@ export type Draft = {
   };
   connection: {
     discom: string; category: string; voltage_kv: string; contract_demand_kva: string; consumer_number: string; rate_block: string;
+    // the tariff as you pay it, where ergPLAN holds no approved schedule for the DISCOM
+    energy_charge: string; fixed_charge: string; billing_basis: string;
   };
   consumption: {
     mode: "bills" | "annual" | "months";
@@ -78,13 +95,15 @@ export const OWNERSHIP_LABEL: Record<string, string> = {
 
 export const TECH_GROUPS: { id: string; title: string; blurb: string }[] = [
   { id: "At your site", title: "Behind the meter", blurb: "Built inside your premises; no open-access charges, no banking." },
+  { id: "Storage at the open-access plant", title: "Open-access battery", blurb: "A battery at the open-access plant: it stores midday output and delivers it in the evening through the same open access." },
   { id: "Solar", title: "Open-access solar", blurb: "A plant elsewhere in the state (or on the inter-state grid) wheeled to your meter." },
   { id: "Wind", title: "Open-access wind", blurb: "Evening and monsoon energy that solar does not give." },
   { id: "Solar-wind hybrid", title: "Open-access hybrid", blurb: "Solar and wind at one point of connection, a flatter profile." },
   { id: "Power exchange (buy only)", title: "Power exchange", blurb: "Bought block by block at the clearing price. You never sell." },
 ];
 
-export const DEFAULT_ON = new Set(["rooftop_pv", "oa_solar_intra", "btm_bess"]);
+// ergPLAN 2: the five components a plan is built from are on by default
+export const DEFAULT_ON = new Set(["rooftop_pv", "oa_solar_intra", "oa_wind_intra", "btm_bess", "oa_bess"]);
 
 export function emptyDraft(): Draft {
   const today = new Date();
@@ -92,7 +111,7 @@ export function emptyDraft(): Draft {
   return {
     connectionId: null,
     factory: { client_name: "", site_name: "", state: "", industry_shape: "two_shift", weekly_off: [6], land_acres: "", roof_sqm: "" },
-    connection: { discom: "", category: "", voltage_kv: "", contract_demand_kva: "", consumer_number: "", rate_block: "" },
+    connection: { discom: "", category: "", voltage_kv: "", contract_demand_kva: "", consumer_number: "", rate_block: "", energy_charge: "", fixed_charge: "", billing_basis: "" },
     consumption: {
       mode: "annual", annual_kwh: "", year_end: `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`,
       max_demand_kva: "", power_factor: "", months: [],
@@ -112,7 +131,7 @@ export function techDefaults(options: SourceOption[], ownership: string | null):
     out[o.kind] = {
       on: o.available && DEFAULT_ON.has(o.kind),
       ownership: o.ownerships.includes(ownership ?? "") ? (ownership as string) : o.ownerships[0] ?? "",
-      price: "", max_mw: "", min_mw: "", commissioned: "",
+      price: "", max_mw: "", min_mw: "", commissioned: "", fix: false, inputs: {},
     };
   }
   return out;
@@ -131,6 +150,9 @@ export function draftFromIntake(it: SiteIntake, connectionId: string, bills: Bil
     discom: it.discom.value, category: it.category.value, voltage_kv: it.voltage_kv.value,
     contract_demand_kva: it.contract_demand_kva.value, consumer_number: it.consumer_number?.value ?? "",
     rate_block: it.rate_block?.value ?? "",
+    energy_charge: it.energy_charge_inr_per_unit?.provenance === "client_stated" ? it.energy_charge_inr_per_unit.value : "",
+    fixed_charge: it.fixed_charge_inr_per_kva_month?.provenance === "client_stated" ? it.fixed_charge_inr_per_kva_month.value : "",
+    billing_basis: it.billing_basis?.provenance === "client_stated" ? it.billing_basis.value : "",
   };
   const fromBills = it.months.some((m) => m.energy.provenance === "bill") && bills.some((b) => b.accepted);
   const assumedYear = it.months.length === 12 && it.months.every((m) => m.energy.provenance === "assumption");
@@ -148,7 +170,7 @@ export function draftFromIntake(it: SiteIntake, connectionId: string, bills: Bil
 
 export type Missing = { section: SectionId; what: string };
 
-export function missing(d: Draft, bills: BillOut[]): Missing[] {
+export function missing(d: Draft, bills: BillOut[], needsTariff = false): Missing[] {
   const out: Missing[] = [];
   if (!d.factory.client_name.trim()) out.push({ section: "factory", what: "the company's name" });
   if (!d.factory.site_name.trim()) out.push({ section: "factory", what: "the site's name or town" });
@@ -165,6 +187,10 @@ export function missing(d: Draft, bills: BillOut[]): Missing[] {
     if (!(Number(d.consumption.annual_kwh) > 0)) out.push({ section: "consumption", what: "the year's units" });
   } else if (!d.consumption.months.some((m) => Number(m.kwh) > 0)) {
     out.push({ section: "consumption", what: "at least one month's units" });
+  }
+  // no approved schedule for the DISCOM: the bill gives the tariff, or it is typed
+  if (needsTariff && !(Number(d.connection.energy_charge) > 0) && !(d.consumption.mode === "bills" && accepted > 0)) {
+    out.push({ section: "connection", what: "the energy charge you pay per unit (this DISCOM's tariff order is not in ergPLAN yet)" });
   }
   if (!Object.values(d.tech).some((t) => t.on)) out.push({ section: "tech", what: "at least one technology to evaluate" });
   return out;
@@ -191,6 +217,9 @@ export function overridesFromDraft(d: Draft): Record<string, unknown> {
   if (c.voltage_kv) o.voltage_kv = c.voltage_kv;
   if (c.contract_demand_kva) o.contract_demand_kva = c.contract_demand_kva;
   if (c.rate_block) o.rate_block = c.rate_block;
+  if (Number(c.energy_charge) > 0) o.energy_charge_inr_per_unit = c.energy_charge;
+  if (c.fixed_charge !== "" && Number(c.fixed_charge) >= 0) o.fixed_charge_inr_per_kva_month = c.fixed_charge;
+  if (c.billing_basis) o.billing_basis = c.billing_basis;
   if (d.today.open_access) o.open_access = d.today.open_access;
   if (d.today.assets.length) o.assets = d.today.assets;
   return o;
@@ -206,6 +235,9 @@ export function typedFromDraft(d: Draft): Record<string, unknown> {
   };
   if (c.consumer_number) body.consumer_number = c.consumer_number;
   if (c.rate_block) body.rate_block = c.rate_block;
+  if (Number(c.energy_charge) > 0) body.energy_charge_inr_per_unit = c.energy_charge;
+  if (c.fixed_charge !== "" && Number(c.fixed_charge) >= 0) body.fixed_charge_inr_per_kva_month = c.fixed_charge;
+  if (c.billing_basis) body.billing_basis = c.billing_basis;
   if (f.land_acres) body.land_acres = f.land_acres;
   if (f.roof_sqm) body.roof_sqm = f.roof_sqm;
   if (d.today.open_access) body.open_access = d.today.open_access;
@@ -233,6 +265,13 @@ export function mixFromDraft(d: Draft, options: SourceOption[]): { sources: Cand
     if (t.max_mw.trim()) c.max_mw = t.max_mw.trim();
     if (t.min_mw.trim()) c.min_mw = t.min_mw.trim();
     if (t.commissioned) c.commissioned = t.commissioned;
+    if (t.fix && t.max_mw.trim()) c.fix_at_max = true;
+    for (const key of Object.keys(o.inputs ?? {})) {
+      const v = (t.inputs?.[key] ?? "").trim();
+      if (v === "" || !(Number(v) > 0)) continue;
+      if (key === "life_years") c.life_years = Math.round(Number(v));
+      else (c as Record<string, unknown>)[key] = v;
+    }
     sources.push(c);
   }
   const s = d.settings;

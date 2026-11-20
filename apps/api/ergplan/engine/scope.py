@@ -27,6 +27,10 @@ class ConnectionFacts:
     contract_demand_kva: Decimal | None = None
     rate_block: str | None = None  # urban | rural where the schedule splits
     consumer_kind: str | None = None
+    # the tariff the consumer's own bill shows (or they typed), used only where no retail schedule
+    # is approved for the DISCOM: {energy_inr_per_unit, demand_inr_per_kva_month, billing_basis},
+    # the two rates as {value, source_ref}
+    stated_tariff: dict[str, Any] | None = None
 
 
 def context(c: ConnectionFacts, on: date, **extra: Any) -> dict[str, Any]:

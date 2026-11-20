@@ -470,3 +470,17 @@ a.eg-btn { text-decoration: none; }
 .ep-dispatch__ctl { align-items: center; flex-wrap: wrap; }
 .ep-lc td, .ep-lc th { white-space: nowrap; }
 @media (max-width: 860px) { .ep-res { grid-template-columns: minmax(0, 1fr); } .ep-res .ep-table td.num, .ep-res .ep-table th.num { white-space: nowrap; } .ep-res .ep-table { font-size: .85rem; } .ep-res__rail { position: static; } .ep-toc { display: flex; flex-wrap: wrap; } }
+
+/* ergPLAN 2 */
+.ep-tick { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); align-self: end; padding-bottom: 8px; }
+.ep-tick input { width: 16px; height: 16px; }
+.ep-iso { margin: 0; border: 1px solid var(--line); border-radius: var(--radius-md, 12px); background: var(--surface); padding: 8px 8px 10px; overflow: hidden; }
+.ep-iso svg { display: block; width: 100%; height: auto; }
+.ep-iso figcaption { padding: 4px 8px 0; }
+.ep-iso__flow { animation: ep-iso-flow 1.6s linear infinite; }
+.ep-iso__rotor { animation: ep-iso-spin 7s linear infinite; }
+@keyframes ep-iso-flow { to { stroke-dashoffset: -24; } }
+@keyframes ep-iso-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ep-iso__flow, .ep-iso__rotor { animation: none; } }
+@media print { .ep-iso__flow, .ep-iso__rotor { animation: none; } }
+.ep-two { font-size: 0.55em; font-weight: 700; color: var(--accent); margin-left: 1px; }

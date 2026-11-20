@@ -30,11 +30,16 @@ def curve(curve_id: str, root: Path = CUF_DIR) -> dict[str, Any]:
 
 
 def curve_for(source: str, state: str) -> list[str]:
-    """Curve ids for a source in a state (hybrid = solar + wind, equal energy)."""
+    """Curve ids for a source in a state (hybrid = solar + wind, equal energy). A state without a
+    curve of its own takes the all-India normative one (`solar_in`, `wind_in`)."""
     st = state.lower()
+
+    def one(src: str) -> str:
+        return f"{src}_{st}" if (CUF_DIR / f"{src}_{st}.yaml").exists() else f"{src}_in"
+
     if source == "hybrid":
-        return [f"solar_{st}", f"wind_{st}"]
-    return [f"{source}_{st}"]
+        return [one("solar"), one("wind")]
+    return [one(source)]
 
 
 def profile(curve_ids: list[str], capacity_kw: Decimal, year_start: date) -> tuple[list[Decimal], Decimal]:

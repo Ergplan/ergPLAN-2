@@ -1,0 +1,7 @@
+id: wind_mp
+source: wind
+state: MP
+note: Wind in western Madhya Pradesh; peak June to August. Normative shape (an assumption) until the developer's generation profile is used.
+annual_cuf_pct: "27"
+monthly: {1: 0.55, 2: 0.55, 3: 0.65, 4: 0.80, 5: 1.15, 6: 1.65, 7: 1.85, 8: 1.65, 9: 1.10, 10: 0.70, 11: 0.65, 12: 0.70}
+hourly: {0: 1.05, 1: 1.05, 2: 1.03, 3: 1.0, 4: 0.97, 5: 0.93, 6: 0.88, 7: 0.84, 8: 0.82, 9: 0.82, 10: 0.85, 11: 0.90, 12: 0.95, 13: 1.0, 14: 1.05, 15: 1.10, 16: 1.14, 17: 1.16, 18: 1.16, 19: 1.14, 20: 1.12, 21: 1.10, 22: 1.08, 23: 1.06}

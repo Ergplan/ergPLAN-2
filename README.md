@@ -1,6 +1,12 @@
-# ergPLAN — Enterprise RE Planner
+# ergPLAN 2
 
-jouleWise | ergPLAN sizes renewable energy for industrial consumers in India: from a dropped electricity bill (read by billx) it rebuilds today's cost under the DISCOM tariff, computes the landed cost of every green source at the meter under the state's open-access, banking and settlement rules, and optimises the mix (rooftop, BESS, open-access solar/wind/BESS, pumped storage, IEX) against grid and captive thermal power. Every number carries its regulation, page and a link to the PDF.
+jouleWise | ergPLAN 2 replaces costly grid power with cheaper green power for industrial consumers in India. Drop an electricity bill: billx reads it, and ergPLAN 2 shows the state, the DISCOM, the tariff category, the time-of-day slots and the energy and fixed charges. Give targets, costs and CUF for rooftop solar, open-access solar and wind, a battery behind the meter and a battery at the open-access plant. The plan is drawn as an isometric view of the site and the plant; the optimizer (Pyomo + HiGHS) sizes each component at least cost over a year; the result is settled again under the state's banking rules and projected over 25 years, each figure with its source.
+
+It merges two applications: the flow and engines of the first ergPLAN (`Ergplan/Enterprise-RE-Planner`) and the settlement logic and State Regulation Master of erg_plan 2.0. See Stage 9 in `docs/MASTER-PROMPT.md` and the entry of 20 Nov 2026 in `docs/decisions.md`.
+
+- Settlement: `apps/api/ergplan/settlement/cycle.py`, held to the original erg_plan 2.0 engine by `apps/api/tests/settlement/test_cycle_vs_erg2.py`.
+- Regulation data: thirteen states from the State Regulation Master (`packages/rulebooks/register/`, imported by `tools/dev/import-register.py`) beside the states cited to stored order pages. Register values are shown as "register", not as cited pages.
+- Remote access: `tools/dev/remote.sh on` on the server gives an https address through an outbound tunnel; sign-in is still required.
 
 ## How this repository is built
 

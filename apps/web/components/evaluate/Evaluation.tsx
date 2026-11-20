@@ -129,8 +129,8 @@ export function Evaluation({ connectionId }: { connectionId: string | null }) {
     setBills((cur) => [...cur.filter((b) => !got.some((g) => g.id === b.id)), ...got].sort((a, b) => (a.bill_month ?? "").localeCompare(b.bill_month ?? "")));
   }, []);
 
-  const gaps = useMemo(() => missing(draft, bills), [draft, bills]);
   const discom = discoms.find((x) => x.id === draft.connection.discom);
+  const gaps = useMemo(() => missing(draft, bills, !!discom?.needs_tariff), [draft, bills, discom?.needs_tariff]);
   const canSave = gaps.filter((g) => g.section !== "tech").length === 0 && (!discom || discom.ready);
 
   async function save(): Promise<string | null> {

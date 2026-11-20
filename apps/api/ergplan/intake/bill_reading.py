@@ -478,6 +478,7 @@ def plan_inputs(session: Session, bill: Bill) -> PlanInputs:
         ("energy.billed_units", eunit, "Units billed by the DISCOM"),
         ("energy.power_factor", Unit.RATIO, "Power factor"),
         ("charges.energy", Unit.INR, "Energy charges"),
+        ("charges.demand", Unit.INR, "Demand (fixed) charges"),
         ("totals.current_charges", Unit.INR, "Current charges"),
         ("totals.net_payable", Unit.INR, "Net payable"),
     ):
@@ -559,6 +560,24 @@ def plan_inputs(session: Session, bill: Bill) -> PlanInputs:
                 verification=None,
             )
         )
+    fixed = next((f for f in facts if f.key == "charges.demand"), None)
+    kvas = [f for f in facts if f.key in ("demand.max_kva", "demand.contract_kva")]
+    if fixed and kvas:
+        on = max(kvas, key=lambda f: f.value.value)  # billed on the higher of recorded and contract demand
+        if on.value.value > 0:
+            derived.append(
+                PlanValue(
+                    key="fixed_charge_rate",
+                    label="Demand (fixed) charge per kVA",
+                    value=derive(
+                        (fixed.value.value / on.value.value).quantize(Decimal("0.01")),
+                        Unit.INR_PER_KVA_MONTH,
+                        [fixed.value, on.value],
+                        label="fixed charge per kVA",
+                    ),
+                    verification=None,
+                )
+            )
     notes = []
     if any(s.start is None for s in slots):
         notes.append("Some slots print no hours; their energy is spread by your operating pattern.")

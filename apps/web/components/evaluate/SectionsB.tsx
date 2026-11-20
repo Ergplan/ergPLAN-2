@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { RefChips } from "@/components/cost/RefChips";
+import { IsoSite } from "@/components/site/IsoSite";
+import { isoFromDraft } from "@/lib/iso";
 import { AssetsEditor } from "@/components/intake/AssetsEditor";
-import { OPEN_ACCESS_CHOICES, OWNERSHIP_LABEL, TECH_GROUPS, inr, num, type DiscomOut, type Draft, type TodayOut } from "@/lib/evaluate";
+import { INPUT_FIELDS, OPEN_ACCESS_CHOICES, OWNERSHIP_LABEL, TECH_GROUPS, inr, num, type DiscomOut, type Draft, type TodayOut } from "@/lib/evaluate";
 import type { BillOut } from "@/lib/intake";
 import type { SourceOption } from "@/lib/runs";
 import { Advanced, Field, Note, Toggle } from "./ui";
@@ -66,12 +68,16 @@ export function TechSection({ d, set, options, discom }: { d: Draft; set: Set; o
       <p className="eg-muted">
         Tick everything you would consider. The optimizer sizes each at least cost over a year of hourly blocks under {discom ? `${discom.state_name}'s` : "your state's"} open-access charges, losses and banking rules, and may leave a source at zero if it does not pay. {n} selected.
       </p>
+      <IsoSite parts={isoFromDraft(d, { factory: d.factory.site_name || undefined, discom: discom?.name, state: discom?.state_name })}
+        caption="Your plan as you set it: switch a component on or off and give its target below. The optimizer sizes each one; the results show this picture with the sizes it chose." />
       {groups.map((g) => (
         <fieldset key={g.id} className="ep-techgroup">
           <legend><b>{g.title}</b> <span className="eg-muted">{g.blurb}</span></legend>
           {g.options.map((o) => {
             const t = d.tech[o.kind] ?? { on: false, ownership: "", price: "", max_mw: "", min_mw: "", commissioned: "" };
             const exch = o.price_kind === "iex";
+            const inputs = Object.entries(o.inputs ?? {});
+            const setInput = (key: string, v: string) => upd(o.kind, { inputs: { ...(t.inputs ?? {}), [key]: v } });
             return (
               <div key={o.kind} className={`ep-tech${t.on ? " ep-tech--on" : ""}${o.available ? "" : " ep-tech--off"}`}>
                 <div className="ep-tech__head">
@@ -97,12 +103,28 @@ export function TechSection({ d, set, options, discom }: { d: Draft; set: Set; o
                           <input inputMode="decimal" value={t.price} onChange={(e) => upd(o.kind, { price: e.target.value })} placeholder={o.default_price_inr_per_kwh ?? ""} />
                         </Field>
                       )}
-                      <Field label={exch ? "Most to buy" : "Largest size"} unit="MW" help={exch ? "The most power to schedule from the exchange in any block. Blank: up to your contract demand." : "A cap on the plant's size (land, approvals, appetite). Blank: the optimizer chooses, up to your contract demand (rooftop: your roof)."}>
-                        <input inputMode="decimal" value={t.max_mw} onChange={(e) => upd(o.kind, { max_mw: e.target.value })} placeholder="no limit" />
+                      <Field label={exch ? "Most to buy" : "Target size"} unit="MW" help={exch ? "The most power to schedule from the exchange in any block. Blank: up to your contract demand." : "The capacity you have in mind. The optimizer sizes this component at least cost up to it (tick the box to install exactly this). Blank: sized freely within the regulatory limits."}>
+                        <input inputMode="decimal" value={t.max_mw} onChange={(e) => upd(o.kind, { max_mw: e.target.value })} placeholder={exch ? "no limit" : "optimizer decides"} />
                       </Field>
+                      {!exch && (
+                        <label className="ep-tick" title="Install exactly the target instead of letting the optimizer choose a size up to it">
+                          <input type="checkbox" checked={!!t.fix} disabled={!t.max_mw.trim()} onChange={(e) => upd(o.kind, { fix: e.target.checked })} />
+                          <span>Install exactly the target</span>
+                        </label>
+                      )}
+                      {inputs.slice(0, 2).map(([key, dflt]) => (
+                        <Field key={key} label={INPUT_FIELDS[key]?.label ?? key} unit={INPUT_FIELDS[key]?.unit} help={`${INPUT_FIELDS[key]?.help ?? ""} Blank uses ergPLAN's assumption${dflt ? ` (${dflt})` : ""}, shown as an assumption in the plan.`}>
+                          <input inputMode="decimal" value={t.inputs?.[key] ?? ""} onChange={(e) => setInput(key, e.target.value)} placeholder={dflt || "state curve"} />
+                        </Field>
+                      ))}
                     </div>
                     <Advanced>
                       <div className="ep-grid3">
+                        {inputs.slice(2).map(([key, dflt]) => (
+                          <Field key={key} label={INPUT_FIELDS[key]?.label ?? key} unit={INPUT_FIELDS[key]?.unit} help={`${INPUT_FIELDS[key]?.help ?? ""} Blank uses ergPLAN's assumption${dflt ? ` (${dflt})` : ""}.`}>
+                            <input inputMode="decimal" value={t.inputs?.[key] ?? ""} onChange={(e) => setInput(key, e.target.value)} placeholder={dflt} />
+                          </Field>
+                        ))}
                         <Field label="Smallest size" unit="MW" help="Force at least this much (an existing commitment, a minimum the developer will build).">
                           <input inputMode="decimal" value={t.min_mw} onChange={(e) => upd(o.kind, { min_mw: e.target.value })} placeholder="0" />
                         </Field>

@@ -32,7 +32,9 @@ def test_the_discoms_a_client_can_pick() -> None:
     hv2 = next(c for c in npcl["categories"] if c["code"] == "HV-2" and c["voltage_max_kv"] == "11")
     assert hv2["rate_block"] == "Urban Schedule" and hv2["usual_voltage_kv"] == "11"
     assert msedcl["sourced"]["tariff_schedule"] and msedcl["sourced"]["settlement"]
-    assert not hpsebl["ready"] and hpsebl["categories"] == [] and hpsebl["state"] == "HP"
+    # ergPLAN 2: a DISCOM without an approved schedule is planned on the consumer's own tariff
+    assert hpsebl["ready"] and hpsebl["needs_tariff"] and not npcl["needs_tariff"]
+    assert hpsebl["categories"] == [] and hpsebl["state"] == "HP"
     assert [d["state"] for d in r.json()] == sorted(d["state"] for d in r.json())
 
 

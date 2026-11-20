@@ -111,6 +111,7 @@ def _facts(s: Session, conn: Connection) -> escope.ConnectionFacts:
         connection_kind=conn.connection_kind,
         contract_demand_kva=conn.contract_demand_kva,
         rate_block=conn.rate_block,
+        stated_tariff=(conn.provenance or {}).get("tariff"),
     )
 
 
@@ -132,10 +133,47 @@ def _rules_for(
             when = as_of or on
             ts = reader(s, "tariff_schedule", chain, when)
             td = reader(s, "tod_slots", chain, when)
-            cache[on] = avoided_cost.MonthRules(escope.first(ts, ctx, chain), escope.first(td, ctx, chain))
+            schedule = escope.first(ts, ctx, chain)
+            if schedule is None and not ts:
+                # no retail schedule approved anywhere in the DISCOM's chain: the consumer's own
+                # tariff (from the bill, or typed) prices the grid, and is shown as theirs
+                schedule = stated_schedule(facts)
+            cache[on] = avoided_cost.MonthRules(schedule, escope.first(td, ctx, chain))
         return cache[on]
 
     return get
+
+
+def stated_schedule(facts: escope.ConnectionFacts) -> RuleView | None:
+    """The consumer's own tariff as a schedule row: the energy charge per billed unit and the demand
+    charge per kVA of billing demand, each citing the bill it was read from (or `client_stated`).
+    Not a rulebook row: it has no version, carries no regulation's authority and is used only where
+    no schedule is approved."""
+    t = facts.stated_tariff
+    if not t or not (t.get("energy_inr_per_unit") or {}).get("value"):
+        return None
+    e, d = t["energy_inr_per_unit"], t.get("demand_inr_per_kva_month") or {}
+    own = {"kind": "client_stated", "note": "the tariff as you pay it"}
+    e_ref = {k: v for k, v in (e.get("source_ref") or own).items() if k != "url"}
+    d_ref = {k: v for k, v in (d.get("source_ref") or own).items() if k != "url"}
+    return RuleView(
+        id=f"stated-tariff:{facts.discom}:{facts.category}",
+        family="tariff_schedule",
+        version_id="",
+        jurisdiction_id=facts.discom,
+        scope={},
+        body={
+            "category": facts.category,
+            "billing_basis": t.get("billing_basis") or "kwh",
+            "demand_charge": {"value": str(d.get("value") or "0"), "basis": "inr_per_kva_month"},
+            "energy_charge": {"base": str(e["value"])},
+            "notes": "The consumer's own tariff, from their bill or as typed; no approved retail "
+            "schedule for this DISCOM yet.",
+        },
+        source_ref=e_ref,
+        field_refs={"/energy_charge/base": e_ref, "/demand_charge/value": d_ref},
+        label=f"{facts.category} · the tariff on your bill",
+    )
 
 
 def _cd(conn: Connection) -> SourcedValue | None:

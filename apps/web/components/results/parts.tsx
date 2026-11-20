@@ -75,20 +75,20 @@ export function Sizes({ s, chain }: { s: SummaryOut; chain: Chain | null }) {
         </thead>
         <tbody>
           {s.sizes.map((z) => {
-            const energy = z.kind === "btm_bess" ? null : V(z.delivered_kwh);
+            const energy = (z.kind === "btm_bess" || z.kind === "oa_bess") ? null : V(z.delivered_kwh);
             const lt = landed[z.id];
             return (
-              <tr key={z.id} className={Number(z.kw.value) <= 0 && !(z.kind === "btm_bess" && V(z.kwh) > 0) ? "ep-dim" : undefined}>
+              <tr key={z.id} className={Number(z.kw.value) <= 0 && !((z.kind === "btm_bess" || z.kind === "oa_bess") && V(z.kwh) > 0) ? "ep-dim" : undefined}>
                 <td>
                   <b>{z.label}</b>
-                  {z.ownership && z.kind !== "rooftop_pv" && z.kind !== "btm_bess" && <div className="eg-muted ep-small">{z.ownership.replace("_", " ")}</div>}
+                  {z.ownership && z.kind !== "rooftop_pv" && (z.kind !== "btm_bess" && z.kind !== "oa_bess") && <div className="eg-muted ep-small">{z.ownership.replace("_", " ")}</div>}
                   {z.exchange && <div className="eg-muted ep-small">bought in {num(z.exchange.hours_bought)} hours · never sold</div>}
                   {z.gaps.length > 0 && <div className="eg-muted ep-small">{z.gaps.length} figure{z.gaps.length > 1 ? "s" : ""} not yet sourced</div>}
                 </td>
                 <td className="num">{sizeText(z)}</td>
                 <td className="num">{energy === null ? "—" : `${num(energy / 1000)} MWh`}</td>
                 <td className="num">{energy === null || !load ? "—" : `${((energy / load) * 100).toFixed(1)}%`}</td>
-                <td className="num">{z.exchange ? `₹${Number(z.exchange.avg_landed.value).toFixed(2)}` : lt ? `₹${Number(lt.value).toFixed(2)}` : z.kind === "rooftop_pv" || z.kind === "btm_bess" ? "—" : "—"}</td>
+                <td className="num">{z.exchange ? `₹${Number(z.exchange.avg_landed.value).toFixed(2)}` : lt ? `₹${Number(lt.value).toFixed(2)}` : z.kind === "rooftop_pv" || (z.kind === "btm_bess" || z.kind === "oa_bess") ? "—" : "—"}</td>
                 <td className="num">{z.energy_cost ? inr(z.energy_cost.value) : lineCost(s, z.id)}</td>
                 <td><RefChips refs={uniq([...(z.kw.source_refs ?? []), ...(lt?.source_refs ?? [])])} max={2} /></td>
               </tr>
@@ -101,7 +101,7 @@ export function Sizes({ s, chain }: { s: SummaryOut; chain: Chain | null }) {
 }
 
 function sizeText(z: SizeOut): string {
-  if (z.kind === "btm_bess") return `${(V(z.kw) / 1000).toFixed(2)} MW / ${(V(z.kwh) / 1000).toFixed(2)} MWh`;
+  if ((z.kind === "btm_bess" || z.kind === "oa_bess")) return `${(V(z.kw) / 1000).toFixed(2)} MW / ${(V(z.kwh) / 1000).toFixed(2)} MWh`;
   if (z.exchange) return `up to ${(V(z.kw) / 1000).toFixed(2)} MW`;
   return `${(V(z.kw) / 1000).toFixed(2)} MW`;
 }
@@ -311,7 +311,7 @@ export function YearMix({ months, sizes }: { months: MonthMix[]; sizes: SizeOut[
   const kind = Object.fromEntries(sizes.map((z) => [z.id, z.kind]));
   const ids = [...new Set(months.flatMap((m) => Object.keys(m.sources)))].filter((id) => months.some((m) => V(m.sources[id]) > 0));
   const layers = [
-    ...ids.map((id, i) => ({ key: id, label: label[id] ?? id, color: kind[id] === "btm_bess" ? COLORS.battery : sourceColor(id, kind[id], i), v: (m: MonthMix) => V(m.sources[id]) })),
+    ...ids.map((id, i) => ({ key: id, label: label[id] ?? id, color: (kind[id] === "btm_bess" || kind[id] === "oa_bess") ? COLORS.battery : sourceColor(id, kind[id], i), v: (m: MonthMix) => V(m.sources[id]) })),
     { key: "bank", label: "From the bank", color: COLORS.withdrawn, v: (m: MonthMix) => V(m.withdrawn_kwh) },
     { key: "grid", label: "From the DISCOM", color: COLORS.grid, v: (m: MonthMix) => V(m.grid_kwh) },
   ];

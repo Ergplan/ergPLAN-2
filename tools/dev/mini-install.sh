@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# ergPLAN server on this Mac mini (1 Nov 2026). Run it from Terminal:
-#     bash ~/Downloads/ergplan-server/install.sh
+# ergPLAN 2 server on this Mac mini (20 Nov 2026). Run it from Terminal:
+#     bash ~/Downloads/ergplan-server/ergplan2/install.sh
+# It lives beside the first ergPLAN if that is installed: its own folder, containers, database and port.
 # Safe to run again: it updates the code from the bundle beside it, keeps .env and the database,
 # and only adds what is missing. Nothing it reads or writes leaves this Mac except the OpenAI calls the
 # app makes and the Docker image downloads.
-#   ERGPLAN_DIR   where the app lives          (default ~/apps/ergplan)
+#   ERGPLAN_DIR   where the app lives          (default ~/apps/ergplan2)
 #   BILLX_DIR     another billx checkout to build (default: billx/ in the code)
 #   ERGPLAN_ANALYST  the first analyst's email (default venture@aayuda.energy)
-#   HTTP_PORT     the port the app is served on (default 80)
+#   HTTP_PORT     the port the app is served on (default 8090)
 set -euo pipefail
 KIT="$(cd "$(dirname "$0")" && pwd)"
 DL="$HOME/Downloads"
-DEST="${ERGPLAN_DIR:-$HOME/apps/ergplan}"
+DEST="${ERGPLAN_DIR:-$HOME/apps/ergplan2}"
 BILLX_DIR="${BILLX_DIR:-}"
 ANALYST="${ERGPLAN_ANALYST:-venture@aayuda.energy}"
 PORT="${HTTP_PORT:-}"
 if [ -z "$PORT" ] && [ -f "$DEST/.env" ]; then PORT="$(grep -E '^HTTP_PORT=' "$DEST/.env" | cut -d= -f2 || true)"; fi
-PORT="${PORT:-80}"
+PORT="${PORT:-8090}"
 say() { printf '\n== %s\n' "$*"; }
 die() { printf '\nSTOPPED: %s\n' "$*" >&2; exit 1; }
 export PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:$HOME/.homebrew/bin:$HOME/.orbstack/bin"
@@ -27,7 +28,7 @@ command -v docker >/dev/null || die "Docker is not installed. Install Docker Des
 docker info >/dev/null 2>&1 || die "Docker is installed but not running. Open Docker Desktop (or OrbStack), wait until it is running, then run this script again."
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing: update Docker Desktop."
 [ -z "$BILLX_DIR" ] || [ -f "$BILLX_DIR/docker/engine.Dockerfile" ] || die "billx not found at $BILLX_DIR."
-[ -f "$KIT/ergplan.bundle" ] || die "ergplan.bundle is missing beside this script."
+[ -f "$KIT/ergplan2.bundle" ] || die "ergplan2.bundle is missing beside this script."
 if command -v lsof >/dev/null; then
   busy="$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $1}' | grep -viE '^(com\.docke|docker|vpnkit|orbstack)' | sort -u | tr '\n' ' ' || true)"
   [ -z "$busy" ] || die "port $PORT is already used by: $busy— run again with another port, e.g.  HTTP_PORT=8088 bash $0"
@@ -35,12 +36,12 @@ fi
 
 say "2/8 Code → $DEST"
 if [ -d "$DEST/.git" ]; then
-  git -C "$DEST" fetch -q "$KIT/ergplan.bundle" main
+  git -C "$DEST" fetch -q "$KIT/ergplan2.bundle" main
   git -C "$DEST" merge -q --ff-only FETCH_HEAD || die "$DEST has local changes that conflict with the update; commit or stash them first."
 else
   mkdir -p "$(dirname "$DEST")"
-  git clone -q -b main "$KIT/ergplan.bundle" "$DEST"
-  git -C "$DEST" remote set-url origin https://github.com/Ergplan/Enterprise-RE-Planner.git
+  git clone -q -b main "$KIT/ergplan2.bundle" "$DEST"
+  git -C "$DEST" remote set-url origin https://github.com/Ergplan/ergPLAN-2.git
 fi
 cd "$DEST"
 echo "code at $(git log --oneline -1)"
@@ -57,7 +58,7 @@ if [ ! -f .env ]; then
   [ -n "$key" ] || die "an OpenAI API key is needed (voice, explanations, the regulation reader)."
   touch .env && chmod 600 .env  # only you can read it, before anything is written into it
   cat > .env <<ENV
-# ergPLAN on the Mac mini — written by tools/dev/mini-install.sh on $(date '+%Y-%m-%d %H:%M'). Never commit.
+# ergPLAN 2 on the Mac mini — written by tools/dev/mini-install.sh on $(date '+%Y-%m-%d %H:%M'). Never commit.
 ERGPLAN_ENV=prod
 ERGPLAN_PUBLIC_URL=$URL
 SITE_ADDRESS=:80
@@ -123,23 +124,23 @@ else
   echo "no IEX files found; an analyst can upload them in the app (Prices)"
 fi
 
-say "8/8 Nightly backup at 02:30 (pg_dump and data/ → ~/ergplan-backups, 14 days)"
-PLIST="$HOME/Library/LaunchAgents/in.joulewise.ergplan.backup.plist"
-mkdir -p "$HOME/Library/LaunchAgents" "$HOME/ergplan-backups"
+say "8/8 Nightly backup at 02:30 (pg_dump and data/ → ~/ergplan2-backups, 14 days)"
+PLIST="$HOME/Library/LaunchAgents/in.joulewise.ergplan2.backup.plist"
+mkdir -p "$HOME/Library/LaunchAgents" "$HOME/ergplan2-backups"
 cat > "$PLIST" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>Label</key><string>in.joulewise.ergplan.backup</string>
+  <key>Label</key><string>in.joulewise.ergplan2.backup</string>
   <key>ProgramArguments</key><array><string>/bin/bash</string><string>$DEST/tools/dev/backup.sh</string></array>
   <key>EnvironmentVariables</key><dict>
     <key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:$HOME/.homebrew/bin:$HOME/.orbstack/bin:/usr/bin:/bin</string>
-    <key>BACKUP_DIR</key><string>$HOME/ergplan-backups</string>
+    <key>BACKUP_DIR</key><string>$HOME/ergplan2-backups</string>
     <key>ERGPLAN_SERVER</key><string>mini</string>
   </dict>
   <key>StartCalendarInterval</key><dict><key>Hour</key><integer>2</integer><key>Minute</key><integer>30</integer></dict>
-  <key>StandardOutPath</key><string>$HOME/ergplan-backups/backup.log</string>
-  <key>StandardErrorPath</key><string>$HOME/ergplan-backups/backup.log</string>
+  <key>StandardOutPath</key><string>$HOME/ergplan2-backups/backup.log</string>
+  <key>StandardErrorPath</key><string>$HOME/ergplan2-backups/backup.log</string>
 </dict></plist>
 PL
 launchctl unload "$PLIST" 2>/dev/null || true
@@ -149,7 +150,7 @@ LINK="$($M exec -T api python -m ergplan.platform.signin "$ANALYST" --next /rule
 cat <<DONE
 
 ==============================================================================
-ergPLAN is running on this Mac:  $URL
+ergPLAN 2 is running on this Mac:  $URL
 (from other machines on the same network; on this Mac also http://localhost$( [ "$PORT" = 80 ] || echo ":$PORT" ))
 
 Sign in as $ANALYST (analyst) — this link works once, for 15 minutes:
@@ -157,6 +158,8 @@ $LINK
 
 More sign-in links (no mail server is set up yet):
   cd $DEST && tools/dev/mini.sh exec api python -m ergplan.platform.signin someone@company.in
+Remote access (an https address that works from anywhere, through a tunnel; sign-in still required):
+  tools/dev/remote.sh on    ·  tools/dev/remote.sh off
 Status / logs / stop:
   tools/dev/mini.sh ps  ·  tools/dev/mini.sh logs -f api  ·  tools/dev/mini.sh stop
 Keep it up: Docker Desktop → Settings → General → "Start Docker Desktop when you sign in",

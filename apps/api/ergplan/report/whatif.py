@@ -92,6 +92,11 @@ def evaluate(s: Session, run: Run, w: WhatIf) -> dict[str, Any]:
         if m.spec.kind == "btm_bess":
             bkw[m.cid] = kw
             bkwh.setdefault(m.cid, float(Decimal(z["kwh"]["value"])) if z and z.get("kwh") else 0.0)
+        elif m.spec.kind == "oa_bess":  # a battery at the plant: its power is a capacity, its energy fixed
+            old_kw = float(Decimal(z["kw"]["value"])) if z else 0.0
+            old_kwh = float(Decimal(z["kwh"]["value"])) if z and z.get("kwh") else 0.0
+            cap[m.cid] = kw
+            bkwh[m.cid] = old_kwh * kw / old_kw if old_kw > 0 else kw * 2
         else:
             cap[m.cid] = kw
     cd = float(w.contract_demand_kva) if w.contract_demand_kva else a.problem.grid.cd_kva

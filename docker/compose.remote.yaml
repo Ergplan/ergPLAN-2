@@ -1,0 +1,15 @@
+# Remote access to an ergPLAN 2 server that sits behind a router (the Mac mini), without opening a port:
+# a Cloudflare tunnel dials out from the server and gives it an https address. Used by tools/dev/remote.sh.
+#   quick tunnel (no account): a random https://<words>.trycloudflare.com address, new at every start;
+#   named tunnel: set CLOUDFLARE_TUNNEL_TOKEN in .env (Cloudflare Zero Trust → Tunnels) for a fixed hostname
+#   of your own, with the tunnel's public hostname pointed at http://caddy:80.
+# The app stays in production mode behind it: sign-in by emailed link or password, each consumer
+# seeing only their own evaluations. Only Caddy is reachable through the tunnel.
+services:
+  tunnel:
+    image: cloudflare/cloudflared:2025.2.0
+    restart: unless-stopped
+    command: ${TUNNEL_COMMAND:-tunnel --no-autoupdate --url http://caddy:80}
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on: [caddy]

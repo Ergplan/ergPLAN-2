@@ -1,0 +1,7 @@
+id: solar_tn
+source: solar
+state: TN
+note: Fixed-tilt utility solar in southern Tamil Nadu. Normative shape (an assumption) until the developer's generation profile is used.
+annual_cuf_pct: "22"
+monthly: {1: 1.05, 2: 1.10, 3: 1.15, 4: 1.10, 5: 1.05, 6: 0.88, 7: 0.82, 8: 0.85, 9: 0.92, 10: 0.95, 11: 0.98, 12: 1.02}
+hourly: {6: 0.05, 7: 0.25, 8: 0.50, 9: 0.75, 10: 0.92, 11: 1.0, 12: 1.0, 13: 0.97, 14: 0.88, 15: 0.70, 16: 0.45, 17: 0.18, 18: 0.03}

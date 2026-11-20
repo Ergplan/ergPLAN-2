@@ -3,7 +3,7 @@
 #   docker compose -f docker/compose.yaml up --build
 # Web http://localhost:3000 · API http://localhost:8000 · through Caddy http://localhost:8080
 # billx is built from the copy in this repository (billx/); BILLX_REPO points it at another checkout.
-name: ergplan
+name: ergplan2
 
 services:
   postgres:
@@ -11,7 +11,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ergplan}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ergplan}
-      POSTGRES_DB: ${POSTGRES_DB:-ergplan}
+      POSTGRES_DB: ${POSTGRES_DB:-ergplan2}
     volumes: [pgdata:/var/lib/postgresql/data]
     ports: ["${POSTGRES_PORT:-5432}:5432"]
     healthcheck:
@@ -23,7 +23,7 @@ services:
     build: { context: .., dockerfile: docker/api.Dockerfile }
     env_file: ../.env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ergplan}:${POSTGRES_PASSWORD:-ergplan}@postgres:5432/${POSTGRES_DB:-ergplan}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ergplan}:${POSTGRES_PASSWORD:-ergplan}@postgres:5432/${POSTGRES_DB:-ergplan2}
       ERGPLAN_DATA_DIR: /data
       ERGPLAN_WEB_INTERNAL_URL: http://web:3000
       BILLX_URL: http://billx:8080
@@ -42,7 +42,7 @@ services:
     command: ["python", "-m", "ergplan.platform.worker"]
     env_file: ../.env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ergplan}:${POSTGRES_PASSWORD:-ergplan}@postgres:5432/${POSTGRES_DB:-ergplan}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ergplan}:${POSTGRES_PASSWORD:-ergplan}@postgres:5432/${POSTGRES_DB:-ergplan2}
       ERGPLAN_DATA_DIR: /data
       BILLX_URL: http://billx:8080
     volumes: ["../data:/data"]

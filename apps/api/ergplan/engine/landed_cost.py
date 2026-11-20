@@ -53,13 +53,18 @@ SOURCES: list[SourceSpec] = [
         "rooftop_pv", "Rooftop solar (behind the meter)", "behind_meter", "solar", "lcoe", open_access=False
     ),
     SourceSpec("btm_bess", "Battery behind the meter", "behind_meter", "bess", "lcos", open_access=False),
+    # a battery at the open-access plant: it stores the plant's output and delivers it later through
+    # the same open access (the charges are in the landed cost of the energy it stores)
+    SourceSpec(
+        "oa_bess", "Battery at the open-access plant", "intra_state", "bess", "lcos", open_access=False
+    ),
     SourceSpec("oa_solar_intra", "Open-access solar, intra-state", "intra_state", "solar", "ppa"),
     SourceSpec("oa_wind_intra", "Open-access wind, intra-state", "intra_state", "wind", "ppa"),
     SourceSpec("oa_hybrid_intra", "Open-access hybrid, intra-state", "intra_state", "hybrid", "ppa"),
     SourceSpec("oa_solar_ists", "Open-access solar, ISTS", "ists", "solar", "ppa"),
     SourceSpec("oa_wind_ists", "Open-access wind, ISTS", "ists", "wind", "ppa"),
     SourceSpec("oa_hybrid_ists", "Open-access hybrid, ISTS", "ists", "hybrid", "ppa"),
-    SourceSpec("oa_bess", "Open-access storage", "intra_state", "bess", "ppa"),
+    SourceSpec("oa_storage_ppa", "Open-access storage (a storage PPA)", "intra_state", "bess", "ppa"),
     SourceSpec("pumped_storage", "Pumped storage (ISTS)", "ists", "pumped_storage", "ppa"),
     SourceSpec("iex_dam", "IEX day-ahead (DAM)", "ists", "iex", "iex", "dam"),
     SourceSpec("iex_rtm", "IEX real-time (RTM)", "ists", "iex", "iex", "rtm"),

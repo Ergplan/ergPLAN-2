@@ -34,5 +34,5 @@ for url in http://localhost:8091/v1/health http://localhost:8010/health http://l
   for _ in $(seq 1 90); do curl -sf -o /dev/null "$url" && break; sleep 2; done
 done
 (cd "$API" && E2E_WEB_URL=http://localhost:3010 E2E_API_URL=http://localhost:8010 \
-  .venv/bin/pytest -o addopts="" -m slow -q tests/e2e/test_stage7_journey.py "$@")
+  .venv/bin/pytest -o addopts="" -m slow -q ${E2E_TESTS:-tests/e2e/test_stage7_journey.py} "$@")
 echo "logs: $LOG"

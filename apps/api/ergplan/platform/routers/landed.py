@@ -50,7 +50,7 @@ DEFAULT_PRICE = {
     "oa_solar_ists": ("2.70", "ISTS-connected solar PPA, 2026 auctions"),
     "oa_wind_ists": ("3.30", "ISTS-connected wind PPA, 2026 auctions"),
     "oa_hybrid_ists": ("3.30", "ISTS-connected hybrid PPA, 2026 auctions"),
-    "oa_bess": ("4.80", "storage-backed (peak) supply tariff, 2026"),
+    "oa_storage_ppa": ("4.80", "storage-backed (peak) supply tariff, 2026"),
     "pumped_storage": ("5.20", "pumped-storage supply tariff, 2026"),
     "group_captive": ("3.10", "group-captive solar PPA before the equity cost"),
 }

@@ -249,6 +249,11 @@ class SiteIntake(BaseModel):
     contract_demand_kva: Fact[Decimal]
     consumer_number: Fact[str] | None = None
     rate_block: Fact[str] | None = None
+    # the tariff as the bill shows it (or as typed): what the grid costs where ergPLAN holds no
+    # approved retail schedule for the DISCOM (elsewhere the approved schedule is used)
+    energy_charge_inr_per_unit: Fact[Decimal] | None = None
+    fixed_charge_inr_per_kva_month: Fact[Decimal] | None = None
+    billing_basis: Fact[str] | None = None  # kwh | kvah
     industry_shape: Fact[str]
     weekly_off: Fact[list[int]]
     shifts: Fact[list[Shift]] | None = None
@@ -473,12 +478,16 @@ def from_bills(session: Session, bill_ids: list[str], overrides: dict[str, Any] 
         category = stated(o.pop("category"))
     else:
         mapped = defaults.category_from_printed(st, printed)
-        if mapped is None:
+        if mapped is None and printed and st not in defaults.CATEGORY_PATTERNS:
+            # no approved schedule to map to in this state: the bill's own words are the category
+            category = from_bill(v["tariff.category"], str(printed).strip()[:64])
+        elif mapped is None:
             raise ValueError(
                 f"the bill's category {printed!r} is not one ergPLAN knows for {st}; "
                 "say which category applies"
             )
-        category = assumed(mapped)
+        else:
+            category = assumed(mapped)
     voltage = (
         stated(Decimal(str(o.pop("voltage_kv"))))
         if "voltage_kv" in o
@@ -530,9 +539,34 @@ def from_bills(session: Session, bill_ids: list[str], overrides: dict[str, Any] 
         data["open_access"] = stated(o.pop("open_access"))
     else:
         data["open_access"] = _open_access_fact(session, latest)
+    for key, got in bill_tariff(v).items():
+        if key not in o:
+            data[key] = got
     for k, val in o.items():
         data[k] = stated(val) if k in SiteIntake.model_fields and not isinstance(val, (dict, list)) else val
     return SiteIntake.model_validate(data)
+
+
+def bill_tariff(v: dict[str, bill_store.BillValue]) -> dict[str, Fact[Any]]:
+    """The tariff a bill shows: its energy charges over the units it billed, and its demand (fixed)
+    charges over the demand it billed on (the recorded maximum demand, or the contract demand where
+    that is higher: the usual minimum). Each is the bill's own figures divided, cited to the bill."""
+    out: dict[str, Fact[Any]] = {}
+    energy, units = v.get("charges.energy"), v.get("energy.billed_units")
+    if energy and units and energy.dec and units.dec and units.dec > 0:
+        rate = (energy.dec / units.dec).quantize(Decimal("0.0001"))
+        out["energy_charge_inr_per_unit"] = from_bill(energy, rate)
+        kvah, kwh = v.get("energy.kvah"), v.get("energy.kwh")
+        d_kvah = abs(units.dec - kvah.dec) if kvah and kvah.dec else None
+        d_kwh = abs(units.dec - kwh.dec) if kwh and kwh.dec else None
+        on_kvah = d_kvah is not None and (d_kwh is None or d_kvah < d_kwh)
+        out["billing_basis"] = from_bill(units, "kvah" if on_kvah else "kwh")
+    demand, md, cd = v.get("charges.demand"), v.get("demand.max_kva"), v.get("demand.contract_kva")
+    kva = max((x.dec for x in (md, cd) if x and x.dec), default=None)
+    if demand and demand.dec and kva and kva > 0:
+        per_kva = (demand.dec / kva).quantize(Decimal("0.01"))
+        out["fixed_charge_inr_per_kva_month"] = from_bill(demand, per_kva)
+    return out
 
 
 def _open_access_fact(session: Session, bill: Bill) -> Fact[str] | None:
@@ -698,6 +732,15 @@ def build(
     )
     if intake.open_access is not None:
         conn.provenance["open_access"]["value"] = intake.open_access.value
+    if intake.energy_charge_inr_per_unit is not None:
+        e, d = intake.energy_charge_inr_per_unit, intake.fixed_charge_inr_per_kva_month
+        conn.provenance["tariff"] = {
+            "energy_inr_per_unit": {"value": str(e.value), "source_ref": e.ref.to_json() if e.ref else None},
+            "demand_inr_per_kva_month": (
+                {"value": str(d.value), "source_ref": d.ref.to_json() if d.ref else None} if d else None
+            ),
+            "billing_basis": intake.billing_basis.value if intake.billing_basis else "kwh",
+        }
     session.flush()
     for a in intake.assets:
         session.add(
