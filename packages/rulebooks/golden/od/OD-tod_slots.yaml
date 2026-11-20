@@ -1,0 +1,17 @@
+# jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21) · tod_slots
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: OD
+family: tod_slots
+tests:
+- name: 'slot 1: Normal 00:00–08:00 is normal'
+  given:
+    context: {}
+    field: /slots/0/category
+  expect:
+    value: normal
+- name: 'slot 4: Evening Peak is peak'
+  given:
+    context: {}
+    field: /slots/3/category
+  expect:
+    value: peak

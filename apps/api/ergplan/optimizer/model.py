@@ -32,6 +32,7 @@ from typing import Any
 import pyomo.environ as pyo
 
 from ..rulebook.models import RuleView
+from ..settlement import cycle as cyc
 from ..settlement.simulate import Bank, _period_index
 
 AGGREGATED = ("tod_slot_monthly", "monthly_aggregate", "annual")
@@ -75,6 +76,7 @@ class Candidate:
     renewable: bool = True
     min_size_kw: float = 0.0  # a regulatory minimum if built (binary)
     dispatchable: bool = False  # an OA purchase scheduled block by block (exchange), not must-take
+    delivered_share: float = 1.0  # energy at the meter per unit injected (after losses)
 
 
 @dataclass(frozen=True)
@@ -203,17 +205,27 @@ class Netting:
     carry: bool
     cap: dict[str, Any]
     banking: bool
+    # cycle settlement (`method: cycle_pooled`, settlement.cycle): one step per banking cycle, a
+    # bucket per ToD category, and the cycle's banking limit on the energy banked before the charge
+    cycle: cyc.Config | None = None
+    group_cat: list[str] = field(default_factory=list)
 
 
 def netting(p: Problem) -> Netting:
     body = p.rule.body if p.rule else {}
     gran = str(body.get("granularity", "block_15min"))
     banking = body.get("banking") or {}
+    ccfg = cyc.config_from_rule(body) if body.get("method") == "cycle_pooled" else None
+    if ccfg is not None:
+        gran = "tod_slot_monthly" if ccfg.basis == "tod" else "block_15min"
     bank = Bank(p.rule)
     keys: dict[tuple[Any, ...], list[int]] = {}
+    k: tuple[Any, ...]
     for i, b in enumerate(p.blocks):
-        if gran == "hourly":
-            k: tuple[Any, ...] = (b.month, b.hour)
+        if ccfg is not None:
+            k = (b.month, cyc.category_of(b.classes)) if ccfg.basis == "tod" else (i,)
+        elif gran == "hourly":
+            k = (b.month, b.hour)
         elif gran == "tod_slot_monthly":
             k = (b.month, b.slot)
         elif gran == "monthly_aggregate":
@@ -231,11 +243,15 @@ def netting(p: Problem) -> Netting:
     for idx in groups:
         m = p.blocks[idx[0]].month
         key = m if gran in AGGREGATED else idx[0]
+        if ccfg is not None:  # a step per banking cycle: the pool is settled as a whole
+            key = _period_index(m, "financial_year" if ccfg.cycle == "annual" else "monthly")
         if key != last:
             step_month.append(m)
             last = key
         group_step.append(len(step_month) - 1)
     period_kind = str(banking.get("period", "monthly"))
+    if ccfg is not None:
+        period_kind = "financial_year" if ccfg.cycle == "annual" else "monthly"
     ends: dict[int, tuple[bool, bool]] = {}
     for s, m in enumerate(step_month):
         nxt = step_month[s + 1] if s + 1 < len(step_month) else p.next_month
@@ -251,12 +267,19 @@ def netting(p: Problem) -> Netting:
             pidx += 1
     dep_b: list[str | None] = []
     draw: list[list[str]] = []
-    for idx in groups:
+    group_cat = [cyc.category_of(p.blocks[idx[0]].classes) for idx in groups] if ccfg is not None else []
+    for g, idx in enumerate(groups):
         b0 = p.blocks[idx[0]]
-        dep_b.append(bank.bucket_for(b0.slot, b0.classes, b0.month.month))
+        if ccfg is not None:
+            dep_b.append(group_cat[g] if ccfg.banking_allowed else None)
+        else:
+            dep_b.append(bank.bucket_for(b0.slot, b0.classes, b0.month.month))
     buckets = sorted({b for b in dep_b if b is not None})
-    for idx in groups:
+    for g, idx in enumerate(groups):
         b0 = p.blocks[idx[0]]
+        if ccfg is not None:
+            draw.append([bk for bk in buckets if group_cat[g] in ccfg.matrix.get(bk, frozenset())])
+            continue
         if not bank.windows:
             draw.append(list(buckets))
             continue
@@ -274,9 +297,11 @@ def netting(p: Problem) -> Netting:
         buckets=buckets,
         charge_pct=float(bank.charge_pct()),
         charge_inr=float(ch["value"]) if ch.get("kind") == "inr_per_kwh" and ch.get("value") else 0.0,
-        carry=bool(banking.get("carry_over")),
-        cap=dict(banking.get("cap") or {}),
-        banking=bank.allowed,
+        carry=bool(banking.get("carry_over")) and ccfg is None,
+        cap=dict(banking.get("cap") or {}) if ccfg is None else {},
+        banking=bank.allowed if ccfg is None else ccfg.banking_allowed,
+        cycle=ccfg,
+        group_cat=group_cat,
     )
 
 
@@ -632,6 +657,55 @@ def _settlement(
     m.bankable = bankable
     m.periods = periods
     lapse_all = [m.lapse[bk, q] for bk in net.buckets for q in periods]
+    cyc_rank: dict[int, dict[str, int]] = {}
+    if net.cycle is not None:
+        share = {c.id: c.delivered_share or 1.0 for c in p.candidates}
+        m.limit_z = pyo.Var(periods, within=pyo.Binary)
+        for q in periods:
+            gq = [g for g in G if net.period_of_step[net.group_step[g]] == q]
+            blocks_q = [t for g in gq for t in net.groups[g]]
+            order = cyc.sink_order(
+                [cyc.category_of(p.blocks[t].classes) for t in blocks_q], [p.grid.rate[t] for t in blocks_q]
+            )
+            cyc_rank[q] = {c: i for i, c in enumerate(order)}
+            gqs = set(gq)
+            banked = sum(m.dep[k, g] for k, g in bankable if g in gqs)
+            if isinstance(banked, int):
+                continue
+            # the grid drawal left after real-time settlement: what the grid and the bank then serve
+            drawal: Any = sum(m.grid[g] for g in gq)
+            for bk, g in draw_idx:
+                if g in gqs:
+                    drawal = drawal + m.w[bk, g]
+            lim = net.cycle.limit
+            legs: list[Any] = []
+            if lim is not None and lim.drawal_pct is not None:
+                legs.append(float(lim.drawal_pct) / 100 * drawal)
+            if lim is not None and lim.generation_pct is not None and lim.combine != "drawal":
+                inj_q: Any = 0
+                for k in ks:
+                    if _may_bank(p, k):
+                        inj_q = inj_q + sum(supplied(k, g) for g in gq if has_supply[k][g]) / share.get(
+                            k, 1.0
+                        )
+                legs.append(float(lim.generation_pct) / 100 * inj_q)
+            if lim is not None and lim.combine == "drawal" and lim.drawal_pct is not None:
+                legs = legs[:1]
+            if len(legs) == 1:
+                add(banked <= legs[0], "banking_limit")
+            elif len(legs) == 2 and lim is not None and lim.combine == "min":
+                add(banked <= legs[0], "banking_limit")
+                add(banked <= legs[1], "banking_limit")
+            elif len(legs) == 2:  # the higher of the two: a binary per cycle
+                big = _big_m(p, gq, net)
+                add(banked <= legs[0] + big * m.limit_z[q], "banking_limit")
+                add(banked <= legs[1] + big * (1 - m.limit_z[q]), "banking_limit")
+            if net.cycle.cap_pct_of_consumption is not None:
+                served: Any = drawal
+                for k in ks:
+                    if _may_bank(p, k):
+                        served = served + sum(m.so[k, g] for g in gq if has_supply[k][g])
+                add(banked <= float(net.cycle.cap_pct_of_consumption) / 100 * served, "banking_limit")
 
     if mode == "settle":
         obj: Any = 0
@@ -646,6 +720,11 @@ def _settlement(
         )
         n_groups = max(1, len(net.groups))
         for bk, g in draw_idx:
+            if net.cycle is not None:
+                # the cycle's drawal order: the highest-rate ToD category first (settlement.cycle)
+                q = net.period_of_step[net.group_step[g]]
+                obj -= (10.0 - 3.0 * cyc_rank[q][net.group_cat[g]]) * m.w[bk, g]
+                continue
             rank = net.drawable[g].index(bk)
             obj -= (10.0 * (1 - g / n_groups) + 1e-6 * (len(net.drawable[g]) - rank)) * m.w[bk, g]
         obj += 100.0 * sum(m.unb[k, g] for k in ks for g in G if has_supply[k][g] and (k, g) in dep_set)

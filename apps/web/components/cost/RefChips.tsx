@@ -1,6 +1,6 @@
 import type { Ref } from "@/lib/intake";
 
-const LABEL: Record<string, string> = { bill: "bill", client_stated: "you said", assumption: "assumed", measured: "meter", derived: "derived" };
+const LABEL: Record<string, string> = { bill: "bill", client_stated: "you said", assumption: "assumed", measured: "meter", derived: "derived", register: "register" };
 
 // Citations for a number: a regulation or order page opens the stored PDF at that page (invariant 1);
 // a bill value opens the client's bill; statements and assumptions are plain chips.

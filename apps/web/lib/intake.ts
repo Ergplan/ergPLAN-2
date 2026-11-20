@@ -1,7 +1,7 @@
 // Client journey steps 1 and 4: bills, confirmations, the site intake and its load profile.
 // Calls go through the same-origin /api proxy. Identity until Stage 8 is a dev header (rule 12).
 
-export type RefKind = "regulation" | "order" | "client_stated" | "assumption" | "measured" | "derived" | "bill";
+export type RefKind = "regulation" | "order" | "client_stated" | "assumption" | "measured" | "derived" | "bill" | "market" | "register";
 
 export type Ref = {
   kind: RefKind;

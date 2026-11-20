@@ -1,0 +1,170 @@
+family: oa_charge
+jurisdiction: TN
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7) · oa_charge
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Additional surcharge · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0'
+    component: additional_surcharge
+  source_ref:
+    kind: register
+    note: TNERC ~30-Apr-2025 (Mercom) - last approved value; FY 2026-27 AS not found (Not verified); third-party OA/exchange
+      only, captive exempt | OA_Solar_4State_Comparison_TN_KA_MH_AP (1).xlsx (02-Oct-2026) — as entered in the jouleWise State
+      Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+    effective_from: '2026-04-01'
+- label: Cross-subsidy surcharge · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.99'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: TNERC T.O. 6/2025 (30-06-2025) p.20 - HT-IA industry — as entered in the jouleWise State Regulation Master · Tamil
+      Nadu · FY 2026-27 (register version 7)
+    effective_from: '2026-04-01'
+- label: Electricity duty on open-access energy · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.1'
+    component: electricity_duty_oa
+  source_ref:
+    kind: register
+    note: TN Tax on Consumption or Sale of Electricity Act 2003 - 10 paise/unit on self-generated consumption | OA_Solar_4State_Comparison_TN_KA_MH_AP.xlsx
+      (02-Oct-2026) — as entered in the jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+    effective_from: '2026-04-01'
+- label: Reactive-energy charge · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0'
+    component: reactive_energy_charge
+  source_ref:
+    kind: register
+    note: TNERC T.O. 8 of 2022 - 17.50 paise/kVArh | OA_Solar_4State_Comparison_TN_KA_MH_AP.xlsx (02-Oct-2026) — as entered
+      in the jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+    effective_from: '2026-04-01'
+- label: SLDC scheduling and operating charge · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.05'
+    component: sldc_operating
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7): entered without a citation'
+    effective_from: '2026-04-01'
+- label: Standby charge · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0'
+    component: standby_charge
+  source_ref:
+    kind: register
+    note: TNERC GEOA Regs 2025 Reg 15 - capped at 125% of applicable tariff | OA_Solar_4State_Comparison_TN_KA_MH_AP.xlsx
+      (02-Oct-2026) — as entered in the jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+    effective_from: '2026-04-01'
+- label: State transmission loss · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    value: '3.81'
+    component: stu_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission charge · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_mw_day
+    value: '6035.61'
+    component: stu_transmission
+    exemptions:
+    - note: 'waiver in the register, applies to: All'
+      condition: re_source_waiver
+      waived_pct: '50'
+  source_ref:
+    kind: register
+    note: TNERC Order 8/2022 T.P.2/2022 (09-09-2022) Table 6-8 p.117 - FY27 (+4%/yr); solar/wind 50% via waiver — as entered
+      in the jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+    effective_from: '2026-04-01'
+- label: Wheeling charge · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    exemptions:
+    - note: 'waiver in the register, applies to: All'
+      condition: re_source_waiver
+      waived_pct: '50'
+    value_by_voltage:
+      '11': '1.04'
+      '22': '1.04'
+      '33': '1.04'
+      '132': '0'
+  source_ref:
+    kind: register
+    note: TNERC Order 6 of 2024 / TO 6 of 2025 - single HT rate (all HT voltages) | OA_Solar_4State_Comparison_TN_KA_MH_AP.xlsx
+      (02-Oct-2026) — as entered in the jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+    effective_from: '2026-04-01'
+  field_refs:
+    /value_by_voltage/11:
+      kind: register
+      note: TNERC T.O. 6/2025 (30-06-2025) para 2.4.2 p.19 - HT (in force until next order) — as entered in the jouleWise
+        State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+      effective_from: '2026-04-01'
+    /value_by_voltage/22:
+      kind: register
+      note: TNERC T.O. 6/2025 (30-06-2025) para 2.4.2 p.19 - HT (in force until next order) — as entered in the jouleWise
+        State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+      effective_from: '2026-04-01'
+    /value_by_voltage/33:
+      kind: register
+      note: TNERC T.O. 6/2025 (30-06-2025) para 2.4.2 p.19 - HT (in force until next order) — as entered in the jouleWise
+        State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7)
+      effective_from: '2026-04-01'
+- label: Wheeling loss · TN · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+    voltage_kv:
+      max: 65
+  body:
+    basis: percent_in_kind
+    notes: One figure in the register; wheeling applies to supply below 66 kV.
+    value: '0'
+    component: wheeling_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7): entered without a citation'
+    effective_from: '2026-04-01'

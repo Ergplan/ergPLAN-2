@@ -1,0 +1,17 @@
+# jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1) · tod_slots
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: RJ
+family: tod_slots
+tests:
+- name: 'slot 1: Normal 00:00–06:00 is normal'
+  given:
+    context: {}
+    field: /slots/0/category
+  expect:
+    value: normal
+- name: 'slot 7: Normal 22:00–24:00 is normal'
+  given:
+    context: {}
+    field: /slots/6/category
+  expect:
+    value: normal

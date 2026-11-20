@@ -1,0 +1,36 @@
+family: settlement
+jurisdiction: GJ
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15) · settlement
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Banking and settlement · GJ · solar, wind and hybrid, intra-state
+  scope:
+    source:
+    - solar
+    - wind
+    - hybrid
+    connection:
+    - intra_state
+  body:
+    notes: 'Cycle settlement as jouleWise models it (erg_plan 2.0): real-time set-off, then banked energy drawn within the
+      banking cycle where the drawal rule allows, the highest-rate ToD category first.'
+    method: cycle_pooled
+    banking:
+      lapse:
+        treatment: lapses
+      limit:
+        combine: drawal
+        drawal_pct: '30'
+      period: monthly
+      allowed: true
+      drawal_rule: higher_to_lower
+    granularity: block_15min
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15): banking rule as entered'
+    effective_from: '2026-04-01'

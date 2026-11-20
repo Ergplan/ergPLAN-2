@@ -1,0 +1,114 @@
+family: oa_charge
+jurisdiction: HR
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Haryana · FY 2026-27 (register version 20) · oa_charge
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Additional surcharge · HR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.37'
+    component: additional_surcharge
+  source_ref:
+    kind: register
+    note: HERC AS order Pet.05&06/2026 (30-04-2026) p.6 para 8 - in force until revised — as entered in the jouleWise State
+      Regulation Master · Haryana · FY 2026-27 (register version 20)
+    effective_from: '2026-04-01'
+- label: Cross-subsidy surcharge · HR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.45'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: HERC TO FY27 (25-03-2026) p.338 - HT supply — as entered in the jouleWise State Regulation Master · Haryana · FY
+      2026-27 (register version 20)
+    effective_from: '2026-04-01'
+- label: SLDC scheduling and operating charge · HR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.05'
+    component: sldc_operating
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Haryana · FY 2026-27 (register version 20): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission loss · HR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    value: '1.94'
+    component: stu_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Haryana · FY 2026-27 (register version 20): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission charge · HR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.4'
+    component: stu_transmission
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Haryana · FY 2026-27 (register version 20): entered without a citation'
+    effective_from: '2026-04-01'
+- label: Wheeling charge · HR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+    value_by_voltage:
+      '11': '0.73'
+      '33': '0.73'
+      '66': '0.45'
+      '132': '0.45'
+      '220': '0.45'
+  source_ref:
+    kind: register
+    note: HERC TO UHBVN/DHBVN FY27 Pet.94&95/2025 (25-03-2026) p.332 - HT 0.73; 66 kV+ embedded network cost 0.45 — as entered
+      in the jouleWise State Regulation Master · Haryana · FY 2026-27 (register version 20)
+    effective_from: '2026-04-01'
+- label: Wheeling loss · HR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+    voltage_kv:
+      max: 65
+  body:
+    basis: percent_in_kind
+    notes: One figure in the register; wheeling applies to supply below 66 kV.
+    value: '2.73'
+    component: wheeling_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Haryana · FY 2026-27 (register version 20): entered without a citation'
+    effective_from: '2026-04-01'

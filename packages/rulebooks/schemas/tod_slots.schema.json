@@ -95,6 +95,14 @@
                     }
                   }
                 }
+              },
+              "category": {
+                "enum": [
+                  "peak",
+                  "normal",
+                  "off_peak"
+                ],
+                "description": "The slot's ToD category for settlement and banking, where the regulation names it; otherwise a slot with a surcharge is peak, with a rebate off-peak, else normal"
               }
             }
           }

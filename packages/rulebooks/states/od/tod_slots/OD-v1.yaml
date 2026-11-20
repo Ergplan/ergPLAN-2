@@ -1,0 +1,34 @@
+family: tod_slots
+jurisdiction: OD
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21) · tod_slots
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: ToD slots · OD · FY 2026-27
+  scope: {}
+  body:
+    slots:
+    - end: 08:00
+      name: Normal 00:00–08:00
+      start: 00:00
+      category: normal
+    - end: '16:00'
+      name: Off-Peak
+      start: 08:00
+      category: off_peak
+    - end: '18:00'
+      name: Normal 16:00–18:00
+      start: '16:00'
+      category: normal
+    - end: '24:00'
+      name: Evening Peak
+      start: '18:00'
+      category: peak
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21): ToD slots as entered'
+    effective_from: '2026-04-01'

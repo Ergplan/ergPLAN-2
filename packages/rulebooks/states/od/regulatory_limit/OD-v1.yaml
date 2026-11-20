@@ -1,0 +1,21 @@
+family: regulatory_limit
+jurisdiction: OD
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21) · regulatory_limit
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Renewable open-access capacity up to 1 × contract demand
+  scope: {}
+  body:
+    unit: percent
+    limit: re_cap_pct_of_contract_demand
+    notes: Capacity restriction with respect to contract demand, as entered in the register.
+    value: '100'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21): capacity restriction as entered'
+    effective_from: '2026-04-01'

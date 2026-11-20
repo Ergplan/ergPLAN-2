@@ -39,6 +39,7 @@ ALL_KINDS: list[JsonValue] = [
     "assumption",
     "derived",
     "market",
+    "register",
 ]
 
 # Normative PPA prices at the generator bus (INR/kWh), assumptions until the client states a quote.

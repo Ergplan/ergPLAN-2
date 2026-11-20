@@ -1,0 +1,17 @@
+# jouleWise State Regulation Master · Haryana · FY 2026-27 (register version 20) · tod_slots
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: HR
+family: tod_slots
+tests:
+- name: 'slot 1: Normal 00:00–09:00 is normal'
+  given:
+    context: {}
+    field: /slots/0/category
+  expect:
+    value: normal
+- name: 'slot 9: Off-Peak 22:00–24:00 is off_peak'
+  given:
+    context: {}
+    field: /slots/8/category
+  expect:
+    value: off_peak

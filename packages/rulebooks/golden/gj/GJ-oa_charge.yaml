@@ -1,0 +1,96 @@
+# jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15) · oa_charge
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: GJ
+family: oa_charge
+tests:
+- name: 'additional_surcharge at 11 kV: 0.99 (inr_per_kwh)'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+      voltage_kv: 11
+    where:
+      /component: additional_surcharge
+      /basis: inr_per_kwh
+    field: /value
+  expect:
+    value: '0.99'
+- name: 'cross_subsidy_surcharge at 11 kV: 1.33 (inr_per_kwh)'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+      voltage_kv: 11
+    where:
+      /component: cross_subsidy_surcharge
+      /basis: inr_per_kwh
+    field: /value
+  expect:
+    value: '1.33'
+- name: 'sldc_operating at 11 kV: 0.05 (inr_per_kwh)'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+      voltage_kv: 11
+    where:
+      /component: sldc_operating
+      /basis: inr_per_kwh
+    field: /value
+  expect:
+    value: '0.05'
+- name: 'stu_losses at 11 kV: 3.37 (percent_in_kind)'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+      voltage_kv: 11
+    where:
+      /component: stu_losses
+      /basis: percent_in_kind
+    field: /value
+  expect:
+    value: '3.37'
+- name: 'stu_transmission at 11 kV: 3858.96 (inr_per_mw_day)'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+      voltage_kv: 11
+    where:
+      /component: stu_transmission
+      /basis: inr_per_mw_day
+    field: /value
+  expect:
+    value: '3858.96'
+- name: 'wheeling at 11 kV: 0.2352 (inr_per_kwh)'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+      voltage_kv: 11
+    where:
+      /component: wheeling
+      /basis: inr_per_kwh
+    field: /value_by_voltage/11
+  expect:
+    value: '0.2352'
+- name: 'wheeling_losses at 11 kV: 6.5 (percent_in_kind)'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+      voltage_kv: 11
+    where:
+      /component: wheeling_losses
+      /basis: percent_in_kind
+    field: /value_by_voltage/11
+  expect:
+    value: '6.5'

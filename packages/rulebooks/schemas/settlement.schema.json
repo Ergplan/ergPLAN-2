@@ -228,6 +228,84 @@
               "type": "string",
               "pattern": "^-?\\d+(\\.\\d+)?$",
               "description": "Share of injection in MW terms that may be banked in each 15-minute block"
+            },
+            "drawal_rule": {
+              "enum": [
+                "same_tod",
+                "higher_to_lower",
+                "custom"
+              ],
+              "description": "cycle_pooled: where banked energy may be drawn. same_tod: only in the ToD category it was banked in; higher_to_lower: there and in every lower-value category (peak > normal > off-peak); custom: banking.matrix"
+            },
+            "matrix": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "cycle_pooled, drawal_rule custom: for each category energy is banked in, the categories it may be drawn in (a category left out: only in itself)",
+              "properties": {
+                "peak": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "peak",
+                      "normal",
+                      "off_peak"
+                    ]
+                  },
+                  "uniqueItems": true
+                },
+                "normal": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "peak",
+                      "normal",
+                      "off_peak"
+                    ]
+                  },
+                  "uniqueItems": true
+                },
+                "off_peak": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "peak",
+                      "normal",
+                      "off_peak"
+                    ]
+                  },
+                  "uniqueItems": true
+                }
+              }
+            },
+            "limit": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "cycle_pooled: the most that may be banked in a cycle, before the banking charge",
+              "properties": {
+                "drawal_pct": {
+                  "type": "string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "description": "Share of the grid drawal left after real-time settlement (percent, decimal as string)"
+                },
+                "generation_pct": {
+                  "type": "string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "description": "Share of the generation at the injection point (percent, decimal as string)"
+                },
+                "consumption_pct": {
+                  "type": "string",
+                  "pattern": "^-?\\d+(\\.\\d+)?$",
+                  "description": "Share of the cycle's consumption (percent, decimal as string)"
+                },
+                "combine": {
+                  "enum": [
+                    "max",
+                    "min",
+                    "drawal"
+                  ],
+                  "description": "With both shares: the higher, the lower, or the drawal share alone"
+                }
+              }
             }
           }
         },
@@ -263,6 +341,13 @@
         },
         "notes": {
           "type": "string"
+        },
+        "method": {
+          "enum": [
+            "chronological",
+            "cycle_pooled"
+          ],
+          "description": "How the bank is settled. chronological (default): deposits and withdrawals in time order, first in first out. cycle_pooled: the ergPLAN 2 cycle settlement — each banking cycle (banking.period: monthly, or a year) is one pool per ToD category; banked energy is drawn within the cycle wherever banking.drawal_rule allows, the highest-rate category first, within banking.limit; what is left at the cycle's end lapses"
         }
       }
     },

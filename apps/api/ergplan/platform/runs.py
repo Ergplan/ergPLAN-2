@@ -36,7 +36,7 @@ from ..db.models import (
 )
 from ..engine import avoided_cost, landed_cost, lcoe, lifecycle, tariff_eval
 from ..engine import scope as escope
-from ..engine.tariff_eval import slot_adjustment_pct, slot_of
+from ..engine.tariff_eval import slot_classes, slot_of
 from ..intake import generation, profile_synthesis
 from ..optimizer import model as om
 from ..optimizer.highs_solve import Solution, SolveFailed, solve
@@ -246,7 +246,7 @@ def assemble(
         tod = rules_for(mf).tod
         sl = slot_of(tod, day.month, (i % 96) * 15) if tod else None
         name = str(sl["name"]) if sl else "all hours"
-        cls = frozenset({"peak" if sl and slot_adjustment_pct(sl) > 0 else "off_peak"})
+        cls = slot_classes(sl)
         blocks.append(om.BlockMeta(mf, name, cls, i // 4))
         load_d.append(sum(kw[i : i + step], ZERO) * Decimal("0.25"))
         load.append(_f(load_d[-1]))
@@ -590,6 +590,7 @@ def assemble(
                 renewable=src.price_kind != "iex",
                 min_size_kw=min_oa_kw[0] if min_oa_kw and src.price_kind != "iex" else 0.0,
                 dispatchable=src.price_kind == "iex",
+                delivered_share=_f(keep),
             )
         )
         if min_oa_kw and src.price_kind != "iex":

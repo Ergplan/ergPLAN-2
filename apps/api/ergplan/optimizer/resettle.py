@@ -52,8 +52,28 @@ def blocks_for(p: Problem, sol: Solution) -> list[Block]:
 
 def resettle(p: Problem, sol: Solution, tolerance_kwh: Decimal) -> Resettled:
     blocks = blocks_for(p, sol)
-    sources = [SourceIn(id=c.id, category=c.category, may_bank=c.may_bank) for c in p.candidates if not c.btm]
-    res = simulate(blocks, sources, p.rule)
+    sources = [
+        SourceIn(
+            id=c.id,
+            category=c.category,
+            may_bank=c.may_bank,
+            delivered_share=Decimal(repr(c.delivered_share or 1.0)),
+        )
+        for c in p.candidates
+        if not c.btm
+    ]
+    res = simulate(blocks, sources, p.rule, rates=exact_of(p).rate)
+    # an annual banking cycle is settled as one pool: only the year's totals are defined for both
+    annual_pool = (
+        res.cycle is not None
+        and (p.rule.body.get("banking") or {}).get("period")
+        in (
+            "financial_year",
+            "calendar_year",
+        )
+        if p.rule
+        else False
+    )
     sim: dict[date, dict[str, Decimal]] = defaultdict(lambda: {q: Decimal(0) for q in QUANTITIES})
     for i, b in enumerate(blocks):
         s = sim[b.month]
@@ -72,7 +92,8 @@ def resettle(p: Problem, sol: Solution, tolerance_kwh: Decimal) -> Resettled:
             a = dec(sol.settled.get(mo, {}).get(q, 0.0))
             b2 = sim[mo][q].quantize(KWH)
             row[q] = {"solver": a, "settled": b2}
-            worst = max(worst, abs(a - b2))
+            if not annual_pool:
+                worst = max(worst, abs(a - b2))
         by_month[mo] = row
     for q in QUANTITIES:  # annual totals too
         a = sum((r[q]["solver"] for r in by_month.values()), Decimal(0))

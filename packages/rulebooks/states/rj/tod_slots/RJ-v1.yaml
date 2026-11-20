@@ -1,0 +1,49 @@
+family: tod_slots
+jurisdiction: RJ
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1) · tod_slots
+effective_from: '2025-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: ToD slots · RJ · FY 2025-26
+  scope: {}
+  body:
+    slots:
+    - end: 06:00
+      name: Normal 00:00–06:00
+      start: 00:00
+      category: normal
+    - end: 08:00
+      name: Morning Peak
+      start: 06:00
+      category: peak
+      surcharge_pct: '5'
+    - end: '12:00'
+      name: Normal 08:00–12:00
+      start: 08:00
+      category: normal
+    - end: '16:00'
+      name: Off-Peak
+      start: '12:00'
+      category: off_peak
+      rebate_pct: '10'
+    - end: '18:00'
+      name: Normal 16:00–18:00
+      start: '16:00'
+      category: normal
+    - end: '22:00'
+      name: Evening Peak
+      start: '18:00'
+      category: peak
+      surcharge_pct: '10'
+    - end: '24:00'
+      name: Normal 22:00–24:00
+      start: '22:00'
+      category: normal
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1): ToD slots as entered'
+    effective_from: '2025-04-01'

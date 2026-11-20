@@ -33,6 +33,7 @@ from typing import Any
 from ..core.sourced import SourcedValue, derive
 from ..core.units import Unit
 from ..rulebook.models import RuleView
+from . import cycle
 
 ZERO = Decimal(0)
 HUNDRED = Decimal(100)
@@ -55,6 +56,7 @@ class SourceIn:
     category: str = "captive_generation"  # captive_generation | bilateral | exchange
     may_bank: bool = True  # the settlement rule's scope covers this source
     surplus: str = "bank"  # bank | sell | curtail when not banked
+    delivered_share: Decimal = Decimal(1)  # energy at the meter per unit injected (after losses)
 
 
 @dataclass
@@ -78,6 +80,7 @@ class Result:
     lapsed: list[dict[str, Any]] = field(default_factory=list)  # {month, bucket, kwh}
     balances: list[dict[str, Any]] = field(default_factory=list)  # {month, bucket, kwh} at period end
     notes: list[str] = field(default_factory=list)
+    cycle: cycle.CycleResult | None = None  # the cycle settlement's own account, when the rule uses it
 
     def total(self, series: list[Decimal]) -> Decimal:
         return sum(series, ZERO)
@@ -218,8 +221,13 @@ def simulate(
     sources: Sequence[SourceIn],
     rule: RuleView | None,
     set_off_order: Sequence[str] | None = None,
+    rates: Sequence[Decimal] | None = None,
 ) -> Result:
+    """`rates` (INR/kWh per block) matter only to a `cycle_pooled` rule: banked energy is drawn in the
+    ToD category with the highest grid rate first."""
     body = rule.body if rule else {}
+    if str(body.get("method", "chronological")) == "cycle_pooled":
+        return _simulate_cycle(blocks, sources, body, set_off_order, rates)
     gran = str(body.get("granularity", "block_15min"))
     order = [
         c for c in (set_off_order or body.get("set_off_order") or []) if c in (*CATEGORIES, "banked_energy")
@@ -381,6 +389,125 @@ def simulate(
                 res.balances.append({"month": m, "bucket": bucket, "kwh": kwh})
             inj_in_period = ZERO
             grid_in_period = ZERO
+    return res
+
+
+# ---------------------------------------------------------------- cycle settlement (ergPLAN 2)
+
+
+def _simulate_cycle(
+    blocks: Sequence[Block],
+    sources: Sequence[SourceIn],
+    body: dict[str, Any],
+    set_off_order: Sequence[str] | None,
+    rates: Sequence[Decimal] | None,
+) -> Result:
+    """A `cycle_pooled` rule: `settlement.cycle.settle` (the erg_plan 2.0 engine) on the energy of the
+    sources that may bank; a source that may not bank (an exchange purchase) is set off in its own
+    block against what the banking sources leave, and its surplus is not banked."""
+    cfg = cycle.config_from_rule(body)
+    n = len(blocks)
+    ids = [s.id for s in sources]
+    order = [c for c in (set_off_order or body.get("set_off_order") or []) if c in CATEGORIES]
+    order += [c for c in CATEGORIES if c not in order]
+    ranked = sorted(sources, key=lambda s: order.index(s.category) if s.category in order else len(order))
+    bank_src = [s for s in ranked if s.may_bank]
+    other = [s for s in ranked if not s.may_bank]
+    res = Result(
+        "tod_slot_monthly" if cfg.basis == "tod" else "block_15min",
+        [ZERO] * n,
+        {i: [ZERO] * n for i in ids},
+        [ZERO] * n,
+        {i: [ZERO] * n for i in ids},
+        {i: [ZERO] * n for i in ids},
+        {i: [ZERO] * n for i in ids},
+        setoff_at_source_kwh={i: [ZERO] * n for i in ids},
+    )
+    gen = [sum((b.supply_kwh.get(s.id, ZERO) for s in bank_src), ZERO) for b in blocks]
+    inj = [sum((b.supply_kwh.get(s.id, ZERO) / s.delivered_share for s in bank_src), ZERO) for b in blocks]
+    cats = [cycle.category_of(b.classes) for b in blocks]
+    months = [b.month for b in blocks]
+    # sources that may not bank: set off after the banking sources, in their own netting unit (the
+    # block, or the month's ToD slot on a ToD basis); their surplus is not banked
+    units: dict[Any, list[int]] = {}
+    for i in range(n):
+        units.setdefault((months[i], cats[i]) if cfg.basis == "tod" else i, []).append(i)
+    cons = [b.load_kwh for b in blocks]
+    for idx in units.values() if other else ():
+        load_u = sum((blocks[i].load_kwh for i in idx), ZERO)
+        left = load_u - min(load_u, sum((gen[i] for i in idx), ZERO))
+        for s in other:
+            have = sum((blocks[i].supply_kwh.get(s.id, ZERO) for i in idx), ZERO)
+            if have <= 0:
+                continue
+            use = min(have, left)
+            left -= use
+            for i in idx:
+                mine = blocks[i].supply_kwh.get(s.id, ZERO)
+                share_load = blocks[i].load_kwh / load_u if load_u > 0 else ZERO
+                res.setoff_kwh[s.id][i] = use * share_load
+                res.setoff_at_source_kwh[s.id][i] = use * mine / have
+                res.unbanked_kwh[s.id][i] = (have - use) * mine / have
+                cons[i] -= use * share_load
+    annual = cfg.cycle == "annual"
+
+    def order_of(group: Any) -> list[str]:
+        if rates is None:
+            return list(cycle.CATS)
+        idx = [i for i in range(n) if annual or months[i] == group]
+        return cycle.sink_order([cats[i] for i in idx], [rates[i] for i in idx])
+
+    out = cycle.settle(months, cats, cons, gen, inj, cfg, order_of)
+    res.grid_kwh = out.grid_kwh
+    res.withdrawn_kwh = out.withdrawn_kwh
+    # per source: direct set-off and surplus pro rata to each banking source's supply in the block
+    pool = {(p.group, p.cat): p for p in out.pools}
+    # a ToD-basis slot nets its totals: its direct energy sits on the blocks with demand, so each
+    # source's part of it follows the source's share of the slot's generation
+    cell_gen: dict[tuple[Any, str], Decimal] = defaultdict(lambda: ZERO)
+    cell_src: dict[tuple[Any, str, str], Decimal] = defaultdict(lambda: ZERO)
+    cell_direct: dict[tuple[Any, str], Decimal] = defaultdict(lambda: ZERO)
+    if cfg.basis == "tod":
+        for i, b in enumerate(blocks):
+            cell_gen[(months[i], cats[i])] += gen[i]
+            cell_direct[(months[i], cats[i])] += out.direct_kwh[i]
+            for s in bank_src:
+                cell_src[(months[i], cats[i], s.id)] += b.supply_kwh.get(s.id, ZERO)
+    for i, b in enumerate(blocks):
+        g = gen[i]
+        key = (months[i], cats[i])
+        if cfg.basis == "tod" and cell_gen[key] > 0:
+            for s in bank_src:
+                res.setoff_kwh[s.id][i] = out.direct_kwh[i] * cell_src[(*key, s.id)] / cell_gen[key]
+        if g <= 0:
+            continue
+        p = pool[(None if annual else months[i], cats[i])]
+        surplus = out.surplus_kwh[i]
+        banked = surplus * p.banked_before_charge / p.surplus if p.surplus > 0 else ZERO
+        net = banked * p.banked_after_charge / p.banked_before_charge if p.banked_before_charge > 0 else ZERO
+        for s in bank_src:
+            have = b.supply_kwh.get(s.id, ZERO)
+            share = have / g
+            if share <= 0:
+                continue
+            if cfg.basis == "tod":
+                res.setoff_at_source_kwh[s.id][i] = cell_direct[key] * have / cell_gen[key]
+            else:
+                res.setoff_kwh[s.id][i] = out.direct_kwh[i] * share
+                res.setoff_at_source_kwh[s.id][i] = out.direct_kwh[i] * share
+            res.deposit_kwh[s.id][i] = net * share
+            res.charge_kwh[s.id][i] = (banked - net) * share
+            res.unbanked_kwh[s.id][i] = (surplus - banked) * share
+    last = max(months) if months else None
+    for p in out.pools:
+        if p.lapsed_banked > 0:
+            res.lapsed.append({"month": last if annual else p.group, "bucket": p.cat, "kwh": p.lapsed_banked})
+    res.notes.append(
+        "cycle settlement: real-time set-off, then banked energy drawn within the "
+        + ("year" if annual else "month")
+        + ", the highest-rate ToD category first"
+    )
+    res.cycle = out
     return res
 
 

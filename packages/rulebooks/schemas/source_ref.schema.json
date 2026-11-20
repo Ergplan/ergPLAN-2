@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "source_ref.schema.json",
   "title": "SourceRef",
-  "description": "Where a value comes from. A regulation/order ref must resolve to a stored PDF page: /documents/{document_id}#page={page}.",
+  "description": "Where a value comes from. A regulation/order ref must resolve to a stored PDF page: /documents/{document_id}#page={page}. A register ref (kind register) is a value taken from jouleWise's State Regulation Master with the citation its analyst entered in note; it names an order but no stored page.",
   "type": "object",
   "required": [
     "kind"
@@ -18,7 +18,8 @@
         "measured",
         "derived",
         "bill",
-        "market"
+        "market",
+        "register"
       ]
     },
     "document_id": {

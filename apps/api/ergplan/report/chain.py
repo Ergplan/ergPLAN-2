@@ -38,6 +38,7 @@ EXTRA: dict[str, Any] = {
         "client_stated",
         "bill",
         "market",
+        "register",
         "measured",
     ],
 }

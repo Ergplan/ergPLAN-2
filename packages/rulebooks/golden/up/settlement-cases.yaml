@@ -3,7 +3,7 @@
 # 30% of DISCOM consumption, FIFO, off-peak deposits drawn only off-peak, peak deposits drawn in peak or off-peak,
 # everything left lapses at the end of the financial year. Energy in kWh at the meter.
 # Mirrored in packages/rulebooks/golden/up/settlement-cases.yaml (a test keeps them equal).
-rule: {file: up/settlement/UP-v1.yaml, row: 0}
+rule: {file: UP-v1.yaml, row: 0}
 sources: [{id: solar, category: captive_generation}]
 cases:
   - name: surplus banked after 8%, not drawable in peak, drawn off-peak

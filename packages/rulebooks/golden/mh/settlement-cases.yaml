@@ -2,7 +2,7 @@
 # Regulations; packages/rulebooks/states/mh/settlement): net within each ToD slot across the month; surplus banked per
 # slot without carry-over; normal deposits drawable in normal and solar, solar only in solar, peak in all slots.
 # Mirrored in packages/rulebooks/golden/mh/settlement-cases.yaml.
-rule: {file: mh/settlement/msedcl-v2.yaml, row: 0}
+rule: {file: msedcl-v2.yaml, row: 0}
 sources: [{id: re, category: captive_generation}]
 cases:
   - name: solar surplus cannot serve normal or peak and lapses at month end

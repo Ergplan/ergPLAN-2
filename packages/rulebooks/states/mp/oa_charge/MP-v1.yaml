@@ -1,0 +1,108 @@
+family: oa_charge
+jurisdiction: MP
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Madhya Pradesh · FY 2026-27 (register version 17) · oa_charge
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Additional surcharge · MP · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.18'
+    component: additional_surcharge
+  source_ref:
+    kind: register
+    note: MPERC RST FY27 (26-03-2026) - AS 1.18 (not for captive / OA within CD paying fixed charges) — as entered in the
+      jouleWise State Regulation Master · Madhya Pradesh · FY 2026-27 (register version 17)
+    effective_from: '2026-04-01'
+- label: Cross-subsidy surcharge · MP · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.49'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: MPERC RST FY27 (26-03-2026) - HT industrial — as entered in the jouleWise State Regulation Master · Madhya Pradesh
+      · FY 2026-27 (register version 17)
+    effective_from: '2026-04-01'
+- label: SLDC scheduling and operating charge · MP · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_mw_month
+    value: '0'
+    component: sldc_operating
+  source_ref:
+    kind: register
+    note: 'MPERC SLDC P.134/2025 (09-03-2026) - LTOA charge applies to users other than renewable sources: 0 for RE — as entered
+      in the jouleWise State Regulation Master · Madhya Pradesh · FY 2026-27 (register version 17)'
+    effective_from: '2026-04-01'
+- label: State transmission loss · MP · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    value: '2.61'
+    component: stu_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Madhya Pradesh · FY 2026-27 (register version 17): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission charge · MP · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.46'
+    component: stu_transmission
+  source_ref:
+    kind: register
+    note: MPERC MPPTCL MYT P.54/2024 (20-03-2025) - RE at 132 kV+ / STOA per-unit FY27 — as entered in the jouleWise State
+      Regulation Master · Madhya Pradesh · FY 2026-27 (register version 17)
+    effective_from: '2026-04-01'
+- label: Wheeling charge · MP · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    value_by_voltage:
+      '11': '0.69'
+      '33': '0.17'
+      '132': '0'
+      '220': '0'
+  source_ref:
+    kind: register
+    note: MPERC RST FY27 P.140/2025 (26-03-2026) - 33 kV 0.17, 11 kV 0.69; EHV n/a — as entered in the jouleWise State Regulation
+      Master · Madhya Pradesh · FY 2026-27 (register version 17)
+    effective_from: '2026-04-01'
+- label: Wheeling loss · MP · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling_losses
+    value_by_voltage:
+      '11': '4.47'
+      '33': '3.57'
+      '132': '0'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Madhya Pradesh · FY 2026-27 (register version 17): entered without a citation'
+    effective_from: '2026-04-01'

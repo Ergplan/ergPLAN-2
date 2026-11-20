@@ -1,0 +1,110 @@
+family: oa_charge
+jurisdiction: GJ
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15) · oa_charge
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Additional surcharge · GJ · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.99'
+    component: additional_surcharge
+  source_ref:
+    kind: register
+    note: GERC AS Order 05/2026 (10-09-2026) paras 5-6 - 01-10-2026 to 31-03-2027 — as entered in the jouleWise State Regulation
+      Master · Gujarat · FY 2026-27 (register version 15)
+    effective_from: '2026-04-01'
+- label: Cross-subsidy surcharge · GJ · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.33'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: GERC DGVCL TO FY27 (25-03-2026) Table 9-3 p.147 - HT category, state DISCOMs — as entered in the jouleWise State
+      Regulation Master · Gujarat · FY 2026-27 (register version 15)
+    effective_from: '2026-04-01'
+- label: SLDC scheduling and operating charge · GJ · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.05'
+    component: sldc_operating
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission loss · GJ · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    value: '3.37'
+    component: stu_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission charge · GJ · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_mw_day
+    value: '3858.96'
+    component: stu_transmission
+  source_ref:
+    kind: register
+    note: GERC GETCO MYT Case 2419/2024 (29-03-2025) Table 6-4 p.120 - FY27 LTOA/MTOA — as entered in the jouleWise State
+      Regulation Master · Gujarat · FY 2026-27 (register version 15)
+    effective_from: '2026-04-01'
+- label: Wheeling charge · GJ · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    value_by_voltage:
+      '11': '0.2352'
+      '22': '0.2352'
+      '33': '0.2352'
+      '66': '0'
+      '132': '0'
+      '220': '0'
+  source_ref:
+    kind: register
+    note: GERC DGVCL TO FY27 Case 2581/2025 (25-03-2026) Table 9-2 p.145 - HT 11/22/33 kV (state DISCOMs); 66 kV+ transmission
+      only (Solar Order 06/2024 s.3.3(a)) — as entered in the jouleWise State Regulation Master · Gujarat · FY 2026-27 (register
+      version 15)
+    effective_from: '2026-04-01'
+- label: Wheeling loss · GJ · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling_losses
+    value_by_voltage:
+      '11': '6.5'
+      '22': '6.5'
+      '33': '6.5'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15): entered without a citation'
+    effective_from: '2026-04-01'

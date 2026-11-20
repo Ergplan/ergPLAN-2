@@ -1,0 +1,130 @@
+family: oa_charge
+jurisdiction: OD
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21) · oa_charge
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Additional surcharge · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0'
+    component: additional_surcharge
+  source_ref:
+    kind: register
+    note: OERC DISCOM TO FY27 (24-03-2026) para 322(iv) - no AS — as entered in the jouleWise State Regulation Master · Odisha
+      · FY 2026-27 (register version 21)
+    effective_from: '2026-04-01'
+- label: Cross-subsidy surcharge · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.5642'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: OERC DISCOM TO FY27 (24-03-2026) Table 45 p.144 - TPCODL HT — as entered in the jouleWise State Regulation Master
+      · Odisha · FY 2026-27 (register version 21)
+    effective_from: '2026-04-01'
+- label: Electricity duty on open-access energy · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.522'
+    component: electricity_duty_oa
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21): entered without a citation'
+    effective_from: '2026-04-01'
+- label: SLDC scheduling and operating charge · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_mw_month
+    value: '766.348'
+    component: sldc_operating
+  source_ref:
+    kind: register
+    note: OERC SLDC Case 119/2025 (24-03-2026) paras 70-71 - generators/sellers (SOC 599.751 + MOC 166.597) — as entered in
+      the jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21)
+    effective_from: '2026-04-01'
+- label: State transmission loss · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: stu_losses
+    value_by_voltage:
+      '132': '3'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission charge · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.24'
+    component: stu_transmission
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+  source_ref:
+    kind: register
+    note: OERC OPTCL TO FY27 Case 121/2025 (24-03-2026) para 194 p.96 - 5,760/MW-day = Rs 240/MWh; GEOA in-state RE per kWh
+      (Reg 11(1)(b)) — as entered in the jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21)
+    effective_from: '2026-04-01'
+- label: Wheeling charge · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+    value_by_voltage:
+      '11': '1.1656'
+      '33': '1.1656'
+      '132': '0'
+      '220': '0'
+  source_ref:
+    kind: register
+    note: OERC DISCOM TO FY27 (24-03-2026) Table 46 p.144 - TPCODL, single HT/LT rate; EHT nil — as entered in the jouleWise
+      State Regulation Master · Odisha · FY 2026-27 (register version 21)
+    effective_from: '2026-04-01'
+- label: Wheeling loss · OD · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling_losses
+    value_by_voltage:
+      '11': '7'
+      '33': '7'
+      '132': '0'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Odisha · FY 2026-27 (register version 21): entered without a citation'
+    effective_from: '2026-04-01'

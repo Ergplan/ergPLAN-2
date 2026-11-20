@@ -1,0 +1,34 @@
+family: tod_slots
+jurisdiction: CG
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19) · tod_slots
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: ToD slots · CG · FY 2026-27
+  scope: {}
+  body:
+    slots:
+    - end: 09:00
+      name: Normal 00:00–09:00
+      start: 00:00
+      category: normal
+    - end: '17:00'
+      name: Off-Peak
+      start: 09:00
+      category: off_peak
+    - end: '23:00'
+      name: Evening Peak
+      start: '17:00'
+      category: peak
+    - end: '24:00'
+      name: Normal 23:00–24:00
+      start: '23:00'
+      category: normal
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19): ToD slots as entered'
+    effective_from: '2026-04-01'

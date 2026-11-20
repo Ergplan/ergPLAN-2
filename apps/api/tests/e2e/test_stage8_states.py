@@ -118,15 +118,18 @@ def test_coverage_names_what_is_not_yet_sourced() -> None:
     assert cov["TS"]["families"]["settlement"] == "not yet sourced"  # banking: TGERC OA regulations
     assert (
         cov["KA"]["families"]["tod_slots"] == "approved"
-        and cov["PB"]["families"]["tod_slots"] == "not yet sourced"
+        and cov["PB"]["families"]["tod_slots"] == "approved"  # from the State Regulation Master (register)
     )
-    for st in ("GJ", "AP"):  # tariffs approved; open access and banking not yet sourced
+    # ergPLAN 2: open access and banking for these states now come from the State Regulation Master
+    for st in ("GJ", "AP"):
         assert cov[st]["families"]["tariff_schedule"] == "approved", st
         assert cov[st]["families"]["tod_slots"] == "approved", st
-        assert cov[st]["families"]["oa_charge"] == "not yet sourced", st
-        assert cov[st]["families"]["settlement"] == "not yet sourced", st
-    for st in ("RJ", "HR"):
-        assert set(cov[st]["families"].values()) == {"not yet sourced"}, st
+        assert cov[st]["families"]["oa_charge"] == "approved", st
+        assert cov[st]["families"]["settlement"] == "approved", st
+    for st in ("RJ", "HR", "MP"):  # no retail schedule in the register: the bill gives the tariff
+        assert cov[st]["families"]["tariff_schedule"] == "not yet sourced", st
+        assert cov[st]["families"]["oa_charge"] == "approved", st
+        assert cov[st]["families"]["settlement"] == "approved", st
     assert cov["GJ"]["families"]["tariff_schedule"] == "approved"
     assert cov["GJ"]["jurisdictions"]["tariff_schedule"] == ["gj_discoms"]
     assert cov["UP"]["families"]["settlement"] == "approved"

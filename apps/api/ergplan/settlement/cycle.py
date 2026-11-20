@@ -93,6 +93,7 @@ class Pool:
     grid: Decimal
     exported: Decimal  # over the limit, or banked and never drawn
     charge: Decimal
+    lapsed_banked: Decimal = ZERO  # banked (after the charge) and not drawn in the cycle
 
 
 @dataclass
@@ -380,7 +381,7 @@ def settle(
             tot["exported"] += exported
             out_pools.append(
                 Pool(g, c, p["cons"], p["gen"], p["direct"], p["gi"], p["gd"], banked, after,
-                     drawn_into[c], grid, exported, loss)
+                     drawn_into[c], grid, exported, loss, max(ZERO, after - used_from[c]))
             )  # fmt: skip
 
     # settled cells: an annual cycle's drawal into a category is spread over the months pro rata to
@@ -451,3 +452,53 @@ def settle(
         surplus_kwh=surplus_b,
         by_cat={c: (v[0], v[1]) for c, v in by_cat.items()},
     )
+
+
+# ---------------------------------------------------------------- from a settlement rule
+
+
+def category_of(classes: frozenset[str] | set[str]) -> str:
+    """A block's ToD category from its slot classes (`cat:peak`, `cat:normal`, `cat:off_peak`)."""
+    for c in CATS:
+        if f"cat:{c}" in classes:
+            return c
+    return "normal"
+
+
+def config_from_rule(body: Mapping[str, Any]) -> Config:
+    """The cycle settlement a rule body (settlement.schema.json, `method: cycle_pooled`) describes."""
+    b = body.get("banking") or {}
+    ch = b.get("charge") or {}
+    charge = Decimal(str(ch["value"])) if ch.get("kind") == "in_kind_percent" and ch.get("value") else ZERO
+    lim_b = b.get("limit") or {}
+
+    def pct(key: str) -> Decimal | None:
+        return Decimal(str(lim_b[key])) if lim_b.get(key) not in (None, "") else None
+
+    limit = None
+    if pct("drawal_pct") is not None or pct("generation_pct") is not None:
+        limit = Limit(pct("drawal_pct"), pct("generation_pct"), str(lim_b.get("combine", "max")))
+    rule = str(b.get("drawal_rule", "higher_to_lower"))
+    return Config(
+        banking_allowed=bool(b.get("allowed")),
+        cycle="annual" if b.get("period") in ("financial_year", "calendar_year") else "monthly",
+        charge_pct=charge,
+        basis="tod" if body.get("granularity") == "tod_slot_monthly" else "block",
+        matrix=matrix_for(rule, b.get("matrix")),
+        limit=limit,
+        cap_pct_of_consumption=pct("consumption_pct"),
+        surplus="sold"
+        if (b.get("lapse") or {}).get("treatment") in ("paid", "paid_at_re_tariff")
+        else "lapse",
+    )
+
+
+def sink_order(cats: Sequence[str], rates: Sequence[Decimal | float]) -> list[str]:
+    """Drawal order of a cycle: the category with the highest mean grid rate over the cycle's blocks
+    first; ties (to the sixth decimal) in the order peak, normal, off-peak."""
+    tot: dict[str, list[float]] = {c: [0.0, 0.0] for c in CATS}
+    for c, r in zip(cats, rates, strict=True):
+        tot[c][0] += float(r)
+        tot[c][1] += 1.0
+    mean = {c: round(v[0] / v[1], 6) if v[1] else float("-inf") for c, v in tot.items()}
+    return sorted(CATS, key=lambda c: -mean[c])

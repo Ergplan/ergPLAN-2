@@ -20,7 +20,7 @@ from ergplan.rulebook.models import RuleView
 from ergplan.settlement.simulate import Bank, Block, SourceIn, simulate, statement
 
 CASES = Path(__file__).parent / "cases"
-STATES = REPO_ROOT / "packages" / "rulebooks" / "states"
+STATES = Path(__file__).parent / "rules"  # the cited UP and MH rules as first issued (chronological banking)
 GOLDEN = REPO_ROOT / "packages" / "rulebooks" / "golden"
 D = Decimal
 
@@ -134,8 +134,8 @@ def _random_year(seed: int, months: int = 3) -> list[Block]:
 @pytest.mark.parametrize(
     "rule",
     [
-        {"file": "up/settlement/UP-v1.yaml", "row": 0},
-        {"file": "mh/settlement/msedcl-v2.yaml", "row": 0},
+        {"file": "UP-v1.yaml", "row": 0},
+        {"file": "msedcl-v2.yaml", "row": 0},
         {
             "body": {
                 "granularity": "hourly",
@@ -188,7 +188,7 @@ def test_bank_never_goes_negative() -> None:
 
 
 def test_statement_lines_cite_the_rule() -> None:
-    rule = _rule({"file": "up/settlement/UP-v1.yaml", "row": 0})
+    rule = _rule({"file": "UP-v1.yaml", "row": 0})
     res = simulate(
         _blocks(
             [{"month": "2026-04", "slot": "d", "classes": ["off_peak"], "load": 10, "supply": {"pv": 30}}]

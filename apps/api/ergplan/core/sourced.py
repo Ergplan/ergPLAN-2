@@ -38,6 +38,10 @@ class RefKind(StrEnum):
     DERIVED = "derived"
     BILL = "bill"  # read by billx from the client's own bill (invariant 7); links to the stored bill page
     MARKET = "market"  # an exchange price from an uploaded IEX file (price_vintages; invariant 8)
+    # a value from jouleWise's State Regulation Master (erg_plan 2.0): the analyst's citation is in
+    # `note`; it names an order or regulation but no stored page, so it is shown as "register", not
+    # as a sourced fact, until the page is cited
+    REGISTER = "register"
 
 
 DOCUMENT_KINDS = {RefKind.REGULATION, RefKind.ORDER}

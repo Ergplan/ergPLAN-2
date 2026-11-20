@@ -1,0 +1,113 @@
+family: oa_charge
+jurisdiction: CG
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19) · oa_charge
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Additional surcharge · CG · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0'
+    component: additional_surcharge
+  source_ref:
+    kind: register
+    note: CSERC TO CSPDCL FY27 (15-06-2026) - no AS determined — as entered in the jouleWise State Regulation Master · Chhattisgarh
+      · FY 2026-27 (register version 19)
+    effective_from: '2026-04-01'
+- label: Cross-subsidy surcharge · CG · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.43'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: CSERC TO CSPDCL FY27 (15-06-2026) Table 6-5 / schedule - 33/11 kV (20% ACoS cap) — as entered in the jouleWise State
+      Regulation Master · Chhattisgarh · FY 2026-27 (register version 19)
+    effective_from: '2026-04-01'
+- label: Standby charge · CG · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '11.93'
+    component: standby_charge
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission loss · CG · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    value: '3.29'
+    component: stu_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission charge · CG · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_mw_day
+    value: '5654'
+    component: stu_transmission
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19): entered without a citation'
+    effective_from: '2026-04-01'
+- label: Wheeling charge · CG · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+    value_by_voltage:
+      '11': '0.7443'
+      '33': '0.2605'
+      '132': '0'
+      '220': '0'
+  source_ref:
+    kind: register
+    note: CSERC TO CSPDCL FY27 P.103/2025(T) (15-06-2026) tariff schedule s.1.3 - 33 kV 0.2605, below 33 kV 0.7443; EHV N/A
+      — as entered in the jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19)
+    effective_from: '2026-04-01'
+- label: Wheeling loss · CG · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling_losses
+    value_by_voltage:
+      '11': '6'
+      '33': '6'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19): entered without a citation'
+    effective_from: '2026-04-01'

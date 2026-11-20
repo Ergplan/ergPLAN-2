@@ -129,8 +129,10 @@ CSS = "oa_hybrid_intra.drawal.cross_subsidy_surcharge"
 
 
 def _base(conn: str) -> str:
+    """The hybrid scenario of the default plan (the audit cases are written on its price and CSS);
+    which scenario is recommended depends on the state's settlement and is not what these test."""
     shown = client.get(f"/connections/{conn}/plan", headers=CL).json()
-    return str(shown["recommended"])
+    return str(next(sc["scenario_id"] for sc in shown["scenarios"] if sc["name"] == "Hybrid + battery"))
 
 
 def _upload(conn: str, name: str = "our-working.csv", data: str = WORKING) -> dict[str, Any]:

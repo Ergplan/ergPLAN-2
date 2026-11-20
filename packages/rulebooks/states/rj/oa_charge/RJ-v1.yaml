@@ -1,0 +1,77 @@
+family: oa_charge
+jurisdiction: RJ
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1) · oa_charge
+effective_from: '2025-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Cross-subsidy surcharge · RJ · FY 2025-26
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.48'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1): entered without a citation'
+    effective_from: '2025-04-01'
+- label: State transmission loss · RJ · FY 2025-26
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    value: '3.8'
+    component: stu_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1): entered without a citation'
+    effective_from: '2025-04-01'
+- label: State transmission charge · RJ · FY 2025-26
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_mw_month
+    value: '157790'
+    component: stu_transmission
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1): entered without a citation'
+    effective_from: '2025-04-01'
+- label: Wheeling charge · RJ · FY 2025-26
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    value_by_voltage:
+      '11': '0.69'
+      '33': '0.09'
+      '66': '1.93'
+      '132': '0.01'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1): entered without a citation'
+    effective_from: '2025-04-01'
+- label: Wheeling loss · RJ · FY 2025-26
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling_losses
+    value_by_voltage:
+      '11': '12'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1): entered without a citation'
+    effective_from: '2025-04-01'

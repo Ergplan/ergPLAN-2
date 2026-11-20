@@ -306,7 +306,7 @@ def binding(m: Any, p: Problem, tol: float = 1e-4) -> list[str]:
         if b.max_kw > 0 and _v(m.bkw[b.id]) >= b.max_kw * (1 - tol):
             out.append(f"max_kw:{b.id}")
     for i, name in m.cons_names.items():
-        if not name.startswith(("limit:", "carry_cap", "cd_floor")):
+        if not name.startswith(("limit:", "carry_cap", "cd_floor", "banking_limit")):
             continue
         c = m.cons[i]
         body = pyo.value(c.body, exception=False)

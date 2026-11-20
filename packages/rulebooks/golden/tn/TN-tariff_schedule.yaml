@@ -1,0 +1,19 @@
+# jouleWise State Regulation Master · Tamil Nadu · FY 2026-27 (register version 7) · tariff_schedule
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: TN
+family: tariff_schedule
+tests:
+- name: HT I-A energy charge 7.5
+  given:
+    context: &id001
+      category: HT I-A
+      voltage_kv: 11
+    field: /energy_charge/base
+  expect:
+    value: '7.5'
+- name: HT I-A demand charge 608
+  given:
+    context: *id001
+    field: /demand_charge/value
+  expect:
+    value: '608'

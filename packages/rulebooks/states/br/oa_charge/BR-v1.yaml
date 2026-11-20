@@ -1,0 +1,116 @@
+family: oa_charge
+jurisdiction: BR
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Bihar · FY 2026-27 (register version 18) · oa_charge
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: Additional surcharge · BR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0'
+    component: additional_surcharge
+  source_ref:
+    kind: register
+    note: BERC TO FY27 (18-03-2026) s.8.7 pp.492-494 - AS not levied — as entered in the jouleWise State Regulation Master
+      · Bihar · FY 2026-27 (register version 18)
+    effective_from: '2026-04-01'
+- label: Cross-subsidy surcharge · BR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '1.68'
+    component: cross_subsidy_surcharge
+  source_ref:
+    kind: register
+    note: BERC TO FY27 (18-03-2026) Table 8.15 p.491 - SBPDCL, all HT voltages — as entered in the jouleWise State Regulation
+      Master · Bihar · FY 2026-27 (register version 18)
+    effective_from: '2026-04-01'
+- label: SLDC scheduling and operating charge · BR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    value: '0.0068'
+    component: sldc_operating
+  source_ref:
+    kind: register
+    note: BERC TO FY27 (18-03-2026) s.8.5 p.489 - SLDC 0.68 paise/kWh — as entered in the jouleWise State Regulation Master
+      · Bihar · FY 2026-27 (register version 18)
+    effective_from: '2026-04-01'
+- label: State transmission loss · BR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    value: '2.56'
+    component: stu_losses
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Bihar · FY 2026-27 (register version 18): entered without a citation'
+    effective_from: '2026-04-01'
+- label: State transmission charge · BR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_mw_month
+    value: '155677'
+    component: stu_transmission
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+  source_ref:
+    kind: register
+    note: BERC TO NBPDCL/SBPDCL FY27 Case 50&51/2025 (18-03-2026) s.8.3.1 Table 8.9 p.486 - LTOA/MTOA, contracted capacity
+      — as entered in the jouleWise State Regulation Master · Bihar · FY 2026-27 (register version 18)
+    effective_from: '2026-04-01'
+- label: Wheeling charge · BR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: inr_per_kwh
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling
+    exemptions:
+    - note: 'waiver in the register, applies to: Hybrid'
+      condition: re_source_waiver
+      waived_pct: '50'
+    value_by_voltage:
+      '11': '1.1'
+      '33': '0.53'
+      '132': '0'
+      '220': '0'
+  source_ref:
+    kind: register
+    note: BERC TO FY27 Case 51/2025 (18-03-2026) Tables 8.7/8.8 p.484 - SBPDCL; 11 kV = 33 kV + 11 kV (0.53 + 0.57) for power
+      from 33 kV/EHT; EHV nil Table 8.11 — as entered in the jouleWise State Regulation Master · Bihar · FY 2026-27 (register
+      version 18)
+    effective_from: '2026-04-01'
+- label: Wheeling loss · BR · FY 2026-27
+  scope:
+    connection:
+    - intra_state
+  body:
+    basis: percent_in_kind
+    notes: Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row.
+    component: wheeling_losses
+    value_by_voltage:
+      '11': '8.19'
+      '33': '3.36'
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Bihar · FY 2026-27 (register version 18): entered without a citation'
+    effective_from: '2026-04-01'

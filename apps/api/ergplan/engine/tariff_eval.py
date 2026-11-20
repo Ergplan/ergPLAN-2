@@ -113,6 +113,18 @@ def slot_adjustment_pct(slot: Mapping[str, object]) -> Decimal:
     return Decimal(0)
 
 
+def slot_classes(slot: Mapping[str, object] | None) -> frozenset[str]:
+    """What a settlement rule may call a block's slot: `peak` or `off_peak` (the two classes UPERC's
+    drawal windows use: a slot with a surcharge is peak), and its ToD category for the cycle settlement
+    (`cat:peak`, `cat:normal`, `cat:off_peak`): the slot's own `category` where the rule names it,
+    otherwise a surcharge makes it peak and a rebate off-peak."""
+    adj = slot_adjustment_pct(slot) if slot else Decimal(0)
+    cat = str(slot["category"]) if slot and slot.get("category") else None
+    if cat is None:
+        cat = "peak" if adj > 0 else "off_peak" if adj < 0 else "normal"
+    return frozenset({"peak" if adj > 0 else "off_peak", f"cat:{cat}"})
+
+
 _BDR = "/demand_charge/billing_demand_rule"
 
 

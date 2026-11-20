@@ -29,6 +29,7 @@ KINDS: list[JsonValue] = [
     "assumption",
     "derived",
     "market",
+    "register",
     "measured",
 ]
 

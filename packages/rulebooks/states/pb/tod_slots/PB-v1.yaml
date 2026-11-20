@@ -1,0 +1,126 @@
+family: tod_slots
+jurisdiction: PB
+version: 1
+status: approved
+title: jouleWise State Regulation Master · Punjab · FY 2026-27 (register version 12) · tod_slots
+effective_from: '2026-04-01'
+effective_to: null
+origin: register
+approved_by: register-import@ergplan
+rows:
+- label: ToD slots · PB · FY 2026-27
+  scope: {}
+  body:
+    slots:
+    - end: 06:00
+      name: Off-Peak 00:00–06:00
+      start: 00:00
+      months:
+      - 1
+      - 2
+      - 3
+      - 10
+      - 11
+      - 12
+      category: off_peak
+    - end: '18:00'
+      name: Normal 06:00–18:00
+      start: 06:00
+      months:
+      - 1
+      - 2
+      - 3
+      - 10
+      - 11
+      - 12
+      category: normal
+    - end: '22:00'
+      name: Normal 18:00–22:00
+      start: '18:00'
+      months:
+      - 1
+      - 2
+      - 3
+      - 10
+      - 11
+      - 12
+      category: normal
+    - end: '24:00'
+      name: Off-Peak 22:00–24:00
+      start: '22:00'
+      months:
+      - 1
+      - 2
+      - 3
+      - 10
+      - 11
+      - 12
+      category: off_peak
+    - end: 06:00
+      name: Off-Peak 00:00–06:00
+      start: 00:00
+      months:
+      - 4
+      - 5
+      - 6
+      category: off_peak
+    - end: '18:00'
+      name: Normal 06:00–18:00
+      start: 06:00
+      months:
+      - 4
+      - 5
+      - 6
+      category: normal
+    - end: '22:00'
+      name: Normal 18:00–22:00
+      start: '18:00'
+      months:
+      - 4
+      - 5
+      - 6
+      category: normal
+    - end: '24:00'
+      name: Off-Peak 22:00–24:00
+      start: '22:00'
+      months:
+      - 4
+      - 5
+      - 6
+      category: off_peak
+    - end: 06:00
+      name: Off-Peak 00:00–06:00
+      start: 00:00
+      months:
+      - 7
+      - 8
+      - 9
+      category: off_peak
+    - end: '18:00'
+      name: Normal 06:00–18:00
+      start: 06:00
+      months:
+      - 7
+      - 8
+      - 9
+      category: normal
+    - end: '22:00'
+      name: Normal 18:00–22:00
+      start: '18:00'
+      months:
+      - 7
+      - 8
+      - 9
+      category: normal
+    - end: '24:00'
+      name: Off-Peak 22:00–24:00
+      start: '22:00'
+      months:
+      - 7
+      - 8
+      - 9
+      category: off_peak
+  source_ref:
+    kind: register
+    note: 'jouleWise State Regulation Master · Punjab · FY 2026-27 (register version 12): ToD slots as entered'
+    effective_from: '2026-04-01'

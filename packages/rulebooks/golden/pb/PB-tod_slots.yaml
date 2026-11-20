@@ -1,0 +1,17 @@
+# jouleWise State Regulation Master · Punjab · FY 2026-27 (register version 12) · tod_slots
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: PB
+family: tod_slots
+tests:
+- name: 'slot 1: Off-Peak 00:00–06:00 is off_peak'
+  given:
+    context: {}
+    field: /slots/0/category
+  expect:
+    value: off_peak
+- name: 'slot 12: Off-Peak 22:00–24:00 is off_peak'
+  given:
+    context: {}
+    field: /slots/11/category
+  expect:
+    value: off_peak

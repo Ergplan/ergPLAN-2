@@ -1,0 +1,17 @@
+# jouleWise State Regulation Master · Chhattisgarh · FY 2026-27 (register version 19) · tod_slots
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: CG
+family: tod_slots
+tests:
+- name: 'slot 1: Normal 00:00–09:00 is normal'
+  given:
+    context: {}
+    field: /slots/0/category
+  expect:
+    value: normal
+- name: 'slot 4: Normal 23:00–24:00 is normal'
+  given:
+    context: {}
+    field: /slots/3/category
+  expect:
+    value: normal

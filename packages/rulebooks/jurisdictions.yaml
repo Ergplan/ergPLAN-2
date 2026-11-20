@@ -15,6 +15,11 @@ regulators:
   - {id: HERC, name: Haryana Electricity Regulatory Commission, state: HR}
   - {id: HPERC, name: Himachal Pradesh Electricity Regulatory Commission, state: HP}
   - {id: AERC, name: Assam Electricity Regulatory Commission, state: AS}
+  - {id: MPERC, name: Madhya Pradesh Electricity Regulatory Commission, state: MP}
+  - {id: BERC, name: Bihar Electricity Regulatory Commission, state: BR}
+  - {id: CSERC, name: Chhattisgarh State Electricity Regulatory Commission, state: CG}
+  - {id: OERC, name: Odisha Electricity Regulatory Commission, state: OD}
+  - {id: UERC, name: Uttarakhand Electricity Regulatory Commission, state: UK}
 states:
   - {id: UP, name: Uttar Pradesh}
   - {id: MH, name: Maharashtra}
@@ -30,6 +35,9 @@ states:
   - {id: BR, name: Bihar}
   - {id: HP, name: Himachal Pradesh}
   - {id: AS, name: Assam}
+  - {id: MP, name: Madhya Pradesh}
+  - {id: CG, name: Chhattisgarh}
+  - {id: UK, name: Uttarakhand}
 groups:
   - {id: uppcl, name: "UPPCL state DISCOMs (one tariff order: PVVNL, MVVNL, PuVVNL, DVVNL, KESCO)", state: UP}
   - {id: ka_escoms, name: "Karnataka ESCOMs (one combined KERC tariff order: BESCOM, MESCOM, CESC, HESCOM, GESCOM)", state: KA}
@@ -70,3 +78,14 @@ discoms:
   - {id: tnpdcl, name: Tamil Nadu Power Distribution Corporation Ltd., state: TN}
   - {id: hpsebl, name: Himachal Pradesh State Electricity Board Limited, state: HP}
   - {id: apdcl, name: Assam Power Distribution Company Limited, state: AS}
+  - {id: mppkvvcl, name: M.P. Paschim Kshetra Vidyut Vitaran Co. Ltd. (Indore), state: MP}
+  - {id: mpmkvvcl, name: M.P. Madhya Kshetra Vidyut Vitaran Co. Ltd. (Bhopal), state: MP}
+  - {id: mppokvvcl, name: M.P. Poorv Kshetra Vidyut Vitaran Co. Ltd. (Jabalpur), state: MP}
+  - {id: nbpdcl, name: North Bihar Power Distribution Company Limited, state: BR}
+  - {id: sbpdcl, name: South Bihar Power Distribution Company Limited, state: BR}
+  - {id: cspdcl, name: Chhattisgarh State Power Distribution Company Limited, state: CG}
+  - {id: tpcodl, name: TP Central Odisha Distribution Limited, state: OD}
+  - {id: tpnodl, name: TP Northern Odisha Distribution Limited, state: OD}
+  - {id: tpsodl, name: TP Southern Odisha Distribution Limited, state: OD}
+  - {id: tpwodl, name: TP Western Odisha Distribution Limited, state: OD}
+  - {id: upcl, name: Uttarakhand Power Corporation Limited, state: UK}

@@ -17,7 +17,7 @@ from ...db.base import session_scope
 from ...db.models import Connection, LoadProfile, Site
 from ...engine import landed_cost
 from ...engine import scope as escope
-from ...engine.tariff_eval import slot_adjustment_pct, slot_of
+from ...engine.tariff_eval import slot_classes, slot_of
 from ...intake import generation, profile_synthesis, site_intake
 from ...rulebook import repository
 from ...rulebook.scope import matches
@@ -177,7 +177,7 @@ def settle(connection_id: str, body: DispatchIn, who: Annotated[Caller, Depends(
             tod = tod_cache[day.month]
             sl = slot_of(tod, day.month, (i % 96) * 15) if tod else None
             name = str(sl["name"]) if sl else "all hours"
-            cls = frozenset({"peak" if sl and slot_adjustment_pct(sl) > 0 else "off_peak"})
+            cls = slot_classes(sl)
             blocks.append(
                 Block(
                     month=first,

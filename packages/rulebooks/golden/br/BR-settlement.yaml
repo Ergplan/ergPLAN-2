@@ -1,0 +1,50 @@
+# jouleWise State Regulation Master · Bihar · FY 2026-27 (register version 18) · settlement
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: BR
+family: settlement
+tests:
+- name: 'method: cycle_pooled'
+  given:
+    context: &id001
+      connection: intra_state
+      source: solar
+      ownership: captive
+    field: /method
+  expect:
+    value: cycle_pooled
+- name: 'granularity: tod_slot_monthly'
+  given:
+    context: *id001
+    field: /granularity
+  expect:
+    value: tod_slot_monthly
+- name: 'banking/period: monthly'
+  given:
+    context: *id001
+    field: /banking/period
+  expect:
+    value: monthly
+- name: 'banking/drawal_rule: higher_to_lower'
+  given:
+    context: *id001
+    field: /banking/drawal_rule
+  expect:
+    value: higher_to_lower
+- name: 'banking/charge/value: 8'
+  given:
+    context: *id001
+    field: /banking/charge/value
+  expect:
+    value: '8'
+- name: 'banking/limit/drawal_pct: 30'
+  given:
+    context: *id001
+    field: /banking/limit/drawal_pct
+  expect:
+    value: '30'
+- name: 'banking/limit/combine: drawal'
+  given:
+    context: *id001
+    field: /banking/limit/combine
+  expect:
+    value: drawal

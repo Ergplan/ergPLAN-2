@@ -1,0 +1,44 @@
+# jouleWise State Regulation Master · Gujarat · FY 2026-27 (register version 15) · settlement
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: GJ
+family: settlement
+tests:
+- name: 'method: cycle_pooled'
+  given:
+    context: &id001
+      connection: intra_state
+      source: solar
+      ownership: captive
+    field: /method
+  expect:
+    value: cycle_pooled
+- name: 'granularity: block_15min'
+  given:
+    context: *id001
+    field: /granularity
+  expect:
+    value: block_15min
+- name: 'banking/period: monthly'
+  given:
+    context: *id001
+    field: /banking/period
+  expect:
+    value: monthly
+- name: 'banking/drawal_rule: higher_to_lower'
+  given:
+    context: *id001
+    field: /banking/drawal_rule
+  expect:
+    value: higher_to_lower
+- name: 'banking/limit/drawal_pct: 30'
+  given:
+    context: *id001
+    field: /banking/limit/drawal_pct
+  expect:
+    value: '30'
+- name: 'banking/limit/combine: drawal'
+  given:
+    context: *id001
+    field: /banking/limit/combine
+  expect:
+    value: drawal

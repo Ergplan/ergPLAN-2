@@ -1,0 +1,16 @@
+# jouleWise State Regulation Master · Uttarakhand · FY 2026-27 (register version 22) · regulatory_limit
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: UK
+family: regulatory_limit
+tests:
+- name: 're_cap_pct_of_contract_demand: 100 percent'
+  given:
+    context:
+      connection: intra_state
+      source: solar
+      ownership: captive
+    where:
+      /limit: re_cap_pct_of_contract_demand
+    field: /value
+  expect:
+    value: '100'

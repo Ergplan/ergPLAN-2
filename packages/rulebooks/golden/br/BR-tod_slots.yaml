@@ -1,0 +1,17 @@
+# jouleWise State Regulation Master · Bihar · FY 2026-27 (register version 18) · tod_slots
+# Written by tools/dev/import-register.py from packages/rulebooks/register/erg-plan-2.0.json.
+jurisdiction: BR
+family: tod_slots
+tests:
+- name: 'slot 1: Morning Peak is peak'
+  given:
+    context: {}
+    field: /slots/0/category
+  expect:
+    value: peak
+- name: 'slot 4: Off-Peak is off_peak'
+  given:
+    context: {}
+    field: /slots/3/category
+  expect:
+    value: off_peak

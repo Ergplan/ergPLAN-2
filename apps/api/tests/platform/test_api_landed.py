@@ -27,7 +27,8 @@ def test_landed_cost_default_scenario(connection: str) -> None:  # noqa: F811
     assert css["value"] == "2.11" and css["source_refs"][0]["url"].endswith("#page=106")
     assert [b["slot"] for b in src["rooftop_pv"]["by_slot"]] == ["normal", "solar"]  # daylight slots only
     assert not src["iex_gdam"]["available"] and "GDAM" in src["iex_gdam"]["reason"]
-    assert "regulatory_limits" in d["gaps"] and d["limits"] == []
+    # the state regulation register sets a capacity limit for Maharashtra (1.4 × contract demand)
+    assert "regulatory_limits" not in d["gaps"] and [x["value"]["value"] for x in d["limits"]] == ["140"]
 
 
 def test_stated_price_and_ownership(connection: str) -> None:  # noqa: F811
@@ -51,4 +52,7 @@ def test_landed_cost_errors(connection: str) -> None:  # noqa: F811
 
 
 def test_limits_endpoint(connection: str) -> None:  # noqa: F811
-    assert client.get("/rulebooks/limits", params={"connection_id": connection}).json() == []
+    got = client.get("/rulebooks/limits", params={"connection_id": connection}).json()
+    # Maharashtra's capacity limit, from the State Regulation Master: shown as a register entry
+    assert [(x["limit"], x["value"]["value"]) for x in got] == [("re_cap_pct_of_contract_demand", "140")]
+    assert got[0]["value"]["source_refs"][0]["kind"] == "register"
