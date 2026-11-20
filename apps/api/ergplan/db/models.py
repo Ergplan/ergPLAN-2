@@ -189,6 +189,40 @@ class AuditLog(Base):
     after: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
 
 
+class StateRulebook(Base):
+    """A state rule book: one month's issue for a DISCOM, either for a reference industrial consumer
+    or for one client's connection. `content` is the whole book as issued (landed costs by source and
+    route, the saving on the grid tariff, how open-access energy and exchange purchases are settled),
+    every figure with its source_refs, frozen at generation. Written only by report.statebook;
+    audited by trigger. A client sees an issue only once an analyst has approved it."""
+
+    __tablename__ = "state_rulebooks"
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('draft','approved','superseded','rejected')", name="state_rulebooks_status"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    state: Mapped[str] = mapped_column(String(8), index=True)
+    discom_id: Mapped[str] = mapped_column(String(32), index=True)
+    connection_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("connections.id", name="state_rulebooks_connection_fk"), index=True
+    )
+    month: Mapped[date] = mapped_column(Date, index=True)  # the first day of the month it is for
+    issue: Mapped[int] = mapped_column(Integer, default=1)  # 1, 2 … within the month and consumer
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    title: Mapped[str] = mapped_column(Text)
+    inputs: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)  # what it was generated with
+    content: Mapped[dict[str, Any]] = mapped_column(JSONType)
+    content_sha256: Mapped[str] = mapped_column(String(64))
+    created_by: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    reviewed_by: Mapped[str | None] = mapped_column(String(128))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_note: Mapped[str | None] = mapped_column(Text)
+
+
 # ---------------------------------------------------------------- Stage 2: intake
 
 

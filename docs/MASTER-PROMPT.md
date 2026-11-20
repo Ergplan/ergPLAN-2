@@ -375,6 +375,21 @@ Build:
 
 Done when: the differential tests pass; a state from the register runs end to end in the browser from typed charges and targets to the drawn, optimised plan (`tests/e2e/test_ergplan2_journey.py`); the five components are sized together with the judge's agreement (`tests/platform/test_api_ergplan2.py`); the watcher is green; the reviewer's code findings are fixed.
 
+### Stage 10 — Monthly state rule books
+
+Goal (the person's words, 21 Nov 2026): "Build a file which explains the landed cost for each State for Solar, wind and IEX, third party and captive route (26% stake). Then calculate savings on grid tariff. Also how the OA Solar, Wind are settled after banking. How is IEX trade settled. This will be a rule book updated every month for each State for every Industrial client. Give us a UI within ergPLAN 2 to review each rule book and approve."
+
+Build:
+1. `report/statebook.py`: a rule book for a DISCOM and a month, for a reference industrial consumer (the schedule's HT industrial category, 33 kV, 5,000 kVA unless stated) or for one client's connection. It holds the grid tariff per time-of-day slot; the landed cost of open-access solar and wind (in-state and inter-state) by route — third party, captive with 26% equity (group captive) and a captive plant — and of IEX day-ahead, green day-ahead and real-time power; the saving on the grid tariff; how open-access energy is settled after banking, in sentences that cite the approved settlement rule; how an exchange purchase is settled (ergPLAN's model, shown as assumed); limits; the rule versions used; what is not sourced. Every figure is a `SourcedValue`. It computes nothing of its own: the lines are `engine.landed_cost`'s through the same function the landed-cost screen calls.
+2. A book is stored in `state_rulebooks` as an issue: a frozen content with its SHA-256, `draft` until an analyst approves or rejects it (a rejection needs a note); approving supersedes the consumer's earlier issue for the month; a client sees approved books only (its own connection's, or a reference book). Written only by `report.statebook`, audited by trigger. A draft lists every figure that differs from the last approved issue.
+3. The month's books in one action (`POST /statebooks/generate-month`): one reference book per DISCOM with open-access rules (DISCOMs of a state with identical figures share one book) and one per client connection; pending drafts and unchanged approved books are left alone.
+4. The file: `GET /statebooks/{id}/file`, Markdown with every figure footnoted to its source.
+5. The captive routes need the statutory exemption from the cross-subsidy surcharge and the additional surcharge as rule rows (Electricity Act 2003 s.42(2) and (4), Electricity Rules 2005 r.3): added to every state's open-access charges through `rulebook.service`, as `register` refs where no stored page carries them.
+6. The web: `/statebooks` (the month's books by state, generate) and `/statebooks/{id}` (the book as issued, changes since the last approved issue, approve, reject, download).
+7. "Every number should be clickable and traced to source order or regulation" (the person, during the stage): each figure on the review screen opens its sources — the stored order or regulation page with the quoted words, the State Regulation Master's citation where no page is stored, or the assumption — and each book counts how many of its figures open a stored page (`content.trace`). A sentence of the book carries a ref too.
+
+Done when: an analyst generates the month's books, reviews one in the browser, approves it, and downloads its file; a client cannot open a draft; the group-captive route is cheaper than third party by exactly the exempted surcharges less the assumed equity cost (test); watcher green; reviewer clean.
+
 ---
 
 ## 8. Reference data

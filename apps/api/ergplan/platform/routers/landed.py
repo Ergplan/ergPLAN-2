@@ -5,6 +5,7 @@ and prices; the arithmetic is in engine.landed_cost (pure)."""
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import date
 from decimal import Decimal
 from typing import Annotated
@@ -212,216 +213,246 @@ def connection_landed_cost(
     bad = [k for k in sc_in.sources if k not in landed_cost.SOURCE_BY_ID]
     if bad:
         raise HTTPException(422, f"unknown sources: {', '.join(bad)}")
-    as_of = sc_in.as_of or date.today()
-    month = sc_in.month or as_of.month
     with session_scope() as s:
         conn = s.get(Connection, connection_id)
         if conn is None:
             raise HTTPException(404, "connection not found")
-        facts = _facts(s, conn)
-        chain = jurisdiction_chain(s, facts.discom)
-        mdate = date(as_of.year if month >= as_of.month else as_of.year + 1, month, 15)
-        mr = _rules_for(s, facts, as_of)(mdate)
         factor, _pf = _kvah_factor(s, conn)
-        slot_names: list[str] = []
-        slots: list[SlotOut] = []
-        if mr.tod is not None:
-            for sl in mr.tod.body.get("slots", []):
-                if not sl.get("months") or month in sl["months"]:
-                    slots.append(SlotOut(name=str(sl["name"]), start=str(sl["start"]), end=str(sl["end"])))
-                    slot_names.append(str(sl["name"]))
-        if not slot_names:
-            slot_names = ["all hours"]
-            slots = [SlotOut(name="all hours", start="00:00", end="24:00")]
-        cards: dict[str, SourcedValue] = {}
-        if mr.schedule is not None:
-            for i, sl in enumerate(mr.tod.body.get("slots", []) if mr.tod else [None]):
-                name = str(sl["name"]) if sl else "all hours"
-                if name not in slot_names:
-                    continue
-                card = avoided_cost.rate_card(mdate, mr, i if sl else None, factor, conn.contract_demand_kva)
-                if card is not None:
-                    cards[name] = card.rate_inr_per_kwh
-        ctx = escope.context(facts, mdate)
-        oa_rows = repository.approved_rules(s, "oa_charge", chain, as_of)
-        settlements = repository.approved_rules(s, "settlement", chain, as_of)
-        waivers = repository.approved_rules(s, "ists_waiver", chain, as_of)
-        limits_rows = repository.approved_rules(s, "regulatory_limit", chain, as_of)
-        assets = s.scalars(select(Asset).where(Asset.site_id == conn.site_id)).all()
-        all_gaps: set[str] = set()
-        sources: list[SourceOut] = []
-        recorded = site_intake.recorded_ownership(conn)  # the open access the client already takes
-        for spec in landed_cost.SOURCES:
-            o = sc_in.sources.get(spec.id, SourceScenario())
-            ownership = o.ownership or DEFAULT_OWNERSHIP.get(spec.id) or recorded or "third_party"
-            notes: list[str] = []
-            prices: dict[str, SourcedValue] = {}
-            extra: tuple[SourcedValue, ...] = ()
-            reason = None
-            if spec.price_kind == "grid":
-                prices = dict(cards)
-                reason = None if cards else "no approved tariff for this connection"
-            elif spec.price_kind == "green_tariff":
-                prem = mr.schedule.get("/green_tariff_premium_inr_per_unit") if mr.schedule else None
-                if prem in (None, "") or mr.schedule is None:
-                    reason = "the DISCOM's green-tariff premium is not in the approved schedule"
-                    all_gaps.add("green_tariff")
-                else:
-                    p = SourcedValue(
-                        value=Decimal(str(prem)) * factor.value,
-                        unit=Unit.INR_PER_KWH,
-                        source_refs=(
-                            mr.schedule.ref("/green_tariff_premium_inr_per_unit"),
-                            *factor.source_refs,
-                        ),
-                        label="Green-tariff premium",
-                    )
-                    prices = dict(cards)
-                    extra = (p,)
-            elif spec.price_kind == "lcoe":
-                v = (
-                    _stated(o.price_inr_per_kwh, Unit.INR_PER_KWH, "Rooftop solar price")
-                    if o.price_inr_per_kwh
-                    else lcoe.lcoe(lcoe.default_rooftop())
-                )
-                day = [sl.name for sl in slots if _overlaps_daylight(sl.start, sl.end)]
-                prices = {n: v for n in day}
-                notes.append(
-                    "rooftop energy comes only in daylight (07:00–17:00 assumed); other slots take none"
-                )
-            elif spec.price_kind == "lcos":
-                st = lcoe.default_bess()
-                v = lcoe.lcos(st)
-                if cards:
-                    cheapest_name = min(cards, key=lambda n: cards[n].value)
-                    charge = derive(
-                        cards[cheapest_name].value / (st.round_trip_pct.value / 100),
-                        Unit.INR_PER_KWH,
-                        [cards[cheapest_name], st.round_trip_pct],
-                        label=f"Energy charged in the {cheapest_name} slot ÷ round-trip efficiency",
-                    )
-                    extra = (charge,)
-                    prices = {n: v for n in slot_names if n != cheapest_name}
-                else:
-                    reason = "no approved tariff to charge the battery from"
-            elif spec.price_kind == "iex":
-                got = _iex_slot_prices(s, spec.iex_segment or "", month, mr.tod, slot_names)
-                if not got:
-                    reason = f"no {str(spec.iex_segment).upper()} prices loaded"
-                    all_gaps.add("iex_prices")
-                else:
-                    prices = got
-            elif spec.price_kind == "thermal":
-                th = next((a for a in assets if a.kind == "captive_thermal"), None)
-                if th is None:
-                    reason = "no captive thermal plant on this site"
-                elif th.params.get("variable_cost_inr_per_kwh"):
-                    v = _stated(
-                        Decimal(str(th.params["variable_cost_inr_per_kwh"])),
-                        Unit.INR_PER_KWH,
-                        "Thermal variable cost",
-                    )
-                    prices = {n: v for n in slot_names}
-                else:
-                    reason = "the thermal plant's variable cost is not stated"
-            else:  # ppa
-                if o.price_inr_per_kwh is not None:
-                    v = _stated(o.price_inr_per_kwh, Unit.INR_PER_KWH, "PPA tariff")
-                else:
-                    val, note = DEFAULT_PRICE[spec.id]
-                    v = _assumed(val, Unit.INR_PER_KWH, f"{note}; change it to your quote", "PPA tariff")
-                prices = {n: v for n in slot_names}
-                if spec.id == "group_captive":
-                    eq = (
-                        _stated(o.equity_cost_inr_per_kwh, Unit.INR_PER_KWH, "Equity cost")
-                        if o.equity_cost_inr_per_kwh is not None
-                        else _assumed(
-                            "0.25",
-                            Unit.INR_PER_KWH,
-                            "26% equity in the generating company, carried over its life, per kWh consumed",
-                            "Equity cost (group captive)",
-                        )
-                    )
-                    extra = (eq,)
-            scn_common = dict(
-                ownership=ownership,
-                commissioned=o.commissioned,
-                on=as_of,
-                geoa=sc_in.geoa,
-                extra=extra,
-                capacity_mw=_stated(o.capacity_mw, Unit.MW, "Capacity") if o.capacity_mw else None,
-                cuf_pct=_stated(o.cuf_pct, Unit.PERCENT, "CUF") if o.cuf_pct else None,
-            )
-            src_ctx = {**ctx, "connection": spec.connection, "source": spec.source, "ownership": ownership}
-            settlement = next((r for r in settlements if matches(r.scope, src_ctx)), None)
-            by_slot: list[SlotWaterfall] = []
-            gaps: list[str] = []
-            used: list[str] = []
-            for name in slot_names:
-                if name not in prices:
-                    continue
-                wf = landed_cost.evaluate(
-                    spec,
-                    ctx,
-                    landed_cost.Scenario(price=prices[name], **scn_common),  # type: ignore[arg-type]
-                    oa_rows,
-                    waivers,
-                    settlement,
-                )
-                by_slot.append(SlotWaterfall(slot=name, lines=wf.lines, total=wf.total))
-                gaps += wf.gaps
-                notes += wf.notes
-                used += wf.rules_used
-            gaps = list(dict.fromkeys(gaps))
-            all_gaps.update(gaps)
-            sources.append(
-                SourceOut(
-                    id=spec.id,
-                    label=spec.label,
-                    available=bool(by_slot),
-                    reason=reason,
-                    by_slot=by_slot,
-                    gaps=gaps,
-                    notes=list(dict.fromkeys(notes)),
-                    rules_used=list(dict.fromkeys(used)),
-                )
-            )
-        lim_ctx = {**ctx}
-        limits = []
-        for r in limits_rows:
-            if matches(r.scope, lim_ctx):
-                unit = {
-                    "percent": Unit.PERCENT,
-                    "mw": Unit.MW,
-                    "kw": Unit.KW,
-                    "kva": Unit.KVA,
-                    "hours": Unit.HOURS,
-                    "count": Unit.COUNT,
-                }[str(r.body["unit"])]
-                limits.append(
-                    LimitOut(
-                        limit=str(r.body["limit"]),
-                        label=r.label,
-                        value=SourcedValue(
-                            value=Decimal(str(r.body["value"])),
-                            unit=unit,
-                            source_refs=(r.ref("/value"),),
-                            label=r.label,
-                        ),
-                    )
-                )
-        if not limits_rows:
-            all_gaps.add("regulatory_limits")
-        return LandedOut(
+        return landed(
+            s,
+            facts=_facts(s, conn),
+            factor=factor,
+            contract_kva=conn.contract_demand_kva,
+            assets=s.scalars(select(Asset).where(Asset.site_id == conn.site_id)).all(),
+            recorded=site_intake.recorded_ownership(conn),  # the open access the client already takes
+            sc_in=sc_in,
             connection_id=conn.id,
-            as_of=as_of,
-            month=month,
-            slots=slots,
-            avoided=[AvoidedSlot(slot=n, rate=cards[n]) for n in slot_names if n in cards],
-            sources=sources,
-            limits=limits,
-            gaps={g: GAPS[g] for g in sorted(all_gaps) if g in GAPS},
         )
+
+
+def landed(
+    s: Session,
+    *,
+    facts: escope.ConnectionFacts,
+    factor: SourcedValue,
+    contract_kva: Decimal | None,
+    assets: Sequence[Asset],
+    recorded: str | None,
+    sc_in: ScenarioIn,
+    connection_id: str,
+    ownership_all: str | None = None,
+    assume_equity: bool = False,
+) -> LandedOut:
+    """Every source's landed cost per ToD slot for a consumer described by `facts` (a client's
+    connection, or a reference consumer of a DISCOM for the state rule book). `ownership_all` sets
+    the ownership of every open-access PPA source; `assume_equity` adds the assumed cost of the 26%
+    equity to every source taken as group captive."""
+    as_of = sc_in.as_of or date.today()
+    month = sc_in.month or as_of.month
+    chain = jurisdiction_chain(s, facts.discom)
+    mdate = date(as_of.year if month >= as_of.month else as_of.year + 1, month, 15)
+    mr = _rules_for(s, facts, as_of)(mdate)
+    slot_names: list[str] = []
+    slots: list[SlotOut] = []
+    if mr.tod is not None:
+        for sl in mr.tod.body.get("slots", []):
+            if not sl.get("months") or month in sl["months"]:
+                slots.append(SlotOut(name=str(sl["name"]), start=str(sl["start"]), end=str(sl["end"])))
+                slot_names.append(str(sl["name"]))
+    if not slot_names:
+        slot_names = ["all hours"]
+        slots = [SlotOut(name="all hours", start="00:00", end="24:00")]
+    cards: dict[str, SourcedValue] = {}
+    if mr.schedule is not None:
+        for i, sl in enumerate(mr.tod.body.get("slots", []) if mr.tod else [None]):
+            name = str(sl["name"]) if sl else "all hours"
+            if name not in slot_names:
+                continue
+            card = avoided_cost.rate_card(mdate, mr, i if sl else None, factor, contract_kva)
+            if card is not None:
+                cards[name] = card.rate_inr_per_kwh
+    ctx = escope.context(facts, mdate)
+    oa_rows = repository.approved_rules(s, "oa_charge", chain, as_of)
+    settlements = repository.approved_rules(s, "settlement", chain, as_of)
+    waivers = repository.approved_rules(s, "ists_waiver", chain, as_of)
+    limits_rows = repository.approved_rules(s, "regulatory_limit", chain, as_of)
+    all_gaps: set[str] = set()
+    sources: list[SourceOut] = []
+    for spec in landed_cost.SOURCES:
+        o = sc_in.sources.get(spec.id, SourceScenario())
+        ownership = (
+            o.ownership
+            or DEFAULT_OWNERSHIP.get(spec.id)
+            or (ownership_all if spec.price_kind == "ppa" else None)
+            or recorded
+            or "third_party"
+        )
+        notes: list[str] = []
+        prices: dict[str, SourcedValue] = {}
+        extra: tuple[SourcedValue, ...] = ()
+        reason = None
+        if spec.price_kind == "grid":
+            prices = dict(cards)
+            reason = None if cards else "no approved tariff for this connection"
+        elif spec.price_kind == "green_tariff":
+            prem = mr.schedule.get("/green_tariff_premium_inr_per_unit") if mr.schedule else None
+            if prem in (None, "") or mr.schedule is None:
+                reason = "the DISCOM's green-tariff premium is not in the approved schedule"
+                all_gaps.add("green_tariff")
+            else:
+                p = SourcedValue(
+                    value=Decimal(str(prem)) * factor.value,
+                    unit=Unit.INR_PER_KWH,
+                    source_refs=(
+                        mr.schedule.ref("/green_tariff_premium_inr_per_unit"),
+                        *factor.source_refs,
+                    ),
+                    label="Green-tariff premium",
+                )
+                prices = dict(cards)
+                extra = (p,)
+        elif spec.price_kind == "lcoe":
+            v = (
+                _stated(o.price_inr_per_kwh, Unit.INR_PER_KWH, "Rooftop solar price")
+                if o.price_inr_per_kwh
+                else lcoe.lcoe(lcoe.default_rooftop())
+            )
+            day = [sl.name for sl in slots if _overlaps_daylight(sl.start, sl.end)]
+            prices = {n: v for n in day}
+            notes.append("rooftop energy comes only in daylight (07:00–17:00 assumed); other slots take none")
+        elif spec.price_kind == "lcos":
+            st = lcoe.default_bess()
+            v = lcoe.lcos(st)
+            if cards:
+                cheapest_name = min(cards, key=lambda n: cards[n].value)
+                charge = derive(
+                    cards[cheapest_name].value / (st.round_trip_pct.value / 100),
+                    Unit.INR_PER_KWH,
+                    [cards[cheapest_name], st.round_trip_pct],
+                    label=f"Energy charged in the {cheapest_name} slot ÷ round-trip efficiency",
+                )
+                extra = (charge,)
+                prices = {n: v for n in slot_names if n != cheapest_name}
+            else:
+                reason = "no approved tariff to charge the battery from"
+        elif spec.price_kind == "iex":
+            got = _iex_slot_prices(s, spec.iex_segment or "", month, mr.tod, slot_names)
+            if not got:
+                reason = f"no {str(spec.iex_segment).upper()} prices loaded"
+                all_gaps.add("iex_prices")
+            else:
+                prices = got
+        elif spec.price_kind == "thermal":
+            th = next((a for a in assets if a.kind == "captive_thermal"), None)
+            if th is None:
+                reason = "no captive thermal plant on this site"
+            elif th.params.get("variable_cost_inr_per_kwh"):
+                v = _stated(
+                    Decimal(str(th.params["variable_cost_inr_per_kwh"])),
+                    Unit.INR_PER_KWH,
+                    "Thermal variable cost",
+                )
+                prices = {n: v for n in slot_names}
+            else:
+                reason = "the thermal plant's variable cost is not stated"
+        else:  # ppa
+            if o.price_inr_per_kwh is not None:
+                v = _stated(o.price_inr_per_kwh, Unit.INR_PER_KWH, "PPA tariff")
+            else:
+                val, note = DEFAULT_PRICE[spec.id]
+                v = _assumed(val, Unit.INR_PER_KWH, f"{note}; change it to your quote", "PPA tariff")
+            prices = {n: v for n in slot_names}
+            if spec.id == "group_captive" or (assume_equity and ownership == "group_captive"):
+                eq = (
+                    _stated(o.equity_cost_inr_per_kwh, Unit.INR_PER_KWH, "Equity cost")
+                    if o.equity_cost_inr_per_kwh is not None
+                    else _assumed(
+                        "0.25",
+                        Unit.INR_PER_KWH,
+                        "26% equity in the generating company, carried over its life, per kWh consumed",
+                        "Equity cost (group captive)",
+                    )
+                )
+                extra = (eq,)
+        scn_common = dict(
+            ownership=ownership,
+            commissioned=o.commissioned,
+            on=as_of,
+            geoa=sc_in.geoa,
+            extra=extra,
+            capacity_mw=_stated(o.capacity_mw, Unit.MW, "Capacity") if o.capacity_mw else None,
+            cuf_pct=_stated(o.cuf_pct, Unit.PERCENT, "CUF") if o.cuf_pct else None,
+        )
+        src_ctx = {**ctx, "connection": spec.connection, "source": spec.source, "ownership": ownership}
+        settlement = next((r for r in settlements if matches(r.scope, src_ctx)), None)
+        by_slot: list[SlotWaterfall] = []
+        gaps: list[str] = []
+        used: list[str] = []
+        for name in slot_names:
+            if name not in prices:
+                continue
+            wf = landed_cost.evaluate(
+                spec,
+                ctx,
+                landed_cost.Scenario(price=prices[name], **scn_common),  # type: ignore[arg-type]
+                oa_rows,
+                waivers,
+                settlement,
+            )
+            by_slot.append(SlotWaterfall(slot=name, lines=wf.lines, total=wf.total))
+            gaps += wf.gaps
+            notes += wf.notes
+            used += wf.rules_used
+        gaps = list(dict.fromkeys(gaps))
+        all_gaps.update(gaps)
+        sources.append(
+            SourceOut(
+                id=spec.id,
+                label=spec.label,
+                available=bool(by_slot),
+                reason=reason,
+                by_slot=by_slot,
+                gaps=gaps,
+                notes=list(dict.fromkeys(notes)),
+                rules_used=list(dict.fromkeys(used)),
+            )
+        )
+    lim_ctx = {**ctx}
+    limits = []
+    for r in limits_rows:
+        if matches(r.scope, lim_ctx):
+            unit = {
+                "percent": Unit.PERCENT,
+                "mw": Unit.MW,
+                "kw": Unit.KW,
+                "kva": Unit.KVA,
+                "hours": Unit.HOURS,
+                "count": Unit.COUNT,
+            }[str(r.body["unit"])]
+            limits.append(
+                LimitOut(
+                    limit=str(r.body["limit"]),
+                    label=r.label,
+                    value=SourcedValue(
+                        value=Decimal(str(r.body["value"])),
+                        unit=unit,
+                        source_refs=(r.ref("/value"),),
+                        label=r.label,
+                    ),
+                )
+            )
+    if not limits_rows:
+        all_gaps.add("regulatory_limits")
+    return LandedOut(
+        connection_id=connection_id,
+        as_of=as_of,
+        month=month,
+        slots=slots,
+        avoided=[AvoidedSlot(slot=n, rate=cards[n]) for n in slot_names if n in cards],
+        sources=sources,
+        limits=limits,
+        gaps={g: GAPS[g] for g in sorted(all_gaps) if g in GAPS},
+    )
 
 
 @router.get("/rulebooks/limits", response_model=list[LimitOut])

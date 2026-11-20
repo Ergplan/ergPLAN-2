@@ -1,12 +1,12 @@
 family: oa_charge
 jurisdiction: npcl
-version: 4
+version: 5
 status: approved
 title: NPCL Tariff Order FY 2026-27 (Petition 2330/2025) · pages 315–323
 effective_from: '2026-07-02'
 effective_to: null
 origin: duplicate
-approved_by: build-agent@ergplan
+approved_by: register-import@ergplan
 rows:
 - label: Average wheeling charge · all open access consumers
   scope:
@@ -216,6 +216,15 @@ rows:
     basis: inr_per_kwh
     value: '0'
     component: additional_surcharge
+    exemptions:
+    - note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: order
     page: 323
@@ -223,3 +232,14 @@ rows:
       Commission hereby approves the additional surcharge as zero.
     document_id: aea2bbdf-dfff-5466-858d-2e448e7e60e3
     effective_from: '2026-07-02'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      effective_from: '2026-07-02'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      effective_from: '2026-07-02'

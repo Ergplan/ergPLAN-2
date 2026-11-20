@@ -76,7 +76,9 @@ class Register:
         self.state = {x["state_id"]: x for x in self.t["states"]}
         self.discom = {x["discom_id"]: x for x in self.t["discom"]}
         self.oa = {x["oa_type_id"]: x["oa_type_name"] for x in self.t["oa_type_master"]}
-        self.settle = {x["settlement_type_id"]: x["settlement_type_name"] for x in self.t["settlement_type_master"]}
+        self.settle = {
+            x["settlement_type_id"]: x["settlement_type_name"] for x in self.t["settlement_type_master"]
+        }
 
     def versions(self) -> dict[str, dict[str, Any]]:
         """The active intra-state version to read for each state code."""
@@ -133,6 +135,15 @@ LABEL = {
 }
 
 
+CAPTIVE_EXEMPT = {
+    "cross_subsidy_surcharge": "captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no "
+    "cross-subsidy surcharge: Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to "
+    "third-party open access only",
+    "additional_surcharge": "captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 "
+    "(Supreme Court, MSEDCL v. JSW Steel, 2021); the register charges it to third-party open access only",
+}
+
+
 def component_of(name: str) -> str | None:
     n = name.lower()
     return next((c for key, c in COMPONENT if key in n), None)
@@ -154,7 +165,9 @@ def oa_charge_rows(reg: Register, v: dict[str, Any], skipped: list[str]) -> list
             continue  # the banking charge is part of the settlement rule
         if comp is None or basis is None:
             if value != 0:
-                skipped.append(f"{base}: {c['charge_type']} {c['charge_value']} {c['charge_unit']} (no rulebook basis)")
+                skipped.append(
+                    f"{base}: {c['charge_type']} {c['charge_value']} {c['charge_unit']} (no rulebook basis)"
+                )
             continue
         if value == 0 and not c.get("source_reference"):
             continue  # an unfilled register default, not a statement that the charge is nil
@@ -166,10 +179,16 @@ def oa_charge_rows(reg: Register, v: dict[str, Any], skipped: list[str]) -> list
         elif "wheeling" in kind:
             comp = "wheeling_losses"
         else:  # a loss the rulebook has no component for: said, never guessed
-            skipped.append(f"{base}: loss '{loss['loss_type']}' {loss['loss_percentage']}% (not transmission or wheeling)")
+            skipped.append(
+                f"{base}: loss '{loss['loss_type']}' {loss['loss_percentage']}% (not transmission or wheeling)"
+            )
             continue
         groups[(comp, "percent_in_kind")].append(
-            {"charge_value": loss["loss_percentage"], "voltage_level_kv": loss["voltage_level_kv"], "source_reference": None}
+            {
+                "charge_value": loss["loss_percentage"],
+                "voltage_level_kv": loss["voltage_level_kv"],
+                "source_reference": None,
+            }
         )
     out: list[dict[str, Any]] = []
     for (comp, basis), items in sorted(groups.items()):
@@ -180,22 +199,44 @@ def oa_charge_rows(reg: Register, v: dict[str, Any], skipped: list[str]) -> list
         field_refs: dict[str, Any] = {}
         cite = next((i["source_reference"] for i in items if i.get("source_reference")), None)
         if by_kv:
-            body["value_by_voltage"] = {s(dec(kv)): s(dec(i["charge_value"])) for kv, i in sorted(by_kv.items(), key=lambda x: dec(x[0]))}
+            body["value_by_voltage"] = {
+                s(dec(kv)): s(dec(i["charge_value"]))
+                for kv, i in sorted(by_kv.items(), key=lambda x: dec(x[0]))
+            }
             for kv, i in by_kv.items():
                 if i.get("source_reference") and i["source_reference"] != cite:
-                    field_refs[f"/value_by_voltage/{s(dec(kv))}"] = ref(f"{i['source_reference']} — as entered in the {base}", fy)
-            body["notes"] = "Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row."
+                    field_refs[f"/value_by_voltage/{s(dec(kv))}"] = ref(
+                        f"{i['source_reference']} — as entered in the {base}", fy
+                    )
+            body["notes"] = (
+                "Tabulated by supply voltage (kV) in the register; a voltage between two rows takes the next higher row."
+            )
         else:
             body["value"] = s(dec(flat[0]["charge_value"]))
             if comp in ("wheeling", "wheeling_losses"):
                 # the register's rule: wheeling charges and losses apply below 66 kV
                 scope["voltage_kv"] = {"max": 65}
                 body["notes"] = "One figure in the register; wheeling applies to supply below 66 kV."
+        if comp in CAPTIVE_EXEMPT:
+            # the register holds these surcharges for third-party open access; erg_plan 2.0 does not
+            # charge them to a captive user (Electricity Act 2003, s. 42; Electricity Rules 2005, r. 3)
+            body["exemptions"] = [
+                {"condition": cond, "waived_pct": "100", "note": CAPTIVE_EXEMPT[comp]}
+                for cond in ("captive_26_51", "group_captive")
+            ]
         if comp in waiver:
             pct, who = waiver[comp]
-            body["exemptions"] = [
-                {"condition": "re_source_waiver", "waived_pct": s(pct), "note": f"waiver in the register, applies to: {who}"}
+            body.setdefault("exemptions", [])
+            body["exemptions"] += [
+                {
+                    "condition": "re_source_waiver",
+                    "waived_pct": s(pct),
+                    "note": f"waiver in the register, applies to: {who}",
+                }
             ]
+        for i, ex in enumerate(body.get("exemptions") or []):
+            if ex["condition"] in ("captive_26_51", "group_captive"):
+                field_refs[f"/exemptions/{i}/waived_pct"] = ref(CAPTIVE_EXEMPT[comp], fy)
         note = f"{cite} — as entered in the {base}" if cite else f"{base}: entered without a citation"
         row = {"label": f"{LABEL[comp]} · {reg.state[v['state_id']]['state_code']} · FY {v['financial_year']}", "scope": scope,
                "body": body, "source_ref": ref(note, fy)}  # fmt: skip
@@ -274,8 +315,19 @@ def banking_fields(reg: Register, v: dict[str, Any]) -> dict[str, Any] | None:
     b = rules[0]
     out: dict[str, Any] = {"allowed": b["banking_allowed"] == "t"}
     out["period"] = "financial_year" if (b["banking_cycle"] or "Monthly") == "Annual" else "monthly"
-    charge = next((c for c in reg.rows("charges", rid) if "banking" in c["charge_type"].lower() and c["charge_unit"] == "%"), None)
-    pct = dec(b["banking_charge_pct"]) * 100 if b["banking_charge_pct"] else (dec(charge["charge_value"]) if charge else None)
+    charge = next(
+        (
+            c
+            for c in reg.rows("charges", rid)
+            if "banking" in c["charge_type"].lower() and c["charge_unit"] == "%"
+        ),
+        None,
+    )
+    pct = (
+        dec(b["banking_charge_pct"]) * 100
+        if b["banking_charge_pct"]
+        else (dec(charge["charge_value"]) if charge else None)
+    )
     if pct is not None:
         out["charge"] = {"kind": "in_kind_percent", "value": s(pct)}
     label = (b["banked_energy_drawal_rule"] or "").strip().lower()
@@ -285,12 +337,23 @@ def banking_fields(reg: Register, v: dict[str, Any]) -> dict[str, Any] | None:
     out["drawal_rule"] = rule
     if rule == "custom":
         m = {}
-        for cat, col in (("peak", "peak_banked_drawal_slots"), ("normal", "normal_banked_drawal_slots"), ("off_peak", "off_peak_banked_drawal_slots")):
+        for cat, col in (
+            ("peak", "peak_banked_drawal_slots"),
+            ("normal", "normal_banked_drawal_slots"),
+            ("off_peak", "off_peak_banked_drawal_slots"),
+        ):
             got = _slots(b[col])
             if got:
                 m[cat] = got
         out["matrix"] = m
-    cap = next((c for c in reg.t["banking_cap_rules"] if c["banking_id"] == b["banking_id"] and c["is_active"] == "t"), None)
+    cap = next(
+        (
+            c
+            for c in reg.t["banking_cap_rules"]
+            if c["banking_id"] == b["banking_id"] and c["is_active"] == "t"
+        ),
+        None,
+    )
     if cap is not None:
         lim: dict[str, Any] = {}
         drawal, gen = cap["max_discom_drawal_percentage"], cap["max_injected_energy_percentage"]
@@ -404,7 +467,13 @@ def golden_tests(family: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]
                 for part in field.strip("/").split("/"):
                     cur = cur.get(part) if isinstance(cur, dict) else None
                 if cur is not None:
-                    out.append({"name": f"{field.strip('/')}: {cur}", "given": {"context": ctx, "field": field}, "expect": {"value": cur}})
+                    out.append(
+                        {
+                            "name": f"{field.strip('/')}: {cur}",
+                            "given": {"context": ctx, "field": field},
+                            "expect": {"value": cur},
+                        }
+                    )
         elif family == "regulatory_limit":
             out.append({"name": f"{b['limit']}: {b['value']} {b['unit']}",
                         "given": {"context": ctx, "where": {"/limit": b["limit"]}, "field": "/value"}, "expect": {"value": b["value"]}})  # fmt: skip
@@ -467,9 +536,7 @@ def main() -> int:
 
     from ergplan.db.base import session_scope
     from ergplan.db.models import Rule, RulebookVersion
-    from ergplan.rulebook import service
-
-    from ergplan.rulebook import golden
+    from ergplan.rulebook import golden, service
 
     for code, family, v, rows in todo:
         write_golden(code, family, f"{what(reg, v)} · {family}", rows)
@@ -479,9 +546,22 @@ def main() -> int:
     for code, family, v, rows in todo:
         title = f"{what(reg, v)} · {family}"
         with session_scope(actor=ACTOR, role="analyst") as ses:
-            if ses.scalar(select(RulebookVersion.id).where(RulebookVersion.title == title, RulebookVersion.status == "approved")):
-                print("present ", code, family)
-                continue
+            cur_id = ses.scalar(
+                select(RulebookVersion.id).where(
+                    RulebookVersion.title == title, RulebookVersion.status == "approved"
+                )
+            )
+            if cur_id:
+                have = [
+                    (r.label, r.scope, r.body)
+                    for r in ses.scalars(
+                        select(Rule).where(Rule.rulebook_version_id == cur_id).order_by(Rule.position)
+                    )
+                ]
+                if have == [(r["label"], r["scope"], r["body"]) for r in rows]:
+                    print("present ", code, family)
+                    continue
+                print("changed ", code, family, "→ a new version")
             ver = service.propose(ses, family=family, jurisdiction_id=code, rows=rows, actor=ACTOR,
                                   effective_from=fy_start(v), title=title, origin=ORIGIN)  # fmt: skip
             service.approve(ses, ver.id, actor=ACTOR, role="analyst")
@@ -499,16 +579,25 @@ def main() -> int:
             if cur is None:
                 print("no cited settlement rule for", jid)
                 continue
-            rules = list(ses.scalars(select(Rule).where(Rule.rulebook_version_id == cur.id).order_by(Rule.position)))
+            rules = list(
+                ses.scalars(select(Rule).where(Rule.rulebook_version_id == cur.id).order_by(Rule.position))
+            )
             done = all(
                 r.body.get("method") == "cycle_pooled"
-                and ("charge" not in add or (r.body.get("banking") or {}).get("charge") or not (r.body.get("banking") or {}).get("allowed"))
+                and (
+                    "charge" not in add
+                    or (r.body.get("banking") or {}).get("charge")
+                    or not (r.body.get("banking") or {}).get("allowed")
+                )
                 for r in rules
             )
             if done:
                 print("present ", jid, "settlement (cycle settlement)")
                 continue
-            note = ref(f"{what(reg, v)}: the cycle settlement jouleWise applies (drawal rule and banking limit as entered)", fy_start(v))
+            note = ref(
+                f"{what(reg, v)}: the cycle settlement jouleWise applies (drawal rule and banking limit as entered)",
+                fy_start(v),
+            )
             rows = []
             for r in rules:
                 body = json.loads(json.dumps(r.body))
@@ -526,7 +615,11 @@ def main() -> int:
                     if "limit" not in add:
                         # the register sets no cap for this state: erg_plan 2.0's default applies
                         bk["limit"] = {"drawal_pct": "30", "generation_pct": "25", "combine": "max"}
-                    bk["period"] = "financial_year" if bk.get("period") in ("financial_year", "calendar_year") else "monthly"
+                    bk["period"] = (
+                        "financial_year"
+                        if bk.get("period") in ("financial_year", "calendar_year")
+                        else "monthly"
+                    )
                 fr = dict(r.field_refs or {})
                 for ptr in ("/method", "/banking/drawal_rule", "/banking/matrix", "/banking/limit"):
                     fr[ptr] = note
@@ -539,6 +632,44 @@ def main() -> int:
                                   origin=cur.origin, notes="cycle settlement fields added from the State Regulation Master")  # fmt: skip
             service.approve(ses, ver.id, actor=ACTOR, role="analyst")
             print("re-issued", jid, "settlement", f"v{ver.version}")
+    # cited open-access charges: a cross-subsidy or additional surcharge row that names no captive
+    # exemption gets the statutory one, cited as such (not to the order's page)
+    with session_scope(actor=ACTOR, role="analyst") as ses:
+        cited = list(ses.scalars(select(RulebookVersion).where(RulebookVersion.family == "oa_charge",
+                                                               RulebookVersion.status == "approved",
+                                                               RulebookVersion.origin != ORIGIN)))  # fmt: skip
+        todo_ids = [v.id for v in cited]
+    for vid in todo_ids:
+        with session_scope(actor=ACTOR, role="analyst") as ses:
+            cur = ses.get(RulebookVersion, vid)
+            assert cur is not None
+            rules = list(
+                ses.scalars(select(Rule).where(Rule.rulebook_version_id == vid).order_by(Rule.position))
+            )
+            rows, touched = [], 0
+            for r in rules:
+                body = json.loads(json.dumps(r.body))
+                fr = dict(r.field_refs or {})
+                comp = body.get("component")
+                have = {e.get("condition") for e in body.get("exemptions") or []}
+                if comp in CAPTIVE_EXEMPT and not have & {"captive_26_51", "group_captive"}:
+                    exs = list(body.get("exemptions") or [])
+                    for cond in ("captive_26_51", "group_captive"):
+                        fr[f"/exemptions/{len(exs)}/waived_pct"] = ref(
+                            CAPTIVE_EXEMPT[comp], cur.effective_from
+                        )
+                        exs.append({"condition": cond, "waived_pct": "100", "note": CAPTIVE_EXEMPT[comp]})
+                    body["exemptions"] = exs
+                    touched += 1
+                rows.append({"label": r.label, "scope": r.scope, "body": body, "source_ref": r.source_ref,
+                             "field_refs": fr, "position": r.position})  # fmt: skip
+            if not touched:
+                continue
+            ver = service.propose(ses, family="oa_charge", jurisdiction_id=cur.jurisdiction_id, rows=rows, actor=ACTOR,
+                                  effective_from=cur.effective_from, effective_to=cur.effective_to, title=cur.title,
+                                  origin=cur.origin, notes="statutory captive exemption added to the surcharge rows")  # fmt: skip
+            service.approve(ses, ver.id, actor=ACTOR, role="analyst")
+            print("re-issued", cur.jurisdiction_id, "oa_charge", f"v{ver.version}", f"({touched} rows)")
     for x in skipped:
         print("skipped:", x)
     return 0

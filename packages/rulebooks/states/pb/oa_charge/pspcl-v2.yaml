@@ -1,12 +1,12 @@
 family: oa_charge
 jurisdiction: pspcl
-version: 1
+version: 2
 status: approved
 title: PSERC Tariff Order FY 2026-27 for PSPCL · pp. 238–239 · open-access charges
 effective_from: '2026-04-01'
 effective_to: '2027-03-31'
 origin: manual
-approved_by: build-agent@ergplan
+approved_by: register-import@ergplan
 rows:
 - label: Wheeling · long/medium-term open access · inter-state
   scope:
@@ -167,6 +167,15 @@ rows:
     notes: 'Large Supply: 86 paise/kWh, held in rupees.'
     value: '0.86'
     component: cross_subsidy_surcharge
+    exemptions:
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: order
     page: 239
@@ -174,3 +183,14 @@ rows:
     document_id: 8fc3d382-3fde-5496-9246-411738181d7e
     effective_to: '2027-03-31'
     effective_from: '2026-04-01'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'

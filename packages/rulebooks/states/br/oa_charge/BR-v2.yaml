@@ -1,6 +1,6 @@
 family: oa_charge
 jurisdiction: BR
-version: 1
+version: 2
 status: approved
 title: jouleWise State Regulation Master · Bihar · FY 2026-27 (register version 18) · oa_charge
 effective_from: '2026-04-01'
@@ -16,11 +16,31 @@ rows:
     basis: inr_per_kwh
     value: '0'
     component: additional_surcharge
+    exemptions:
+    - note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: register
     note: BERC TO FY27 (18-03-2026) s.8.7 pp.492-494 - AS not levied — as entered in the jouleWise State Regulation Master
       · Bihar · FY 2026-27 (register version 18)
     effective_from: '2026-04-01'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      effective_from: '2026-04-01'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: captive users pay no additional surcharge under s. 42(4) of the Electricity Act 2003 (Supreme Court, MSEDCL v.
+        JSW Steel, 2021); the register charges it to third-party open access only
+      effective_from: '2026-04-01'
 - label: Cross-subsidy surcharge · BR · FY 2026-27
   scope:
     connection:
@@ -29,11 +49,31 @@ rows:
     basis: inr_per_kwh
     value: '1.68'
     component: cross_subsidy_surcharge
+    exemptions:
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: register
     note: BERC TO FY27 (18-03-2026) Table 8.15 p.491 - SBPDCL, all HT voltages — as entered in the jouleWise State Regulation
       Master · Bihar · FY 2026-27 (register version 18)
     effective_from: '2026-04-01'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
 - label: SLDC scheduling and operating charge · BR · FY 2026-27
   scope:
     connection:

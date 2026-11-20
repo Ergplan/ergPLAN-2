@@ -64,3 +64,5 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["E501"]
 "alembic/**" = ["E501"]
+# the state rule book is mostly sentences and table rows of the file it writes
+"ergplan/report/statebook.py" = ["E501"]

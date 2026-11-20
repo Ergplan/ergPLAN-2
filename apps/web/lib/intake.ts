@@ -12,6 +12,8 @@ export type Ref = {
   bill_id?: string;
   field_path?: string;
   url?: string;
+  document_title?: string;
+  url_public?: string | null;
 };
 
 export type Fact<T> = { value: T; provenance: "bill" | "client_stated" | "assumption"; ref?: Ref | null };

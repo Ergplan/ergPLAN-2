@@ -1,6 +1,6 @@
 family: oa_charge
 jurisdiction: RJ
-version: 1
+version: 2
 status: approved
 title: jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1) · oa_charge
 effective_from: '2025-04-01'
@@ -16,10 +16,30 @@ rows:
     basis: inr_per_kwh
     value: '1.48'
     component: cross_subsidy_surcharge
+    exemptions:
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: register
     note: 'jouleWise State Regulation Master · Rajasthan · FY 2025-26 (register version 1): entered without a citation'
     effective_from: '2025-04-01'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2025-04-01'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2025-04-01'
 - label: State transmission loss · RJ · FY 2025-26
   scope:
     connection:

@@ -1,12 +1,12 @@
 family: oa_charge
 jurisdiction: tgspdcl
-version: 1
+version: 2
 status: approved
 title: TGERC Retail Supply Tariff Order FY 2026-27 · pp. 152–154 · TGSPDCL CSS and T&D charges
 effective_from: '2026-04-01'
 effective_to: '2027-03-31'
 origin: manual
-approved_by: build-agent@ergplan
+approved_by: register-import@ergplan
 rows:
 - label: CSS · HT-I(A) Industry · 11 kV
   scope:
@@ -23,6 +23,15 @@ rows:
       of CSS and 20% of average realisation).'
     value: '1.98'
     component: cross_subsidy_surcharge
+    exemptions:
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: order
     page: 152
@@ -31,6 +40,17 @@ rows:
     document_id: 0c84182f-4a13-5915-9fcb-b98639b59622
     effective_to: '2027-03-31'
     effective_from: '2026-04-01'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
 - label: CSS · HT-I(A) Industry · 33 kV
   scope:
     category:
@@ -48,6 +68,15 @@ rows:
       of CSS and 20% of average realisation).'
     value: '1.73'
     component: cross_subsidy_surcharge
+    exemptions:
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: order
     page: 152
@@ -56,6 +85,17 @@ rows:
     document_id: 0c84182f-4a13-5915-9fcb-b98639b59622
     effective_to: '2027-03-31'
     effective_from: '2026-04-01'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
 - label: CSS · HT-I(A) Industry · 132 kV and above
   scope:
     category:
@@ -72,6 +112,15 @@ rows:
       of CSS and 20% of average realisation).'
     value: '1.62'
     component: cross_subsidy_surcharge
+    exemptions:
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: captive_26_51
+      waived_pct: '100'
+    - note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      condition: group_captive
+      waived_pct: '100'
   source_ref:
     kind: order
     page: 153
@@ -79,6 +128,17 @@ rows:
     document_id: 0c84182f-4a13-5915-9fcb-b98639b59622
     effective_to: '2027-03-31'
     effective_from: '2026-04-01'
+  field_refs:
+    /exemptions/0/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
+    /exemptions/1/waived_pct:
+      kind: register
+      note: 'captive users (26% equity and 51% of the output, Electricity Rules 2005, r. 3) pay no cross-subsidy surcharge:
+        Electricity Act 2003, s. 42(2), fourth proviso; the register charges it to third-party open access only'
+      effective_from: '2026-04-01'
 - label: Transmission and wheeling (aggregate T&D charge) · 11 kV
   scope:
     connection:

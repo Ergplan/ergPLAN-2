@@ -484,3 +484,24 @@ a.eg-btn { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .ep-iso__flow, .ep-iso__rotor { animation: none; } }
 @media print { .ep-iso__flow, .ep-iso__rotor { animation: none; } }
 .ep-two { font-size: 0.55em; font-weight: 700; color: var(--accent); margin-left: 1px; }
+
+/* State rule books */
+.ep-book { display: flex; flex-direction: column; gap: var(--space-4); }
+.ep-book__points { margin: var(--space-2) 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; max-width: 900px; line-height: 1.5; }
+.ep-book__route { border-top: 1px solid var(--line, rgba(0, 0, 0, 0.08)); padding: var(--space-3) 0; }
+.ep-book__route > summary { cursor: pointer; }
+.ep-book .eg-card__title { margin-bottom: var(--space-2); }
+.ep-fig { display: inline-block; position: relative; text-align: left; }
+.ep-fig > summary { list-style: none; cursor: pointer; font-variant-numeric: tabular-nums; border-bottom: 1px dotted currentColor; }
+.ep-fig > summary::-webkit-details-marker { display: none; }
+.ep-fig--page > summary { border-bottom-style: solid; border-bottom-color: var(--accent, #2fbf71); }
+.ep-fig--assumption > summary { border-bottom-color: var(--warning, #c98a1b); }
+.ep-fig > summary:focus-visible { outline: 2px solid var(--accent, #2fbf71); outline-offset: 2px; }
+.ep-fig__pop { position: absolute; z-index: 60; right: 0; top: calc(100% + 6px); width: min(440px, 80vw); max-height: 320px; overflow: auto; padding: var(--space-3); border-radius: 12px;
+  background: var(--surface-raised, var(--surface, #fff)); border: 1px solid var(--line, rgba(128, 128, 128, 0.3)); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  font-size: 12px; font-weight: 400; line-height: 1.45; white-space: normal; color: var(--ink, inherit); }
+.ep-fig__pop ul { margin: 6px 0 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; }
+.ep-fig__pop p { margin: 6px 0 0; }
+.ep-fig__pop q, .ep-fig__pop em { display: block; color: var(--ink-muted); margin-top: 2px; }
+.ep-book .eg-card { overflow: visible; }
+.ep-book .eg-card:has(.ep-fig[open]) { z-index: 5; position: relative; }

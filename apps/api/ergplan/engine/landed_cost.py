@@ -6,7 +6,7 @@ Order and meaning of the lines (master prompt Stage 4):
 2. per-kWh charges levied on injection (STU transmission, wheeling, ISTS) and the loss gross-up of
    P and those charges: (P + charges) × (1/Π(1 − loss) − 1) over the loss stages the power crosses;
 3. capacity charges (INR/MW/month) over the month's scheduled energy (capacity × CUF × hours);
-4. per-kWh charges at drawal: CSS, additional surcharge, duty on OA, DSM, standby/grid support, and
+4. per-kWh charges at drawal: CSS, additional surcharge, duty on OA, DSM, grid support, and
    the banking charge on the full injected quantity, labelled as the upper bound (Stage 5 settles
    the banked quantity);
 5. the ISTS waiver by commissioning date, on ISTS charges and losses;
@@ -86,13 +86,15 @@ DRAWAL_COMPONENTS = (
     "additional_surcharge",
     "electricity_duty_oa",
     "dsm_passthrough",
-    "standby_charge",
     "grid_support_charge",
     "exchange_fee",
     "trading_margin",
 )
 CAPACITY_BASES = ("inr_per_mw_month", "inr_per_kw_month", "inr_per_mw_day")
 ISTS_COMPONENTS = ("ists_transmission", "ists_losses")
+# `standby_charge` rows are kept in the rulebook but are not a landed-cost line: the charge is the rate
+# for standby supply drawn from the DISCOM when the open-access source is down, not a levy on every
+# open-access unit (decision of 21 Nov 2026).
 
 
 @dataclass(frozen=True)

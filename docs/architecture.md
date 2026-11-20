@@ -50,6 +50,7 @@ Upstream sources: `Ergplan/tariff-oder` (published, reviewed tariff-order facts,
 | `working_lines` | One figure of a working set against one link of the chain (`chain_key`, by value or by rate): as written, scale, unit, page, verbatim quote (checked on the page), theirs in our unit, ours, status (matches, differs, unmatched, stated, proposed, rule_changed, rejected, ours_accepted) | `report.audit` (`record_line`, `refresh_lines`, `use_their_figure`, `accept_ours`, proposals) | — | 8 |
 | `audit_messages` | The audit chat of a connection: user, assistant and action turns in order | `report.audit_chat.converse`, `routers.audit.upload_working` | — | 8 |
 | `rule_proposals` | A regulatory rate a working states differently from an approved rule: rule, pointer, current, proposed, reason with the working's citation; open/accepted/rejected, who decided, the draft version an acceptance made | `report.audit.propose_rule_change`, `accept_proposal`, `reject_proposal` (the draft itself through `rulebook.service.duplicate` and `update_row`, audited by `ergplan_audit`) | — | 8 |
+| `state_rulebooks` | One issue of a state rule book for a month: DISCOM, the client connection (or none: a reference consumer), issue number, status draft/approved/superseded/rejected, the inputs, the frozen content (every figure a `SourcedValue`) and its SHA-256, who generated and who reviewed it | `report.statebook` only (`generate`, `approve`, `reject`) | trigger `state_rulebooks_audit` → `audit_log`; a write without `ergplan.actor` is refused | 10 |
 
 ## Critical path
 
@@ -165,6 +166,13 @@ bill → `intake.bills.ingest()` → `intake.site_intake.build()` → `engine.ta
 | GET | `/connections` | The person's evaluations: each connection with its site, bills and latest run |
 | GET | `/connections/{id}/today` | What the year costs now on the approved tariff: energy and demand lines and the total, from the load profile |
 | GET | `/runs/{id}/dispatch.csv` | The settled year, every block, as CSV (time, slot, every series) |
+| GET | `/statebooks?state=&month=&status=` | Analyst: the state rule books |
+| POST | `/statebooks/generate` | Analyst: one draft book (DISCOM, month, optional connection, reference consumer, quoted PPA tariffs) |
+| POST | `/statebooks/generate-month` | Analyst: the month's drafts for every DISCOM with open-access rules and every client connection |
+| GET | `/statebooks/{id}` | The book; a client sees approved books only (its own connection's, or a reference book) |
+| GET | `/statebooks/{id}/file` | The book as a Markdown file, figures footnoted to their sources |
+| POST | `/statebooks/{id}/approve`, `/statebooks/{id}/reject` | Analyst: the review decision (a rejection needs a note) |
+| GET | `/connections/{id}/statebook` | The connection's latest approved book |
 
 ## Web (apps/web)
 
@@ -239,4 +247,13 @@ RJ, HR and TN are registered jurisdictions with no approved rules ("not yet sour
 - Web: `components/site/IsoSite.tsx` and `lib/iso.ts` (new folder `components/site`): the isometric drawing on the Evaluate page (targets) and the results (sizes); the technology cards take a target, "install exactly", and cost and yield inputs; the connection section asks for the consumer's charges where no schedule is approved; branding ergPLAN 2.
 - Deployment: `docker/compose.remote.yaml` and `tools/dev/remote.sh` (a Cloudflare tunnel); the compose project is `ergplan2`; `tools/dev/mini-install.sh` installs to `~/apps/ergplan2` on port 8090.
 - Data model: no new table or column. `connections.provenance` (JSON) gains the key `tariff`; `rules.source_ref` may be of kind `register`.
+
+### What changed in Stage 10 (monthly state rule books)
+
+- `report/statebook.py` (new): `build()` (the book's content from `platform.routers.landed.landed()` per route, the approved settlement rule in sentences, limits, versions, gaps), `generate()`, `generate_month()`, `approve()`, `reject()`, `changes()`, `to_markdown()`. The only writer of `state_rulebooks`.
+- `platform/routers/statebooks.py` (new): the endpoints above. `platform/routers/landed.py`: the endpoint body is `landed()`, with `ownership_all` and `assume_equity` for the routes.
+- `db/models.StateRulebook`, migration `0013_state_rule_books`, `db/sql/0013_state_rulebooks_audit.sql`.
+- `engine/landed_cost.py`: `standby_charge` is no longer a per-unit line.
+- `tools/dev/import-register.py`: captive and group-captive exemptions on every surcharge row; a changed register version is re-issued.
+- Web: `app/statebooks` (list) and `app/statebooks/[id]` (review); `components/statebook/` (new folder: `BookList`, `GeneratePanel`, `BookScreen`, `ReviewBar`, `BookView`, `Fig` — a number that opens its sources); `lib/statebook.ts`; "Monthly rule books" in the analyst navigation.
 
