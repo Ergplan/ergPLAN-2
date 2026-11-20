@@ -49,7 +49,16 @@ Run 2 (after the fixes above): 15 findings, 1 marked a code defect.
 | --- | --- | --- |
 | `import-register.py` maps any loss that is not a transmission loss to a wheeling loss; a new loss type in the register would be misfiled silently | code defect (low) | The mapping is now strict: transmission, wheeling, or skipped and printed. The import's output is unchanged on today's register |
 
-Run 3: no code defect (see `stage-9-review.md`, kept beside this report on the build machine).
+Run 3: 14 findings, 4 marked code defects.
+
+| Finding | Kind | What was done |
+| --- | --- | --- |
+| A bill with a negative demand charge (a credit) would give a negative fixed charge per kVA | code defect (low) | A credit or a nil line gives no rate (`bill_tariff`, the bill's reading view); tested in `tests/intake/test_bill_tariff.py` |
+| `slot_classes()` adds a ToD category to every block, which could change the chronological rules | reported as a defect; by design | The two classes the chronological rules read (`peak`, `off_peak`) are exactly as before; the category is an extra name only the cycle settlement reads. Now pinned by a unit test; the chronological cases all still pass |
+| The consumer's own tariff is a `RuleView` with no version and the DISCOM as its jurisdiction | reported as a defect; by design | A DISCOM is a jurisdiction; the empty version is what marks it as outside the rulebook (it is never pinned or approved). Now pinned by a unit test, and in known gaps |
+| `_stated` wraps a Decimal through `str` | reported as a defect; by design | Harmless; bounds are enforced by `CandidateSpec` |
+
+Run 4: see `stage-9-review.md` (kept beside this report on the build machine, not in git).
 
 ## Open questions
 

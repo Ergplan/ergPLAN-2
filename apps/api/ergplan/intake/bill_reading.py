@@ -562,7 +562,7 @@ def plan_inputs(session: Session, bill: Bill) -> PlanInputs:
         )
     fixed = next((f for f in facts if f.key == "charges.demand"), None)
     kvas = [f for f in facts if f.key in ("demand.max_kva", "demand.contract_kva")]
-    if fixed and kvas:
+    if fixed and fixed.value.value > 0 and kvas:  # a credit or a nil line gives no rate
         on = max(kvas, key=lambda f: f.value.value)  # billed on the higher of recorded and contract demand
         if on.value.value > 0:
             derived.append(

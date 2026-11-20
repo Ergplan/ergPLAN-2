@@ -553,7 +553,7 @@ def bill_tariff(v: dict[str, bill_store.BillValue]) -> dict[str, Fact[Any]]:
     that is higher: the usual minimum). Each is the bill's own figures divided, cited to the bill."""
     out: dict[str, Fact[Any]] = {}
     energy, units = v.get("charges.energy"), v.get("energy.billed_units")
-    if energy and units and energy.dec and units.dec and units.dec > 0:
+    if energy and units and energy.dec and units.dec and units.dec > 0 and energy.dec > 0:
         rate = (energy.dec / units.dec).quantize(Decimal("0.0001"))
         out["energy_charge_inr_per_unit"] = from_bill(energy, rate)
         kvah, kwh = v.get("energy.kvah"), v.get("energy.kwh")
@@ -563,7 +563,7 @@ def bill_tariff(v: dict[str, bill_store.BillValue]) -> dict[str, Fact[Any]]:
         out["billing_basis"] = from_bill(units, "kvah" if on_kvah else "kwh")
     demand, md, cd = v.get("charges.demand"), v.get("demand.max_kva"), v.get("demand.contract_kva")
     kva = max((x.dec for x in (md, cd) if x and x.dec), default=None)
-    if demand and demand.dec and kva and kva > 0:
+    if demand and demand.dec and demand.dec > 0 and kva and kva > 0:  # a credit gives no rate
         per_kva = (demand.dec / kva).quantize(Decimal("0.01"))
         out["fixed_charge_inr_per_kva_month"] = from_bill(demand, per_kva)
     return out
