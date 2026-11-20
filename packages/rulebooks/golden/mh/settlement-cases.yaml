@@ -1,3 +1,6 @@
+# NOTE (ergPLAN 2): these cases are for the rule AS FIRST ISSUED, with chronological (first in, first out) banking:
+# apps/api/tests/settlement/rules/msedcl-v2.yaml. The rule approved today is settled by the cycle settlement (method cycle_pooled);
+# its hand-worked cases are in apps/api/tests/settlement/test_cycle_rules.py.
 # Hand-worked settlement cases for the approved MSEDCL rule (MERC Case 75/2025 pp. 77-79, Regulation 20.3 of the DOA
 # Regulations; packages/rulebooks/states/mh/settlement): net within each ToD slot across the month; surplus banked per
 # slot without carry-over; normal deposits drawable in normal and solar, solar only in solar, peak in all slots.

@@ -493,7 +493,12 @@ def main() -> int:
                 print("no cited settlement rule for", jid)
                 continue
             rules = list(ses.scalars(select(Rule).where(Rule.rulebook_version_id == cur.id).order_by(Rule.position)))
-            if all(r.body.get("method") == "cycle_pooled" for r in rules):
+            done = all(
+                r.body.get("method") == "cycle_pooled"
+                and ("charge" not in add or (r.body.get("banking") or {}).get("charge") or not (r.body.get("banking") or {}).get("allowed"))
+                for r in rules
+            )
+            if done:
                 print("present ", jid, "settlement (cycle settlement)")
                 continue
             note = ref(f"{what(reg, v)}: the cycle settlement jouleWise applies (drawal rule and banking limit as entered)", fy_start(v))
@@ -501,11 +506,16 @@ def main() -> int:
             for r in rules:
                 body = json.loads(json.dumps(r.body))
                 body["method"] = "cycle_pooled"
+                charge_from_register = False
                 bk = body.setdefault("banking", {})
                 if bk.get("allowed"):
                     for key in ("drawal_rule", "matrix", "limit"):
                         if key in add:
                             bk[key] = add[key]
+                    if not bk.get("charge") and "charge" in add:
+                        # the cited rule states no banking charge: the register's applies, shown as such
+                        bk["charge"] = add["charge"]
+                        charge_from_register = True
                     if "limit" not in add:
                         # the register sets no cap for this state: erg_plan 2.0's default applies
                         bk["limit"] = {"drawal_pct": "30", "generation_pct": "25", "combine": "max"}
@@ -513,6 +523,8 @@ def main() -> int:
                 fr = dict(r.field_refs or {})
                 for ptr in ("/method", "/banking/drawal_rule", "/banking/matrix", "/banking/limit"):
                     fr[ptr] = note
+                if charge_from_register:
+                    fr["/banking/charge/value"] = note
                 rows.append({"label": r.label, "scope": r.scope, "body": body, "source_ref": r.source_ref,
                              "field_refs": fr, "position": r.position})  # fmt: skip
             ver = service.propose(ses, family="settlement", jurisdiction_id=jid, rows=rows, actor=ACTOR,

@@ -1,6 +1,6 @@
 family: settlement
 jurisdiction: msedcl
-version: 3
+version: 4
 status: approved
 title: MSEDCL Case 75/2025, post-remand order of 25 March 2026 (review of the MYT order and revision of tariff) · pages 77–79
 effective_from: '2026-04-01'
@@ -22,6 +22,9 @@ rows:
         combine: max
         drawal_pct: '30'
         generation_pct: '25'
+      charge:
+        kind: in_kind_percent
+        value: '8'
       matrix:
         peak:
         - peak
@@ -99,6 +102,11 @@ rows:
         \ in \nthe respective Time of Day (‘TOD’) slots"
       document_id: 5ee7dce7-acfb-5b8b-a933-4ea3865809e2
     /banking/drawal_rule:
+      kind: register
+      note: 'jouleWise State Regulation Master · Maharashtra · FY 2026-27 (register version 9): the cycle settlement jouleWise
+        applies (drawal rule and banking limit as entered)'
+      effective_from: '2026-04-01'
+    /banking/charge/value:
       kind: register
       note: 'jouleWise State Regulation Master · Maharashtra · FY 2026-27 (register version 9): the cycle settlement jouleWise
         applies (drawal rule and banking limit as entered)'
