@@ -1,0 +1,61 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# CSERC Tariff Order for CSPDCL, FY 2026-27 (ARR Network order 73, sha256 7c77f6d6…, 227 pages); the schedule applies
+# from 1 July 2026 (para 19, PDF p. 8, and the head of the tariff schedule, PDF p. 189).
+# LV-4 p. 192, LV-5 pp. 193-194, LV-7 p. 195, HV-2 and HV-3 pp. 204-205, HV-4 p. 205, HV-5 and HV-6 p. 207, HV-9 p. 209.
+# A category answers to its code (HV-3) and to its printed name. The 33 kV and 11 kV rows of HV-3 and HV-4 are printed
+# per load factor ('>15%', '<=15%'): the importer writes the sign in words, and a case without it is not answered.
+jurisdiction: cspdcl
+family: tariff_schedule
+effective_on: '2026-08-01'
+tests:
+  - {name: "FY 2026-27 · HV-2 Mines at 220 kV · demand", given: {context: {category: "HV-2", voltage_kv: 220}, field: /demand_charge/value}, expect: {value: "500"}}
+  - {name: "FY 2026-27 · HV-2 Mines at 220 kV · energy", given: {context: {category: "HV-2", voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "7.25"}}
+  - {name: "FY 2026-27 · HV-2 Mines at 132 kV · demand", given: {context: {category: "HV-2", voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "500"}}
+  - {name: "FY 2026-27 · HV-2 Mines at 132 kV · energy", given: {context: {category: "HV-2", voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "7.40"}}
+  - {name: "FY 2026-27 · HV-2 Mines at 33 kV · demand", given: {context: {category: "HV-2", voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "500"}}
+  - {name: "FY 2026-27 · HV-2 Mines at 33 kV · energy", given: {context: {category: "HV-2", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.80"}}
+  - {name: "FY 2026-27 · HV-2 Mines at 11 kV · demand", given: {context: {category: "HV-2", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "500"}}
+  - {name: "FY 2026-27 · HV-2 Mines at 11 kV · energy", given: {context: {category: "HV-2", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "8.10"}}
+  - {name: "FY 2026-27 · HV-3 at 220 kV · demand", given: {context: {category: "HV-3", voltage_kv: 220}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-3 at 220 kV · energy", given: {context: {category: "HV-3", voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "6.95"}}
+  - {name: "FY 2026-27 · HV-3 at 132 kV · demand", given: {context: {category: "HV-3", voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-3 at 132 kV · energy", given: {context: {category: "HV-3", voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "7.10"}}
+  - {name: "FY 2026-27 · HV-3 at 33 kV, load factor above 15% · demand", given: {context: {category: "HV-3", voltage_kv: 33, rate_block: "load factor above 15%"}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-3 at 33 kV, load factor above 15% · energy", given: {context: {category: "HV-3", voltage_kv: 33, rate_block: "load factor above 15%"}, field: /energy_charge/base}, expect: {value: "7.55"}}
+  - {name: "FY 2026-27 · HV-3 at 33 kV, load factor up to 15% · demand", given: {context: {category: "HV-3", voltage_kv: 33, rate_block: "load factor up to 15%"}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HV-3 at 33 kV, load factor up to 15% · energy", given: {context: {category: "HV-3", voltage_kv: 33, rate_block: "load factor up to 15%"}, field: /energy_charge/base}, expect: {value: "7.75"}}
+  - {name: "FY 2026-27 · HV-3 at 11 kV, load factor above 15% · demand", given: {context: {category: "HV-3", voltage_kv: 11, rate_block: "load factor above 15%"}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-3 at 11 kV, load factor above 15% · energy", given: {context: {category: "HV-3", voltage_kv: 11, rate_block: "load factor above 15%"}, field: /energy_charge/base}, expect: {value: "7.85"}}
+  - {name: "FY 2026-27 · HV-3 at 11 kV, load factor up to 15% · demand", given: {context: {category: "HV-3", voltage_kv: 11, rate_block: "load factor up to 15%"}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HV-3 at 11 kV, load factor up to 15% · energy", given: {context: {category: "HV-3", voltage_kv: 11, rate_block: "load factor up to 15%"}, field: /energy_charge/base}, expect: {value: "8.15"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 220 kV · demand", given: {context: {category: "HV-4", voltage_kv: 220}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 220 kV · energy", given: {context: {category: "HV-4", voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "6.40"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 132 kV · demand", given: {context: {category: "HV-4", voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 132 kV · energy", given: {context: {category: "HV-4", voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "6.55"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 33 kV, load factor above 15% · demand", given: {context: {category: "HV-4", voltage_kv: 33, rate_block: "load factor above 15%"}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 33 kV, load factor above 15% · energy", given: {context: {category: "HV-4", voltage_kv: 33, rate_block: "load factor above 15%"}, field: /energy_charge/base}, expect: {value: "7.05"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 33 kV, load factor up to 15% · demand", given: {context: {category: "HV-4", voltage_kv: 33, rate_block: "load factor up to 15%"}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 33 kV, load factor up to 15% · energy", given: {context: {category: "HV-4", voltage_kv: 33, rate_block: "load factor up to 15%"}, field: /energy_charge/base}, expect: {value: "7.55"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 11 kV, load factor above 15% · demand", given: {context: {category: "HV-4", voltage_kv: 11, rate_block: "load factor above 15%"}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 11 kV, load factor above 15% · energy", given: {context: {category: "HV-4", voltage_kv: 11, rate_block: "load factor above 15%"}, field: /energy_charge/base}, expect: {value: "7.05"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 11 kV, load factor up to 15% · demand", given: {context: {category: "HV-4", voltage_kv: 11, rate_block: "load factor up to 15%"}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HV-4 Steel at 11 kV, load factor up to 15% · energy", given: {context: {category: "HV-4", voltage_kv: 11, rate_block: "load factor up to 15%"}, field: /energy_charge/base}, expect: {value: "7.85"}}
+  - {name: "FY 2026-27 · HV-5 Irrigation and public water works · demand", given: {context: {category: "HV-5", voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-5 Irrigation and public water works · energy", given: {context: {category: "HV-5", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.00"}}
+  - {name: "FY 2026-27 · HV-6 Residential · demand", given: {context: {category: "HV-6", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HV-6 Residential · energy", given: {context: {category: "HV-6", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "7.10"}}
+  - {name: "FY 2026-27 · HV-9 IT and export-oriented textile · demand", given: {context: {category: "HV-9", voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HV-9 IT and export-oriented textile · energy", given: {context: {category: "HV-9", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "5.35"}}
+  - {name: "FY 2026-27 · LV-7 IT and export-oriented textile · demand", given: {context: {category: "LV-7", voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "160"}}
+  - {name: "FY 2026-27 · LV-7 IT and export-oriented textile · energy", given: {context: {category: "LV-7", voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "6.25"}}
+  - {name: "FY 2026-27 · LV-4.2 demand-based, 15 kW and above · demand", given: {context: {category: "LV-4", voltage_kv: 0.4, rate_block: "LV-4.2: Demand based tariff for Contract Demand of 15 kW and above"}, field: /demand_charge/value}, expect: {value: "210"}}
+  - {name: "FY 2026-27 · LV-4.2 demand-based, 15 kW and above · energy", given: {context: {category: "LV-4", voltage_kv: 0.4, rate_block: "LV-4.2: Demand based tariff for Contract Demand of 15 kW and above"}, field: /energy_charge/base}, expect: {value: "6.85"}}
+  - {name: "FY 2026-27 · LV-5.2.1 other industries up to 25 HP · demand", given: {context: {category: "LV-5", voltage_kv: 0.4, rate_block: "5.2.1 Up to 25 HP or 18.7 kW"}, field: /demand_charge/value}, expect: {value: "120"}}
+  - {name: "FY 2026-27 · LV-5.2.1 other industries up to 25 HP · energy", given: {context: {category: "LV-5", voltage_kv: 0.4, rate_block: "5.2.1 Up to 25 HP or 18.7 kW"}, field: /energy_charge/base}, expect: {value: "6.35"}}
+  - {name: "FY 2026-27 · LV-5.2.2 other industries above 25 HP · demand", given: {context: {category: "LV-5", voltage_kv: 0.4, rate_block: "5.2.2 Above 25 HP (18.7 kW)"}, field: /demand_charge/value}, expect: {value: "150"}}
+  - {name: "FY 2026-27 · LV-5.2.2 other industries above 25 HP · energy", given: {context: {category: "LV-5", voltage_kv: 0.4, rate_block: "5.2.2 Above 25 HP (18.7 kW)"}, field: /energy_charge/base}, expect: {value: "7.10"}}
+  - {name: "FY 2026-27 · HV-2 by its printed name at 33 kV · energy", given: {context: {category: "HV-2: Mines", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.80"}}
+  - {name: "FY 2026-27 · HV-3 at 33 kV without the load factor is not answered", given: {context: {category: "HV-3", voltage_kv: 33}}, expect: {absent: true}}
+  - {name: "FY 2026-27 · HV-1 Railway traction ('132 kV / 220 kV') is not imported", given: {context: {category: "HV-1", voltage_kv: 132}}, expect: {absent: true}}
+  - {name: "FY 2026-27 · HV-7 Start-up power ('400/220/132/33/11 kV') is not imported", given: {context: {category: "HV-7", voltage_kv: 33}}, expect: {absent: true}}
+  - {name: "FY 2026-27 · LV-5 tribal-area rates (printed under each slab) are not imported", given: {context: {category: "LV-5", voltage_kv: 0.4, rate_block: "a) Bastar avem Dakshin Kshetra Adivasi Vikas Pradhikaran, and Sarguja avem Uttar Kshetra Adivasi Vikas Pradhikaran"}}, expect: {absent: true}}

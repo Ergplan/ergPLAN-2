@@ -1,0 +1,37 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# TNERC T.O. No. 6 of 2025 dated 30-06-2025 for TNPDCL (ARR Network order 184, sha256 efc5a460…, 53 pages), in force
+# 'on and from 01st July, 2025' (PDF p. 2). HT I p. 24, HT II (A) p. 26, HT II (B) p. 28, HT III p. 29, HT IV p. 30,
+# LT I-D and I-E p. 38, LT II-A p. 39, LT III-B p. 45, LT VI p. 50. Energy charges are printed in paise per kWh.
+# A category is the name each table prints in its first column ('High Tension Tariff I').
+# The order says the FY 2025-26 rates are revised by inflation from 1 July 2026; that revision is not in this order.
+jurisdiction: tnpdcl
+family: tariff_schedule
+effective_on: '2025-08-01'
+tests:
+  - {name: "FY 2025-26 · High Tension Tariff I · demand", given: {context: {category: "High Tension Tariff I", voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "608"}}
+  - {name: "FY 2025-26 · High Tension Tariff I · energy", given: {context: {category: "High Tension Tariff I", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.50"}}
+  - {name: "FY 2025-26 · High Tension Tariff II (A) · demand", given: {context: {category: "High Tension Tariff II (A)", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "608"}}
+  - {name: "FY 2025-26 · High Tension Tariff II (A) · energy", given: {context: {category: "High Tension Tariff II (A)", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "7.75"}}
+  - {name: "FY 2025-26 · High Tension Tariff II (B) · demand", given: {context: {category: "High Tension Tariff II (B)", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "608"}}
+  - {name: "FY 2025-26 · High Tension Tariff II (B) · energy", given: {context: {category: "High Tension Tariff II (B)", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "8.25"}}
+  - {name: "FY 2025-26 · High Tension Tariff III · demand", given: {context: {category: "High Tension Tariff III", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "608"}}
+  - {name: "FY 2025-26 · High Tension Tariff III · energy", given: {context: {category: "High Tension Tariff III", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "9.40"}}
+  - {name: "FY 2025-26 · High Tension Tariff IV · demand", given: {context: {category: "High Tension Tariff IV", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "608"}}
+  - {name: "FY 2025-26 · High Tension Tariff IV · energy", given: {context: {category: "High Tension Tariff IV", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "13.25"}}
+  - {name: "FY 2025-26 · Low Tension Tariff I-D · demand", given: {context: {category: "Low Tension Tariff I-D", voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "110"}}
+  - {name: "FY 2025-26 · Low Tension Tariff I-D · energy", given: {context: {category: "Low Tension Tariff I-D", voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "8.80"}}
+  - {name: "FY 2025-26 · Low Tension Tariff I-E · demand", given: {context: {category: "Low Tension Tariff I-E", voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "110"}}
+  - {name: "FY 2025-26 · Low Tension Tariff I-E · energy", given: {context: {category: "Low Tension Tariff I-E", voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "8.80"}}
+  - {name: "FY 2025-26 · Low Tension Tariff II-A · demand", given: {context: {category: "Low Tension Tariff II-A", voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "110"}}
+  - {name: "FY 2025-26 · Low Tension Tariff II-A · energy", given: {context: {category: "Low Tension Tariff II-A", voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "8.80"}}
+  - {name: "FY 2025-26 · Low Tension Tariff III-B up to 50 kW · demand", given: {context: {category: "Low Tension Tariff III-B", voltage_kv: 0.4, rate_block: "0-50kW"}, field: /demand_charge/value}, expect: {value: "84"}}
+  - {name: "FY 2025-26 · Low Tension Tariff III-B up to 50 kW · energy", given: {context: {category: "Low Tension Tariff III-B", voltage_kv: 0.4, rate_block: "0-50kW"}, field: /energy_charge/base}, expect: {value: "8.25"}}
+  - {name: "FY 2025-26 · Low Tension Tariff VI · demand", given: {context: {category: "Low Tension Tariff VI", voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "608"}}
+  - {name: "FY 2025-26 · Low Tension Tariff VI · energy", given: {context: {category: "Low Tension Tariff VI", voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "13.25"}}
+  - {name: "FY 2025-26 · High Tension Tariff I is billed on kWh", given: {context: {category: "High Tension Tariff I", voltage_kv: 33}, field: /billing_basis}, expect: {value: "kwh"}}
+  - {name: "FY 2025-26 · High Tension Tariff I demand charge is per kVA", given: {context: {category: "High Tension Tariff I", voltage_kv: 33}, field: /demand_charge/basis}, expect: {value: "inr_per_kva_month"}}
+  - {name: "FY 2025-26 · High Tension Tariff V (by time slot) is not imported", given: {context: {category: "High Tension Tariff V", voltage_kv: 11}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · Low Tension Tariff I-A (consumption slabs) is not imported", given: {context: {category: "Low Tension Tariff I-A", voltage_kv: 0.4}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · Low Tension Tariff II-C (consumption slabs) is not imported", given: {context: {category: "Low Tension Tariff II-C", voltage_kv: 0.4, rate_block: "0 to 60 units per month or 0 to 120 units bimonthly"}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · Low Tension Tariff III-B above 112 kW (no energy charge on its row) is not imported", given: {context: {category: "Low Tension Tariff III-B", voltage_kv: 0.4, rate_block: "Above 112 kW"}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · the heading 'TARIFF FOR HIGH TENSION SUPPLY CONSUMERS' is not a category", given: {context: {category: "TARIFF FOR HIGH TENSION SUPPLY CONSUMERS", voltage_kv: 11}}, expect: {absent: true}}

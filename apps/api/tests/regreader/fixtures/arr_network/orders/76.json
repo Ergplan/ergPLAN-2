@@ -1,0 +1,25 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 76,
+  "commission": "CSERC",
+  "title": "Tariff Order in respect of CSPGCL, CSPTCL, CSLDC CSPDCL for FY 2025-26",
+  "url": "https://cserc.gov.in/upload/./upload_terrif_order/17522356311.pdf",
+  "sha256": "600d182822a853f9e6bf67d1b3f2dd727d11ff4817e0d04f9a860907c8a00478",
+  "pages": 30,
+  "pages_without_text": 0,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2025-26"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "listing page read on 2026-11-11 (no discovery profile yet)",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "no_tables_found",
+  "utilities": [
+   "CSPDCL"
+  ]
+ }
+}

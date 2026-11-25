@@ -1,0 +1,28 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 50,
+  "commission": "OERC",
+  "title": "Aggregate Revenue Requirement, Wheeling Tariff &Retail Supply Tariff for the FY 2025-26",
+  "url": "https://www.orierc.org/CuteSoft_Client/writereaddata/upload/DISCOM_TARIFF_ORDER_FY_2025-26.pdf",
+  "sha256": "de53fe6fc5afb70f9f45e2eb94a977bcbd2c791fe63eb9f713f8b9ab2fc069fb",
+  "pages": 169,
+  "pages_without_text": 0,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2025-26"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "discovery profile oerc-discovery v1",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "TPCODL",
+   "TPNODL",
+   "TPSODL",
+   "TPWODL"
+  ]
+ }
+}

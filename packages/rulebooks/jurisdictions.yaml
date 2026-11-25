@@ -45,6 +45,7 @@ groups:
   - {id: ap_discoms, name: "Andhra Pradesh DISCOMs (one APERC tariff order: APSPDCL, APCPDCL, APEPDCL)", state: AP}
   - {id: gj_discoms, name: "Gujarat state DISCOMs (one GERC tariff schedule: DGVCL, MGVCL, PGVCL, UGVCL)", state: GJ}
   - {id: hr_discoms, name: "Haryana DISCOMs (one HERC tariff order: UHBVN, DHBVN)", state: HR}
+  - {id: od_discoms, name: "Odisha DISCOMs (one OERC retail supply tariff order: TPCODL, TPNODL, TPSODL, TPWODL)", state: OD}
 discoms:
   - {id: npcl, name: Noida Power Company Limited, state: UP}
   - {id: pvvnl, name: Paschimanchal Vidyut Vitran Nigam Limited, state: UP, parent: uppcl}
@@ -85,8 +86,8 @@ discoms:
   - {id: nbpdcl, name: North Bihar Power Distribution Company Limited, state: BR}
   - {id: sbpdcl, name: South Bihar Power Distribution Company Limited, state: BR}
   - {id: cspdcl, name: Chhattisgarh State Power Distribution Company Limited, state: CG}
-  - {id: tpcodl, name: TP Central Odisha Distribution Limited, state: OD}
-  - {id: tpnodl, name: TP Northern Odisha Distribution Limited, state: OD}
-  - {id: tpsodl, name: TP Southern Odisha Distribution Limited, state: OD}
-  - {id: tpwodl, name: TP Western Odisha Distribution Limited, state: OD}
+  - {id: tpcodl, name: TP Central Odisha Distribution Limited, state: OD, parent: od_discoms}
+  - {id: tpnodl, name: TP Northern Odisha Distribution Limited, state: OD, parent: od_discoms}
+  - {id: tpsodl, name: TP Southern Odisha Distribution Limited, state: OD, parent: od_discoms}
+  - {id: tpwodl, name: TP Western Odisha Distribution Limited, state: OD, parent: od_discoms}
   - {id: upcl, name: Uttarakhand Power Corporation Limited, state: UK}

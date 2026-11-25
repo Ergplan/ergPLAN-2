@@ -1,0 +1,15 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# OERC retail supply tariff order for FY 2025-26 (ARR Network order 50, sha256 de53fe6f…, 169 pages): Table 39, PDF p. 96 (para 157).
+# The order prints paise per unit ('P/U'); the importer holds rupees per kWh (151.83 P/U = Rs 1.5183).
+# A context without the consumer's supply level (EHT, HT, LT) is not answered: the order fixes the charges by level.
+jurisdiction: tpwodl
+family: oa_charge
+effective_on: '2025-05-01'
+tests:
+  - {name: "FY 2025-26 · TPWODL · CSS for an EHT consumer", given: {context: {connection: "intra_state", consumer_kind: "eht", voltage_kv: 132}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.1298"}}
+  - {name: "FY 2025-26 · TPWODL · CSS for an HT consumer", given: {context: {connection: "intra_state", consumer_kind: "ht", voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "0.1973"}}
+  - {name: "FY 2025-26 · TPWODL · wheeling charge for an HT consumer", given: {context: {connection: "intra_state", consumer_kind: "ht", voltage_kv: 33}, where: {/component: wheeling}, field: /value}, expect: {value: "1.0451"}}
+  - {name: "FY 2025-26 · TPWODL · no wheeling charge for an EHT consumer", given: {context: {connection: "intra_state", consumer_kind: "eht", voltage_kv: 132}, where: {/component: wheeling}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · TPWODL · no CSS is fixed for LT open access", given: {context: {connection: "intra_state", consumer_kind: "lt", voltage_kv: 0.4}, where: {/component: cross_subsidy_surcharge}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · TPWODL · no wheeling charge is fixed for LT open access", given: {context: {connection: "intra_state", consumer_kind: "lt", voltage_kv: 0.4}, where: {/component: wheeling}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · TPWODL · the surcharge is held in rupees per kWh", given: {context: {connection: "intra_state", consumer_kind: "ht", voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /basis}, expect: {value: "inr_per_kwh"}}

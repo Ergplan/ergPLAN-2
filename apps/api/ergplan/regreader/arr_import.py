@@ -200,6 +200,11 @@ def store_pdf(
     return doc, f"NOT stored ({why}); the regulator's link and the page are kept"
 
 
+# a table's number is its name, not a figure of the row: the ARR Network labels 'Table 5-20' what
+# the order prints as 'Table 5.20:', and the two do not ground against each other
+_TABLE_NUMBER = re.compile(r"\bTable\s*[-–]?\s*\d+([-–.]\d+)*", re.I)
+
+
 def ground(doc: SourceDocument, mapped: Mapped) -> tuple[list[Unmapped], int, list[int]]:
     """Drop every mapped row whose quoted numbers are not printed on its cited pages of the stored
     PDF. Returns (the rows dropped, with the numbers; rows that passed; pages that have no text to
@@ -228,7 +233,9 @@ def ground(doc: SourceDocument, mapped: Mapped) -> tuple[list[Unmapped], int, li
                     readable.append(texts[page])
             if readable and not problems:
                 for r in refs:
-                    missing = grounding.quote_numbers_missing(str(r["quote"]), "\n".join(readable))
+                    missing = grounding.quote_numbers_missing(
+                        _TABLE_NUMBER.sub(" ", str(r["quote"])), "\n".join(readable)
+                    )
                     if missing:
                         problems.append(f"{', '.join(missing)} not printed on page {r['page']}")
             if problems:
@@ -321,6 +328,17 @@ def propose_draft(
     else:
         res.golden = v.golden_status
     return res
+
+
+def per_jurisdiction(rows: list[dict[str, Any]], default: str) -> list[tuple[str, list[dict[str, Any]]]]:
+    """The rows of one family by the jurisdiction they are for: the order's own, or the licensee a
+    row names (`arr_map.JURISDICTION_KEY`, set for a table with one row per licensee). The key is
+    removed: it is not part of a rule row."""
+    parts: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        jid = row.get(arr_map.JURISDICTION_KEY) or default
+        parts.setdefault(jid, []).append({k: v for k, v in row.items() if k != arr_map.JURISDICTION_KEY})
+    return sorted(parts.items())
 
 
 # ------------------------------------------------------------------ the run
@@ -429,11 +447,16 @@ def run(
             rows = mapped.by_family[family]
             if not rows:
                 continue
-            if dry_run:
-                out.versions.append(VersionOutcome(family, out.jurisdiction_id, len(rows), "would propose"))
-                continue
-            with session_scope(actor=actor) as s:
-                out.versions.append(propose_draft(s, out, family, rows, actor, notes))
+            for jid, part in per_jurisdiction(rows, out.jurisdiction_id):
+                if dry_run:
+                    out.versions.append(VersionOutcome(family, jid, len(part), "would propose"))
+                    continue
+                with session_scope(actor=actor) as s:
+                    if s.get(Jurisdiction, jid) is None:
+                        raise ImportRefused(f"order {order.order_id}: no jurisdiction '{jid}' for its rows")
+                    out.versions.append(
+                        propose_draft(s, replace(out, jurisdiction_id=jid), family, part, actor, notes)
+                    )
     return outcomes
 
 

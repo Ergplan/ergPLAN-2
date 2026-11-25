@@ -86,8 +86,11 @@ def unit_of(text: str) -> Unit | None:
     t = _norm(text)
     words = set(re.findall(r"[a-z]+", t))
     paise, rupee = bool(_PAISE.search(t)), bool(_RUPEE.search(t))
+    slashed = _p_slash(t)
+    if slashed is not None and not rupee:
+        return slashed
     if paise or rupee:
-        if words & _OTHER_BASIS:
+        if words & (_OTHER_BASIS - _per_day_of_capacity(words)):
             return None
         for needs, excludes, in_rupees, in_paise in _PER:
             if all(w in words for w in needs) and not any(w in words for w in excludes):
@@ -96,6 +99,24 @@ def unit_of(text: str) -> Unit | None:
     if _PERCENT.search(t):
         return Unit.PERCENT
     return None
+
+
+_P_SLASH = re.compile(r"(?<![a-z])p\s*/\s*(u|unit|kwh|kvah)(?![a-z])")
+
+
+def _p_slash(t: str) -> Unit | None:
+    """Paise written as a bare 'P' over the unit of energy, as some orders head a column:
+    'Cross Subsidy Surcharge (P/U)', 'Energy Charge (P/kWh)', '(P/kVAh)'."""
+    m = _P_SLASH.search(t)
+    if m is None:
+        return None
+    return Unit.PAISE_PER_KVAH if m.group(1) == "kvah" else Unit.PAISE_PER_KWH
+
+
+def _per_day_of_capacity(words: set[str]) -> set[str]:
+    """'day' is a basis of its own ('Rs. 50 per day') except after a capacity: 'Rs./MW/day' is the
+    per-MW-per-day unit of core/units.py, which the list above holds."""
+    return {"day"} if "mw" in words else set()
 
 
 def rate(text: str, heading: str | None = None) -> Rate | None:

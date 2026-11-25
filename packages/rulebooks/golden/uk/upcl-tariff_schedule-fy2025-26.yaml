@@ -1,0 +1,22 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UERC tariff order for UPCL, FY 2025-26 (ARR Network order 54, sha256 5fc2d18f…, 412 pages; Annexure 1 'Rate Schedule Effective from 01.04.2025': RTS-1 p. 386, RTS-3 p. 389, RTS-6 p. 397, RTS-7 p. 398).
+# RTS-5 (LT and HT industry) is printed by load factor and time of day and is not imported; RTS-1, RTS-2 and RTS-4 are
+# slabbed or per connection. The two RTS-4A load slabs are imported but have no case here: rulebook.scope matches a rate
+# block on its words, and 'Above 75 kW' is contained in 'Above 25 kW & upto 75 kW' (a known gap).
+jurisdiction: upcl
+family: tariff_schedule
+effective_on: '2025-05-01'
+tests:
+  - {name: "FY 2025-26 · RTS-1 single point bulk supply · demand", given: {context: {category: "RTS-1", voltage_kv: 11, rate_block: "single point bulk supply"}, field: /demand_charge/value}, expect: {value: "120"}}
+  - {name: "FY 2025-26 · RTS-1 single point bulk supply · energy", given: {context: {category: "RTS-1", voltage_kv: 11, rate_block: "single point bulk supply"}, field: /energy_charge/base}, expect: {value: "7.50"}}
+  - {name: "FY 2025-26 · RTS-3 government public utilities, urban · demand", given: {context: {category: "RTS-3", voltage_kv: 11, rate_block: "urban metered"}, field: /demand_charge/value}, expect: {value: "130"}}
+  - {name: "FY 2025-26 · RTS-3 government public utilities, urban · energy", given: {context: {category: "RTS-3", voltage_kv: 11, rate_block: "urban metered"}, field: /energy_charge/base}, expect: {value: "7.85"}}
+  - {name: "FY 2025-26 · RTS-3 government public utilities, rural · demand", given: {context: {category: "RTS-3", voltage_kv: 11, rate_block: "rural metered"}, field: /demand_charge/value}, expect: {value: "120"}}
+  - {name: "FY 2025-26 · RTS-3 government public utilities, rural · energy", given: {context: {category: "RTS-3", voltage_kv: 11, rate_block: "rural metered"}, field: /energy_charge/base}, expect: {value: "7.85"}}
+  - {name: "FY 2025-26 · RTS-6 mixed load · demand", given: {context: {category: "RTS-6", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "150"}}
+  - {name: "FY 2025-26 · RTS-6 mixed load · energy", given: {context: {category: "RTS-6", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "7.30"}}
+  - {name: "FY 2025-26 · RTS-7 railway traction · demand", given: {context: {category: "RTS-7", voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "330"}}
+  - {name: "FY 2025-26 · RTS-7 railway traction · energy", given: {context: {category: "RTS-7", voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "7.05"}}
+  - {name: "FY 2025-26 · RTS-6 is billed on kVAh", given: {context: {category: "RTS-6", voltage_kv: 11}, field: /billing_basis}, expect: {value: "kvah"}}
+  - {name: "FY 2025-26 · RTS-5 HT industry (by load factor) is not imported", given: {context: {category: "RTS-5", voltage_kv: 33}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · RTS-8 EV charging (no fixed charge printed) is not imported", given: {context: {category: "RTS-8", voltage_kv: 11}}, expect: {absent: true}}
