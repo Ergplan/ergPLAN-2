@@ -171,3 +171,58 @@ def hours(text: str) -> tuple[str, str] | None:
     if simple and (simple[0][:2], simple[1][:2]) != (out[0][:2], out[1][:2]):
         return None  # two readings of the same text disagree: not read
     return start, end
+
+
+def rate_under(text: str, heading: str) -> Rate | None:
+    """A cell that repeats part of its column's unit: 'Rs. 400 per kVA' under 'Fixed Charge
+    (Rs./kVA/ Month)' is 400 in the heading's unit. Read only when every unit word of the cell is
+    also in the heading and the heading names a unit this module knows; otherwise None."""
+    if is_blank(text):
+        return None
+    unit = unit_of(heading)
+    if unit is None or unit == Unit.PERCENT:
+        return None
+    t = _norm(text)
+    words = set(re.findall(r"[a-z]+", t)) - {"rs", "inr", "rupee", "rupees", "per"}
+    if not words or words & _OTHER_BASIS or not words <= set(re.findall(r"[a-z]+", _norm(heading))):
+        return None
+    v = number(t)
+    return None if v is None else Rate(v, unit)
+
+
+_MONTH_NAMES = (
+    ("jan", "january"), ("feb", "february"), ("mar", "march"), ("apr", "april"), ("may",),
+    ("jun", "june"), ("jul", "july"), ("aug", "august"), ("sep", "sept", "september"),
+    ("oct", "october"), ("nov", "november"), ("dec", "december"),
+)  # fmt: skip
+_MONTH_NUMBER = {name: i + 1 for i, names in enumerate(_MONTH_NAMES) for name in names}
+_SEASON_PART = re.compile(r"([+-]?\s*\d[\d.]*\s*%)\s*\(\s*([a-z]+)\.?\s*(?:to|-)\s*([a-z]+)\.?\s*\)")
+
+
+def month_span(first: str, last: str) -> list[int] | None:
+    """'Apr', 'Sept' → [4, 5, 6, 7, 8, 9]; 'October', 'March' → [10, 11, 12, 1, 2, 3]."""
+    a, b = _MONTH_NUMBER.get(first.lower().strip(".")), _MONTH_NUMBER.get(last.lower().strip("."))
+    if a is None or b is None:
+        return None
+    return list(range(a, b + 1)) if a <= b else [*range(a, 13), *range(1, b + 1)]
+
+
+def seasonal_adjustments(text: str) -> list[tuple[Decimal, list[int]]] | None:
+    """A time-of-day adjustment that changes with the season, printed in one cell:
+    '-15% (April to September) -25% (October to March)' → [(-15, [4 … 9]), (-25, [10, 11, 12, 1, 2, 3])].
+    None unless the cell is nothing but signed percentages, each with its months, and the seasons
+    together are the twelve months, none of them twice."""
+    t = _norm(text)
+    parts = list(_SEASON_PART.finditer(t))
+    if len(parts) < 2 or _SEASON_PART.sub("", t).strip():
+        return None
+    out: list[tuple[Decimal, list[int]]] = []
+    for m in parts:
+        pct = adjustment_pct(m.group(1).replace(" ", ""))
+        months = month_span(m.group(2), m.group(3))
+        if pct is None or months is None:
+            return None
+        out.append((pct, months))
+    if sorted(mo for _, months in out for mo in months) != list(range(1, 13)):
+        return None
+    return out

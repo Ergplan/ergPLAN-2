@@ -1,0 +1,108 @@
+# Months of a consumer's bill worked by hand from the order pages (rates and time-of-day percentages read from the
+# text layer of the PDFs, independently of the importer), for the versions imported from the ARR Network. Each case
+# is evaluated through rulebook.sandbox on the draft in force at the end of the month and engine.tariff_eval
+# (apps/api/tests/regreader/test_arr_mh.py). The schedules state no billing-demand floor in their tables, so the
+# demand charge is on the recorded demand. FAC, electricity duty and the power-factor terms are not in the tables.
+#
+# MERC TPC-D MYT Order (ARR Network order 100): HT I p. 316, its time-of-day table p. 317.
+# MERC AEML-D MYT Order (order 104): HT I p. 469 (ToD pp. 469-470); HT II pp. 471-472 (ToD p. 472).
+# MERC BEST MYT Order (order 108): HT II pp. 405-406 (ToD p. 406), HT V pp. 413-414 (ToD p. 414).
+# Slots: 00:00-06:00, 06:00-09:00, 09:00-17:00 (rebate by season), 17:00-24:00.
+origin: arr_network
+cases:
+  - name: TPC-D HT I at HT, 3,000 kVA contract, August 2025 (FY 2025-26)
+    # demand 2,700 kVA x 400 = 1,080,000; energy 1,200,000 kVAh x 6.11 = 7,332,000; wheeling 1,200,000 x 0.78 = 936,000;
+    # 00-06 -10%: 250,000 x 6.11 x 0.10 = 152,750; 09-17 -15% (Apr-Sep): 500,000 x 6.11 x 0.15 = 458,250;
+    # 17-24 +20%: 300,000 x 6.11 x 0.20 = 366,600; net -244,400
+    discom: tpcd
+    category: HT I
+    rate_block: HT
+    voltage_kv: 22
+    month: 2025-08
+    contract_kva: 3000
+    max_kva: 2700
+    units: 1200000
+    by_slot: {"00:00 hrs to 06:00 hrs": 250000, "06:00 hrs to 09:00 hrs": 150000, "09:00 hrs to 17:00 hrs": 500000, "17:00 hrs to 24:00 hrs": 300000}
+    expect: {tariff_year: FY2025-26, demand_charge: "1080000.00", energy_charge: "7332000.00", tod_adjustment: "-244400.00", wheeling_charge: "936000.00", total: "9103600.00"}
+  - name: TPC-D HT I at EHV, 10,000 kVA contract, January 2027 (FY 2026-27, winter solar-hours rebate)
+    # demand 9,000 x 400 = 3,600,000; energy 4,000,000 x 5.67 = 22,680,000; wheeling 4,000,000 x 0.04 = 160,000;
+    # 00-06 -15%: 900,000 x 5.67 x 0.15 = 765,450; 09-17 -25% (Oct-Mar): 1,600,000 x 5.67 x 0.25 = 2,268,000;
+    # 17-24 +20%: 1,000,000 x 5.67 x 0.20 = 1,134,000; net -1,899,450
+    discom: tpcd
+    category: HT I
+    rate_block: EHV
+    voltage_kv: 110
+    month: 2027-01
+    contract_kva: 10000
+    max_kva: 9000
+    units: 4000000
+    by_slot: {"00:00 hrs to 06:00 hrs": 900000, "06:00 hrs to 09:00 hrs": 500000, "09:00 hrs to 17:00 hrs": 1600000, "17:00 hrs to 24:00 hrs": 1000000}
+    expect: {tariff_year: FY2026-27, demand_charge: "3600000.00", energy_charge: "22680000.00", tod_adjustment: "-1899450.00", wheeling_charge: "160000.00", total: "24540550.00"}
+  - name: AEML-D HT I at HT, 4,000 kVA contract, February 2026 (FY 2025-26, the time-of-day table runs over pp. 469-470)
+    # demand 3,600 x 400 = 1,440,000; energy 1,500,000 x 6.13 = 9,195,000; wheeling 1,500,000 x 0.74 = 1,110,000;
+    # 00-06 -10%: 300,000 x 6.13 x 0.10 = 183,900; 09-17 -25% (Oct-Mar): 600,000 x 6.13 x 0.25 = 919,500;
+    # 17-24 +20%: 400,000 x 6.13 x 0.20 = 490,400; net -613,000
+    discom: aeml
+    category: HT I
+    rate_block: HT
+    voltage_kv: 33
+    month: 2026-02
+    contract_kva: 4000
+    max_kva: 3600
+    units: 1500000
+    by_slot: {"00:00 hrs to 06:00 hrs": 300000, "06:00 hrs to 09:00 hrs": 200000, "09:00 hrs to 17:00 hrs": 600000, "17:00 hrs to 24:00 hrs": 400000}
+    expect: {tariff_year: FY2025-26, demand_charge: "1440000.00", energy_charge: "9195000.00", tod_adjustment: "-613000.00", wheeling_charge: "1110000.00", total: "11132000.00"}
+  - name: AEML-D HT II at HT, 2,000 kVA contract, December 2025 (FY 2025-26)
+    # demand 1,800 x 300 = 540,000; energy 800,000 x 6.22 = 4,976,000; wheeling 800,000 x 0.74 = 592,000;
+    # 00-06 -10%: 120,000 x 6.22 x 0.10 = 74,640; 09-17 -25% (Oct-Mar): 330,000 x 6.22 x 0.25 = 513,150;
+    # 17-24 +20%: 250,000 x 6.22 x 0.20 = 311,000; net -276,790
+    discom: aeml
+    category: HT II
+    rate_block: HT
+    voltage_kv: 22
+    month: 2025-12
+    contract_kva: 2000
+    max_kva: 1800
+    units: 800000
+    by_slot: {"00:00 hrs to 06:00 hrs": 120000, "06:00 hrs to 09:00 hrs": 100000, "09:00 hrs to 17:00 hrs": 330000, "17:00 hrs to 24:00 hrs": 250000}
+    expect: {tariff_year: FY2025-26, demand_charge: "540000.00", energy_charge: "4976000.00", tod_adjustment: "-276790.00", wheeling_charge: "592000.00", total: "5831210.00"}
+  - name: AEML-D HT II at EHV, 5,000 kVA contract, June 2026 (FY 2026-27, no wheeling charge at EHV)
+    # demand 5,000 x 300 = 1,500,000; energy 2,000,000 x 5.97 = 11,940,000; no wheeling charge is printed for EHV;
+    # 00-06 -15%: 400,000 x 5.97 x 0.15 = 358,200; 09-17 -15% (Apr-Sep): 900,000 x 5.97 x 0.15 = 805,950;
+    # 17-24 +20%: 500,000 x 5.97 x 0.20 = 597,000; net -567,150
+    discom: aeml
+    category: HT II
+    rate_block: EHV
+    voltage_kv: 110
+    month: 2026-06
+    contract_kva: 5000
+    max_kva: 5000
+    units: 2000000
+    by_slot: {"00:00 hrs to 06:00 hrs": 400000, "06:00 hrs to 09:00 hrs": 200000, "09:00 hrs to 17:00 hrs": 900000, "17:00 hrs to 24:00 hrs": 500000}
+    expect: {tariff_year: FY2026-27, demand_charge: "1500000.00", energy_charge: "11940000.00", tod_adjustment: "-567150.00", wheeling_charge: "0.00", total: "12872850.00"}
+  - name: BEST HT II, 1,500 kVA contract, November 2025 (FY 2025-26)
+    # demand 1,400 x 300 = 420,000; energy 600,000 x 5.85 = 3,510,000; wheeling 600,000 x 1.01 = 606,000;
+    # 00-06 -10%: 80,000 x 5.85 x 0.10 = 46,800; 09-17 -25% (Oct-Mar): 260,000 x 5.85 x 0.25 = 380,250;
+    # 17-24 +20%: 190,000 x 5.85 x 0.20 = 222,300; net -204,750
+    discom: best
+    category: HT II
+    voltage_kv: 22
+    month: 2025-11
+    contract_kva: 1500
+    max_kva: 1400
+    units: 600000
+    by_slot: {"00:00 hrs to 06:00 hrs": 80000, "06:00 hrs to 09:00 hrs": 70000, "09:00 hrs to 17:00 hrs": 260000, "17:00 hrs to 24:00 hrs": 190000}
+    expect: {tariff_year: FY2025-26, demand_charge: "420000.00", energy_charge: "3510000.00", tod_adjustment: "-204750.00", wheeling_charge: "606000.00", total: "4331250.00"}
+  - name: BEST HT V, 1,000 kVA contract, May 2026 (FY 2026-27)
+    # demand 900 x 400 = 360,000; energy 400,000 x 5.53 = 2,212,000; wheeling 400,000 x 0.88 = 352,000;
+    # 00-06 -15%: 60,000 x 5.53 x 0.15 = 49,770; 09-17 -15% (Apr-Sep): 180,000 x 5.53 x 0.15 = 149,310;
+    # 17-24 +20%: 110,000 x 5.53 x 0.20 = 121,660; net -77,420
+    discom: best
+    category: HT V
+    voltage_kv: 11
+    month: 2026-05
+    contract_kva: 1000
+    max_kva: 900
+    units: 400000
+    by_slot: {"00:00 hrs to 06:00 hrs": 60000, "06:00 hrs to 09:00 hrs": 50000, "09:00 hrs to 17:00 hrs": 180000, "17:00 hrs to 24:00 hrs": 110000}
+    expect: {tariff_year: FY2026-27, demand_charge: "360000.00", energy_charge: "2212000.00", tod_adjustment: "-77420.00", wheeling_charge: "352000.00", total: "2846580.00"}

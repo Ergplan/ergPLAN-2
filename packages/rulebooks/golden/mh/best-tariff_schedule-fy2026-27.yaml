@@ -1,0 +1,33 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MERC BEST MYT Order, Case No. 207 of 2024, dated 28 March 2025 (sha256 34f5c954…, 422 pages).
+# Tariff schedule annexure ('Tariff w.e.f. 1 April, 2026 to 31 March, 2027'), checked against the order's
+# summary of approved tariffs (Table 6-32, PDF page 332). The tariffs apply from 1 April 2025 (para 9.1.1, PDF page 367).
+# Supply levels are kept as the tables print them (rate_block EHV / HT): the voltages each covers are in the
+# The order prints one rate per HT category (no EHV row).
+jurisdiction: best
+family: tariff_schedule
+effective_on: '2026-10-01'
+tests:
+  # HT I Industry, PDF page 402.
+  - {name: "FY 2026-27 · HT I · demand", given: {context: {category: HT I, voltage_kv: 22}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT I · energy", given: {context: {category: HT I, voltage_kv: 22}, field: /energy_charge/base}, expect: {value: "5.47"}}
+  - {name: "FY 2026-27 · HT I · wheeling", given: {context: {category: HT I, voltage_kv: 22}, field: /retail_wheeling_charge}, expect: {value: "0.88"}}
+  # HT II Commercial, PDF page 406.
+  - {name: "FY 2026-27 · HT II · demand", given: {context: {category: HT II, voltage_kv: 22}, field: /demand_charge/value}, expect: {value: "300"}}
+  - {name: "FY 2026-27 · HT II · energy", given: {context: {category: HT II, voltage_kv: 22}, field: /energy_charge/base}, expect: {value: "5.68"}}
+  - {name: "FY 2026-27 · HT II · wheeling", given: {context: {category: HT II, voltage_kv: 22}, field: /retail_wheeling_charge}, expect: {value: "0.88"}}
+  # HT III Group Housing Society, PDF page 408.
+  - {name: "FY 2026-27 · HT III · demand", given: {context: {category: HT III, voltage_kv: 22}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT III · energy", given: {context: {category: HT III, voltage_kv: 22}, field: /energy_charge/base}, expect: {value: "4.72"}}
+  - {name: "FY 2026-27 · HT III · wheeling", given: {context: {category: HT III, voltage_kv: 22}, field: /retail_wheeling_charge}, expect: {value: "0.88"}}
+  # HT IV Railways/Metro/Monorail, PDF page 410.
+  - {name: "FY 2026-27 · HT IV · demand", given: {context: {category: HT IV, voltage_kv: 22}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HT IV · energy", given: {context: {category: HT IV, voltage_kv: 22}, field: /energy_charge/base}, expect: {value: "4.86"}}
+  - {name: "FY 2026-27 · HT IV · wheeling", given: {context: {category: HT IV, voltage_kv: 22}, field: /retail_wheeling_charge}, expect: {value: "0.88"}}
+  # HT V Public Services, PDF page 413.
+  - {name: "FY 2026-27 · HT V · demand", given: {context: {category: HT V, voltage_kv: 22}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT V · energy", given: {context: {category: HT V, voltage_kv: 22}, field: /energy_charge/base}, expect: {value: "5.53"}}
+  - {name: "FY 2026-27 · HT V · wheeling", given: {context: {category: HT V, voltage_kv: 22}, field: /retail_wheeling_charge}, expect: {value: "0.88"}}
+  # Units of the HT tables: Rs./kVA/Month and Rs./kVAh.
+  - {name: "FY 2026-27 · HT I billed in kVAh", given: {context: {category: HT I, voltage_kv: 22}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "FY 2026-27 · HT I demand charge is per kVA", given: {context: {category: HT I, voltage_kv: 22}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}

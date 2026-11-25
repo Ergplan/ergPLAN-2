@@ -1,0 +1,28 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 100,
+  "commission": "MERC",
+  "title": "Case of The Tata Power Company Ltd. (Distribution) for approval of Truing-up of Aggregate Revenue Requirement (ARR) for FY 2023-24, Provisional Truing-up of ARR for FY 2024-25, and Determination of ARR & Tariff for the 5th Control Period from FY 2025-26 to FY 2029-30.",
+  "url": "https://merc.gov.in/wp-content/uploads/2025/03/Final-MYT-Order-Case-No.-210-of-2024_TPC-D-280325.pdf",
+  "sha256": "10571990a3929b7156085cb882e7cb49bf2d82b261f47d56c4d657148fa05a95",
+  "pages": 336,
+  "pages_without_text": 0,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2023-24",
+   "FY2024-25",
+   "FY2025-26",
+   "FY2029-30"
+  ],
+  "kind": "MYT",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "listing page read on 2026-11-11 (no discovery profile yet)",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "TPC-D"
+  ]
+ }
+}
