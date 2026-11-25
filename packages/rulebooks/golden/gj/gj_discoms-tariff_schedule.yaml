@@ -3,6 +3,8 @@
 # (PDF page 173), billing demand (page 174), rebate for HV/EHV supply (page 175).
 jurisdiction: gj_discoms
 family: tariff_schedule
+# these cases are for the FY 2026-27 schedule: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "first 500 kVA at 150", given: {context: {category: HTP-I, voltage_kv: 11}, field: /demand_charge/slabs/0/value}, expect: {value: "150"}}
   - {name: "next 500 kVA at 260", given: {context: {category: HTP-I, voltage_kv: 11}, field: /demand_charge/slabs/1/value}, expect: {value: "260"}}

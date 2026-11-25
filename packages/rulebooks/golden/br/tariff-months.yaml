@@ -1,0 +1,37 @@
+# Months of a consumer's bill worked by hand from the order pages (rates and time-of-day periods read from the text
+# layer of the PDFs, independently of the importer), for the versions imported from the ARR Network. Each case is
+# evaluated through rulebook.sandbox on the draft in force at the end of the month and engine.tariff_eval
+# (apps/api/tests/regreader/test_arr_gj_mp_br.py). Recorded demand is at or above 75% of contract demand and not
+# above 105% of it in every case, so the billing-demand floor and the excess-demand rule (stated in words under
+# each rate) do not enter. The time-of-day table is for all HT consumers: consumer_kind ht.
+#
+# BERC FY 2026-27 (ARR Network order 1): HTIS-I p. 559, ToD p. 567. BERC FY 2025-26 (order 3): HTSS p. 730, ToD p. 736.
+origin: arr_network
+state: BR
+cases:
+  - name: SBPDCL HTIS-I at 11 kV, 1,000 kVA contract, July 2026 (FY 2026-27 order)
+    # demand 900 x 550 = 495,000; energy 400,000 kVAh x 7.98 = 3,192,000;
+    # off-peak 80%: -0.20 x 150,000 x 7.98 = -239,400; evening peak 120%: +0.20 x 100,000 x 7.98 = +159,600
+    discom: sbpdcl
+    category: "HTIS (Industrial) – I (11 kV)"
+    consumer_kind: ht
+    voltage_kv: 11
+    month: 2026-07
+    contract_kva: 1000
+    max_kva: 900
+    units: 400000
+    by_slot: {"(i) off peak load period (9:00 a.m. to 5.00 p.m.)": 150000, "(ii) Evening peak load period (5.00 p.m. to 11.00 p.m.)": 100000, "(iii) Normal period (11.00 p.m. to 9.00 a.m.)": 150000}
+    expect: {tariff_year: FY2026-27, demand_charge: "495000.00", energy_charge: "3192000.00", tod_adjustment: "-79800.00", total: "3607200.00"}
+  - name: NBPDCL HTSS at 33 kV, 5,000 kVA contract, November 2025 (FY 2025-26 order)
+    # demand 4,800 x 800 = 3,840,000; energy 2,500,000 kVAh x 4.94 = 12,350,000;
+    # off-peak: -0.20 x 1,000,000 x 4.94 = -988,000; evening peak: +0.20 x 500,000 x 4.94 = +494,000
+    discom: nbpdcl
+    category: "HTSS – (33 kV/11 kV)"
+    consumer_kind: ht
+    voltage_kv: 33
+    month: 2025-11
+    contract_kva: 5000
+    max_kva: 4800
+    units: 2500000
+    by_slot: {"(i) off peak load period (9:00 a.m. to 5.00 p.m.)": 1000000, "(ii) Evening peak load period (5.00 p.m. to 11.00 p.m.)": 500000, "(iii) Normal period (11.00 p.m. to 9.00 a.m.)": 1000000}
+    expect: {tariff_year: FY2025-26, demand_charge: "3840000.00", energy_charge: "12350000.00", tod_adjustment: "-494000.00", total: "15696000.00"}

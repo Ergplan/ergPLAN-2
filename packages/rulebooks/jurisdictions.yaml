@@ -44,6 +44,8 @@ groups:
   - {id: tg_discoms, name: "Telangana DISCOMs (one TGERC tariff order: TGSPDCL, TGNPDCL)", state: TS}
   - {id: ap_discoms, name: "Andhra Pradesh DISCOMs (one APERC tariff order: APSPDCL, APCPDCL, APEPDCL)", state: AP}
   - {id: gj_discoms, name: "Gujarat state DISCOMs (one GERC tariff schedule: DGVCL, MGVCL, PGVCL, UGVCL)", state: GJ}
+  - {id: mp_discoms, name: "Madhya Pradesh state DISCOMs (one MPERC retail supply tariff order: East, Central, West)", state: MP}
+  - {id: br_discoms, name: "Bihar DISCOMs (one BERC tariff order: NBPDCL, SBPDCL)", state: BR}
 discoms:
   - {id: npcl, name: Noida Power Company Limited, state: UP}
   - {id: pvvnl, name: Paschimanchal Vidyut Vitran Nigam Limited, state: UP, parent: uppcl}
@@ -78,11 +80,11 @@ discoms:
   - {id: tnpdcl, name: Tamil Nadu Power Distribution Corporation Ltd., state: TN}
   - {id: hpsebl, name: Himachal Pradesh State Electricity Board Limited, state: HP}
   - {id: apdcl, name: Assam Power Distribution Company Limited, state: AS}
-  - {id: mppkvvcl, name: M.P. Paschim Kshetra Vidyut Vitaran Co. Ltd. (Indore), state: MP}
-  - {id: mpmkvvcl, name: M.P. Madhya Kshetra Vidyut Vitaran Co. Ltd. (Bhopal), state: MP}
-  - {id: mppokvvcl, name: M.P. Poorv Kshetra Vidyut Vitaran Co. Ltd. (Jabalpur), state: MP}
-  - {id: nbpdcl, name: North Bihar Power Distribution Company Limited, state: BR}
-  - {id: sbpdcl, name: South Bihar Power Distribution Company Limited, state: BR}
+  - {id: mppkvvcl, name: M.P. Paschim Kshetra Vidyut Vitaran Co. Ltd. (Indore), state: MP, parent: mp_discoms}
+  - {id: mpmkvvcl, name: M.P. Madhya Kshetra Vidyut Vitaran Co. Ltd. (Bhopal), state: MP, parent: mp_discoms}
+  - {id: mppokvvcl, name: M.P. Poorv Kshetra Vidyut Vitaran Co. Ltd. (Jabalpur), state: MP, parent: mp_discoms}
+  - {id: nbpdcl, name: North Bihar Power Distribution Company Limited, state: BR, parent: br_discoms}
+  - {id: sbpdcl, name: South Bihar Power Distribution Company Limited, state: BR, parent: br_discoms}
   - {id: cspdcl, name: Chhattisgarh State Power Distribution Company Limited, state: CG}
   - {id: tpcodl, name: TP Central Odisha Distribution Limited, state: OD}
   - {id: tpnodl, name: TP Northern Odisha Distribution Limited, state: OD}

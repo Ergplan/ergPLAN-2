@@ -1,0 +1,22 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MPERC ARR and Retail Supply Tariff Order for FY 2026-27, dated 26 March 2026 (sha256 77ffe9d2…, 255 pages),
+# Annexure-3, tariff schedules for high tension consumers. Rates are printed in paise per unit; rupees here.
+jurisdiction: mp_discoms
+family: tariff_schedule
+effective_on: '2026-08-01'
+tests:
+  # Schedule HV-1 Railway Traction, PDF page 226: fixed charge Rs. 354 per kVA of billing demand, energy 626 paise.
+  - {name: "FY 2026-27 · HV-1 railway traction at 132 kV · fixed", given: {context: {category: HV-1, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "354"}}
+  - {name: "FY 2026-27 · HV-1 railway traction at 220 kV · energy", given: {context: {category: HV-1, voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "6.26"}}
+  - {name: "FY 2026-27 · HV-1 billed in kWh", given: {context: {category: HV-1, voltage_kv: 132}, field: /billing_basis}, expect: {value: kwh}}
+  # Schedule HV-5, PDF page 239: fixed charge Rs. 399 (one cell for the three voltages), energy 655 paise at 11 kV.
+  - {name: "FY 2026-27 · HV-5 at 11 kV · fixed", given: {context: {category: HV-5, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "399"}}
+  - {name: "FY 2026-27 · HV-5 at 11 kV · energy", given: {context: {category: HV-5, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.55"}}
+  - {name: "FY 2026-27 · HV-5 fixed charge is per kVA", given: {context: {category: HV-5, voltage_kv: 11}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  # Schedule HV-9 Metro Rail, PDF page 244: Rs. 310 per kVA, 570 paise per unit, at 132 kV / 220 kV.
+  - {name: "FY 2026-27 · HV-9 metro rail at 132 kV · fixed", given: {context: {category: HV-9, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "310"}}
+  - {name: "FY 2026-27 · HV-9 metro rail at 220 kV · energy", given: {context: {category: HV-9, voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "5.70"}}
+  # HV-3 (p. 231) and HV-2 (p. 229) print two energy rates, up to and in excess of 50% load factor: the family holds
+  # one energy rate per row, so no row is imported for them.
+  - {name: "FY 2026-27 · no HV-3 row (two energy rates by load factor)", given: {context: {category: HV-3, voltage_kv: 33}}, expect: {absent: true}}
+  - {name: "FY 2026-27 · no HV-2 row (two energy rates by load factor)", given: {context: {category: HV-2, voltage_kv: 33}}, expect: {absent: true}}

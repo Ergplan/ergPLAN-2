@@ -1,0 +1,17 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MPERC ARR and Retail Supply Tariff Order for FY 2025-26, dated 29 March 2025 (sha256 66254f46…, 259 pages),
+# tariff schedules for high tension consumers. Rates are printed in paise per unit; rupees here.
+jurisdiction: mp_discoms
+family: tariff_schedule
+effective_on: '2025-08-01'
+tests:
+  # Schedule HV-1 Railway Traction, PDF page 230: fixed charge Rs. 344 per kVA of billing demand, energy 606 paise.
+  - {name: "FY 2025-26 · HV-1 railway traction at 132 kV · fixed", given: {context: {category: HV-1, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "344"}}
+  - {name: "FY 2025-26 · HV-1 railway traction at 220 kV · energy", given: {context: {category: HV-1, voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "6.06"}}
+  # Schedule HV-5, PDF page 242: fixed charge Rs. 389, energy 628 paise at 11 kV.
+  - {name: "FY 2025-26 · HV-5 at 11 kV · fixed", given: {context: {category: HV-5, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "389"}}
+  - {name: "FY 2025-26 · HV-5 at 11 kV · energy", given: {context: {category: HV-5, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.28"}}
+  # Schedule HV-9 Metro Rail, PDF page 247: Rs. 310 per kVA, 570 paise per unit.
+  - {name: "FY 2025-26 · HV-9 metro rail at 132 kV · fixed", given: {context: {category: HV-9, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "310"}}
+  - {name: "FY 2025-26 · HV-9 metro rail at 220 kV · energy", given: {context: {category: HV-9, voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "5.70"}}
+  - {name: "FY 2025-26 · no HV-3 row (two energy rates by load factor)", given: {context: {category: HV-3, voltage_kv: 33}}, expect: {absent: true}}

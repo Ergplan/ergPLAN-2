@@ -168,6 +168,56 @@ def hours(text: str) -> tuple[str, str] | None:
         out.append(f"{h:02d}:{mm:02d}")
     start = "00:00" if out[0] == "24:00" else out[0]
     end = "24:00" if out[1] == "00:00" else out[1]
-    if simple and (simple[0][:2], simple[1][:2]) != (out[0][:2], out[1][:2]):
+    meridiem = all(m.group(4) for m in found)  # '5.00 p.m.': the simple reading knows no a.m./p.m.
+    if simple and not meridiem and (simple[0][:2], simple[1][:2]) != (out[0][:2], out[1][:2]):
         return None  # two readings of the same text disagree: not read
     return start, end
+
+
+_FLAT = re.compile(r"^all\s+units\s*[-:]?\s*(\d[\d,]*(?:\.\d+)?)$")
+
+
+def flat_rate(text: str, heading: str | None) -> Rate | None:
+    """A rate printed for every unit under a heading that carries the unit: 'All units – 798' under
+    'Energy charges (Paise / kVAh)'. The dash is punctuation, not a sign. None for anything else."""
+    m = _FLAT.match(_norm(text))
+    if not m or heading is None:
+        return None
+    unit = unit_of(heading)
+    if unit is None or unit == Unit.PERCENT:
+        return None
+    return Rate(Decimal(m.group(1).replace(",", "")), unit)
+
+
+_TRAILING = re.compile(
+    r"^(.*?\D)\s*((?:rs\.?\s*)?\d[\d,]*(?:\.\d+)?\s*(?:/-)?\s*(?:paise|paisa|ps\.?|per)\b.*)$"
+)
+
+
+def trailing_rate(text: str) -> tuple[str, Rate] | None:
+    """A line of a schedule printed as words and then the rate: '(a) Up to 500 kVA of billing demand
+    400 Paise per unit' → ('(a) up to 500 kva of billing demand', 400 paise/kWh). The words come back
+    normalised (lower case, single spaces). None unless the line ends in exactly one rate with a unit
+    this module knows."""
+    m = _TRAILING.match(_norm(text))
+    if not m:
+        return None
+    got = rate(m.group(2))
+    if got is None or got.unit == Unit.PERCENT:
+        return None
+    return m.group(1).strip(), got
+
+
+_OF_NORMAL = re.compile(
+    r"^(?:(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?)?normal\s+rate(?:\s+of\s+energy\s+charges?)?\.?$"
+)
+
+
+def of_normal_pct(text: str) -> Decimal | None:
+    """A time-of-day rate printed as a share of the normal rate, as a signed adjustment:
+    '80% normal rate of energy charges' → -20, '120% of normal rate of energy charges' → 20,
+    'Normal rate of energy charges' → 0. None for anything else (two shares in one cell included)."""
+    m = _OF_NORMAL.match(_norm(text))
+    if not m:
+        return None
+    return Decimal(m.group(1)) - Decimal(100) if m.group(1) else Decimal(0)

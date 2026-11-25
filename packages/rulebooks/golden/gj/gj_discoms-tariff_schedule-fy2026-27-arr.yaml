@@ -1,0 +1,35 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# GERC Tariff Order for MGVCL, Truing up for FY 2024-25 and Revised ARR & Tariff for FY 2026-27 (sha256 1c4697f8…,
+# 184 pages), Annexure: tariff schedule effective 1 April 2026 (p. 158). Part II, high tension.
+# These cases are for versions imported from the ARR Network only. The order heads clause 11 "RATE: HTP-1" (p. 173)
+# and writes HTP-I everywhere else; the imported row carries the heading as printed, the approved rulebook says HTP-I.
+jurisdiction: gj_discoms
+family: tariff_schedule
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  # 11. RATE: HTP-1, PDF page 173: 11.1.1 demand slabs, 11.2 energy charges by billing demand.
+  - {name: "FY 2026-27 ARR · HTP-1 · first 500 kVA at 150", given: {context: {category: HTP-1}, field: /demand_charge/slabs/0/value}, expect: {value: "150"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · first slab ends at 500 kVA", given: {context: {category: HTP-1}, field: /demand_charge/slabs/0/up_to_kva}, expect: {value: "500"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · next 500 kVA at 260", given: {context: {category: HTP-1}, field: /demand_charge/slabs/1/value}, expect: {value: "260"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · second slab ends at 1000 kVA", given: {context: {category: HTP-1}, field: /demand_charge/slabs/1/up_to_kva}, expect: {value: "1000"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · above 1000 kVA at 475", given: {context: {category: HTP-1}, field: /demand_charge/slabs/2/value}, expect: {value: "475"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · demand charge is on billing demand", given: {context: {category: HTP-1}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month_billing_demand}}
+  - {name: "FY 2026-27 ARR · HTP-1 · energy up to 500 kVA 400 paise", given: {context: {category: HTP-1}, field: /energy_charge/base}, expect: {value: "4.00"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · energy above 500 kVA 420 paise", given: {context: {category: HTP-1}, field: /energy_charge/by_billing_demand/0/base}, expect: {value: "4.20"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · second band starts above 500 kVA", given: {context: {category: HTP-1}, field: /energy_charge/by_billing_demand/0/above_kva}, expect: {value: "500"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · energy above 2500 kVA 430 paise", given: {context: {category: HTP-1}, field: /energy_charge/by_billing_demand/1/base}, expect: {value: "4.30"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · third band starts above 2500 kVA", given: {context: {category: HTP-1}, field: /energy_charge/by_billing_demand/1/above_kva}, expect: {value: "2500"}}
+  - {name: "FY 2026-27 ARR · HTP-1 · billed per unit (kWh)", given: {context: {category: HTP-1}, field: /billing_basis}, expect: {value: kwh}}
+  # 12. RATE: HTP-II, PDF page 176 (12.1.1 demand slabs) and page 177 (12.2 energy charges).
+  - {name: "FY 2026-27 ARR · HTP-II · first 500 kVA at 115", given: {context: {category: HTP-II}, field: /demand_charge/slabs/0/value}, expect: {value: "115"}}
+  - {name: "FY 2026-27 ARR · HTP-II · next 500 kVA at 225", given: {context: {category: HTP-II}, field: /demand_charge/slabs/1/value}, expect: {value: "225"}}
+  - {name: "FY 2026-27 ARR · HTP-II · above 1000 kVA at 290", given: {context: {category: HTP-II}, field: /demand_charge/slabs/2/value}, expect: {value: "290"}}
+  - {name: "FY 2026-27 ARR · HTP-II · energy up to 500 kVA 435 paise", given: {context: {category: HTP-II}, field: /energy_charge/base}, expect: {value: "4.35"}}
+  - {name: "FY 2026-27 ARR · HTP-II · energy above 500 kVA 455 paise", given: {context: {category: HTP-II}, field: /energy_charge/by_billing_demand/0/base}, expect: {value: "4.55"}}
+  - {name: "FY 2026-27 ARR · HTP-II · energy above 2500 kVA 465 paise", given: {context: {category: HTP-II}, field: /energy_charge/by_billing_demand/1/base}, expect: {value: "4.65"}}
+  # 13. RATE: HTP-III (p. 178) charges demand per kVA per day; clause 16 RAILWAY TRACTION (p. 182) and clause 5 LTMD
+  # (p. 166, slabs in kW) are not rows of this family as printed.
+  - {name: "FY 2026-27 ARR · no HTP-III row (demand per day)", given: {context: {category: HTP-III}}, expect: {absent: true}}
+  - {name: "FY 2026-27 ARR · no HTP-V row", given: {context: {category: HTP-V}}, expect: {absent: true}}
+  - {name: "FY 2026-27 ARR · no LTMD row (slabs in kW)", given: {context: {category: LTMD}}, expect: {absent: true}}
