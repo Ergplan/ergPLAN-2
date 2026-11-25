@@ -2,6 +2,7 @@
 
     python -m ergplan.regreader.arr_network import --state up --orders 67,66,65,64 [--dry-run]
         [--effective-from 65=2025-11-22] [--jurisdiction 67=uppcl] [--no-pdf] [--refresh] [--verbose]
+        [--effective-to 178=2026-03-31] [--per-unit 187=kvah]
 
 For each order: its metadata and section tables are read (`arr_network`), the order PDF is fetched
 from the regulator's link and stored when its SHA-256 is the one the ARR Network read (otherwise a
@@ -335,6 +336,8 @@ def run(
     fetch_pdf: bool = True,
     effective: dict[int, date] | None = None,
     jurisdictions: dict[int, str] | None = None,
+    per_unit: dict[int, str] | None = None,
+    until: dict[int, date] | None = None,
 ) -> list[OrderOutcome]:
     read = [_read(client, i) for i in order_ids]
     outcomes: list[OrderOutcome] = []
@@ -351,6 +354,16 @@ def run(
             if x.jurisdiction_id == o.jurisdiction_id and x.effective_from > o.effective_from
         )
         o.effective_to = later[0] - timedelta(days=1) if later else None
+        # ... or until the day the order itself says (its successor may not be among the orders imported)
+        given_to = (until or {}).get(o.order.order_id)
+        if given_to is not None:
+            if given_to < o.effective_from or (o.effective_to is not None and given_to > o.effective_to):
+                raise ImportRefused(
+                    f"order {o.order.order_id}: --effective-to {given_to} is before its start or after the "
+                    "next imported order takes effect"
+                )
+            o.effective_to = given_to
+            o.effective_basis += "; last day given on the command line"
     if not dry_run:
         with session_scope(actor=actor) as s:
             golden.sync_tests(s)
@@ -359,7 +372,10 @@ def run(
         out.tables_read = len(tables)
         out.reader_version = ", ".join(sorted({t.reader_version for t in tables}))
         fetched = max((t.fetched_on for t in tables), default=order.fetched_on)
-        mapped = arr_map.map_order(arr_map.Source(order, out.document_id, out.effective_from), sections)
+        unit = (per_unit or {}).get(order.order_id)
+        mapped = arr_map.map_order(
+            arr_map.Source(order, out.document_id, out.effective_from, per_unit=unit), sections
+        )
         with session_scope(actor=actor) as s:
             if dry_run:
                 doc = s.get(SourceDocument, out.document_id)
@@ -377,6 +393,11 @@ def run(
             f"ARR Network order {order.order_id} ({order.url}); reader {out.reader_version}; "
             f"fetched {fetched.isoformat()}; effective date: {out.effective_basis}; "
             f"PDF {out.pdf}; not reviewed by a person at the source"
+            + (
+                f"; reading given at import: 'per unit' on rows with a kVA demand charge = {unit}"
+                if unit
+                else ""
+            )
         )
         for family in sorted(mapped.by_family):
             rows = mapped.by_family[family]
@@ -473,7 +494,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--orders", required=True, help="ARR Network order ids, comma-separated")
     ap.add_argument("--dry-run", action="store_true", help="map and report; write nothing, fetch no PDF")
     ap.add_argument("--effective-from", action="append", default=[], metavar="ORDER=YYYY-MM-DD")
+    ap.add_argument(
+        "--effective-to",
+        action="append",
+        default=[],
+        metavar="ORDER=YYYY-MM-DD",
+        help="the last day of the order's tariff where the order states it and its successor is not imported",
+    )
     ap.add_argument("--jurisdiction", action="append", default=[], metavar="ORDER=ID")
+    ap.add_argument(
+        "--per-unit",
+        action="append",
+        default=[],
+        metavar="ORDER=kvah|kwh",
+        help="what a 'unit' is where the order's schedule prices energy per unit on rows with a kVA "
+        "demand charge (read it from the order's terms; without it such rows are not mapped)",
+    )
     ap.add_argument("--no-pdf", action="store_true", help="do not fetch the order PDFs")
     ap.add_argument("--refresh", action="store_true", help="read the site again instead of the disk cache")
     ap.add_argument("--actor", default=ACTOR)
@@ -483,6 +519,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         ids = [int(x) for x in a.orders.split(",") if x.strip()]
         effective = {k: date.fromisoformat(v) for k, v in _pairs(a.effective_from, "effective-from").items()}
+        until = {k: date.fromisoformat(v) for k, v in _pairs(a.effective_to, "effective-to").items()}
+        per_unit = {k: v.lower() for k, v in _pairs(a.per_unit, "per-unit").items()}
+        if any(v not in ("kvah", "kwh") for v in per_unit.values()):
+            raise ValueError("--per-unit takes kvah or kwh")
     except ValueError as e:
         raise SystemExit(f"bad argument: {e}") from e
     try:
@@ -495,6 +535,8 @@ def main(argv: list[str] | None = None) -> int:
             fetch_pdf=not a.no_pdf,
             effective=effective,
             jurisdictions=_pairs(a.jurisdiction, "jurisdiction"),
+            per_unit=per_unit,
+            until=until,
         )
     except (ArrNetworkError, ImportRefused) as e:
         print(f"refused: {e}", file=sys.stderr)

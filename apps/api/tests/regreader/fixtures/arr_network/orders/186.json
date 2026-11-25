@@ -1,0 +1,27 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 186,
+  "commission": "APERC",
+  "title": "Retail Supply Tariff FY 2025-26 - Order on Tariff for Retail Sale of Electricity during FY 2025-26 & DISCOMs' Performance Review FY 2023-24, 20th Feb 2025",
+  "url": "https://www.apspdcl.in/files/regulatory/TO_2025-26.pdf",
+  "sha256": "4222e32e8a423b76854e68bc1efcefab64ba396531988ebf8575f8aa78fb817e",
+  "pages": 361,
+  "pages_without_text": 22,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2025-26"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "session discovery agent 2026-11-14: fetched from the licensee's or commission's own site (https://www.apspdcl.in/electricity-tariff.php); %PDF and SHA-256 checked, text layer checked",
+  "fetched_on": "2026-11-14T00:00:00.000Z",
+  "read_status": "downloaded",
+  "utilities": [
+   "APCPDCL",
+   "APEPDCL",
+   "APSPDCL"
+  ]
+ }
+}

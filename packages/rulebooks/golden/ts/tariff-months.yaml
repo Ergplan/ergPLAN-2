@@ -1,0 +1,37 @@
+# Months of a consumer's bill worked by hand from the order pages (rates read from the text layer of the PDFs,
+# independently of the importer), for the versions imported from the ARR Network. Each case is evaluated through
+# rulebook.sandbox on the draft in force at the end of the month and engine.tariff_eval
+# (apps/api/tests/regreader/test_arr_ts_ap_pb_hr.py). Recorded demand is at or above 80% of contract demand in every
+# case, so the billable-demand floor (a rule the orders state in words, which no table holds) does not enter.
+# The time-of-day tariff of either order is not imported (its table names no category and prints 16 of the 24 hours),
+# so these months carry no time-of-day units.
+#
+# TGERC FY 2025-26 (order 188): Appendix A, HT-I (A) Industry General, PDF page 306.
+# TGERC FY 2026-27 (order 187): Appendix A, HT-II (A) Others, PDF page 303.
+origin: arr_network
+state: TS
+cases:
+  - name: TGSPDCL HT-I(A) Industry General at 33 kV, 3,000 kVA contract, December 2025 (FY 2025-26 order)
+    # demand 2,800 kVA x 500 = 1,400,000; energy 1,200,000 kVAh x 7.15 = 8,580,000
+    discom: tgspdcl
+    category: HT-I(A)
+    rate_block: Industry General
+    voltage_kv: 33
+    month: 2025-12
+    contract_kva: 3000
+    max_kva: 2800
+    units: 1200000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, billing_basis: kvah, demand_charge: "1400000.00", energy_charge: "8580000.00", tod_adjustment: "0.00", total: "9980000.00"}
+  - name: TGNPDCL HT-II(A) Others at 11 kV, 1,000 kVA contract, August 2026 (FY 2026-27 order)
+    # demand 900 kVA x 500 = 450,000; energy 300,000 kVAh x 8.80 = 2,640,000
+    discom: tgnpdcl
+    category: HT-II(A)
+    rate_block: Others
+    voltage_kv: 11
+    month: 2026-08
+    contract_kva: 1000
+    max_kva: 900
+    units: 300000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kvah, demand_charge: "450000.00", energy_charge: "2640000.00", tod_adjustment: "0.00", total: "3090000.00"}

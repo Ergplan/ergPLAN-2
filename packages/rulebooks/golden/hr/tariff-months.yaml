@@ -1,0 +1,32 @@
+# A month of a consumer's bill worked by hand from the order page (rates read from the text layer of the PDF,
+# independently of the importer), for the version imported from the ARR Network. Evaluated through rulebook.sandbox on
+# the draft in force at the end of the month and engine.tariff_eval (apps/api/tests/regreader/test_arr_ts_ap_pb_hr.py).
+# HERC levies the fixed charge per kVA of sanctioned contract demand; the recorded demand is set equal to the contract
+# demand here, so the two readings of billable demand give the same charge.
+#
+# HERC FY 2026-27 (order 180): Annexure-A, 3 HT Supply, Supply at 11 kV, PDF page 356.
+origin: arr_network
+state: HR
+cases:
+  - name: DHBVN HT Supply at 11 kV, 1,500 kVA contract, August 2026 (FY 2026-27 order)
+    # fixed 1,500 kVA x 290 = 435,000; energy 500,000 kVAh x 6.95 (695 paisa) = 3,475,000
+    discom: dhbvn
+    category: "HT Supply (above 50 kW) including Traction and DMRC"
+    voltage_kv: 11
+    month: 2026-08
+    contract_kva: 1500
+    max_kva: 1500
+    units: 500000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kvah, demand_charge: "435000.00", energy_charge: "3475000.00", tod_adjustment: "0.00", total: "3910000.00"}
+  - name: UHBVN HT Supply at 132 kV, 10,000 kVA contract, August 2026 (FY 2026-27 order)
+    # fixed 10,000 kVA x 290 = 2,900,000; energy 4,000,000 kVAh x 6.75 (675 paisa, supply at 66/132 kV) = 27,000,000
+    discom: uhbvn
+    category: "HT Supply (above 50 kW) including Traction and DMRC"
+    voltage_kv: 132
+    month: 2026-08
+    contract_kva: 10000
+    max_kva: 10000
+    units: 4000000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kvah, demand_charge: "2900000.00", energy_charge: "27000000.00", tod_adjustment: "0.00", total: "29900000.00"}

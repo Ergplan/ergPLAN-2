@@ -1,0 +1,38 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# PSERC Tariff Order FY 2025-26 for PSPCL (sha256 60443240…, 417 pages), Annexure-II "Schedules of Tariff for FY 2025-26
+# w.e.f. 01.04.2025". Para 6.11 (PDF page 230): applicable from April 1st, 2025, operative till March 31st, 2026.
+# The category is the schedule's heading as the order prints it; the group the rate stands under in the table
+# ("General Industry", "Power Intensive Units …") is the rate block; "Above 100 kVA and upto 1000 kVA" is the band of
+# contract demand.
+jurisdiction: pspcl
+family: tariff_schedule
+effective_on: '2025-08-01'
+tests:
+  # SI.3 Tariff, PDF page 240. SI.3.1 General Industry: i) above 100 kVA and upto 1000 kVA 6.60 / 210; ii) above 1000 kVA 6.70 / 280
+  - {name: "FY 2025-26 · LS General Industry 500 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 11, contract_demand_kva: 500}, field: /demand_charge/value}, expect: {value: "210"}}
+  - {name: "FY 2025-26 · LS General Industry 500 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 11, contract_demand_kva: 500}, field: /energy_charge/base}, expect: {value: "6.60"}}
+  - {name: "FY 2025-26 · LS General Industry exactly 1000 kVA is the lower band", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 11, contract_demand_kva: 1000}, field: /demand_charge/value}, expect: {value: "210"}}
+  - {name: "FY 2025-26 · LS General Industry 5000 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 66, contract_demand_kva: 5000}, field: /demand_charge/value}, expect: {value: "280"}}
+  - {name: "FY 2025-26 · LS General Industry 5000 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 66, contract_demand_kva: 5000}, field: /energy_charge/base}, expect: {value: "6.70"}}
+  - {name: "FY 2025-26 · LS billed in kVAh", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 11, contract_demand_kva: 2000}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "FY 2025-26 · LS fixed charge is per kVA", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 11, contract_demand_kva: 2000}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  # SI.3.2 Power Intensive Units: i) above 100 and upto 1000 kVA 6.64 / 225; ii) above 1000 and upto 2500 kVA 6.95 / 310; iii) above 2500 kVA 7.04 / 350
+  - {name: "FY 2025-26 · LS Power Intensive Units 500 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 500}, field: /demand_charge/value}, expect: {value: "225"}}
+  - {name: "FY 2025-26 · LS Power Intensive Units 500 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 500}, field: /energy_charge/base}, expect: {value: "6.64"}}
+  - {name: "FY 2025-26 · LS Power Intensive Units 2000 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 2000}, field: /demand_charge/value}, expect: {value: "310"}}
+  - {name: "FY 2025-26 · LS Power Intensive Units 2000 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 2000}, field: /energy_charge/base}, expect: {value: "6.95"}}
+  - {name: "FY 2025-26 · LS Power Intensive Units 3000 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 66, contract_demand_kva: 3000}, field: /demand_charge/value}, expect: {value: "350"}}
+  - {name: "FY 2025-26 · LS Power Intensive Units 3000 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 66, contract_demand_kva: 3000}, field: /energy_charge/base}, expect: {value: "7.04"}}
+  # SI.3.3 Seasonal industries and SI.3.4 Ice factories print a fixed charge for part of the year only: no row
+  - {name: "FY 2025-26 · LS seasonal rate is not imported", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Seasonal, voltage_kv: 11, contract_demand_kva: 500}}, expect: {absent: true}}
+  # SII.3.1, PDF page 242: General Industry 6.25 / 145
+  - {name: "FY 2025-26 · MS General Industry · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR MEDIUM SUPPLY INDUSTRIAL POWER (MS)", rate_block: General Industry, voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "145"}}
+  - {name: "FY 2025-26 · MS General Industry · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR MEDIUM SUPPLY INDUSTRIAL POWER (MS)", rate_block: General Industry, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "6.25"}}
+  - {name: "FY 2025-26 · MS ice factories (April to July) is not imported", given: {context: {category: "SCHEDULE OF TARIFF FOR MEDIUM SUPPLY INDUSTRIAL POWER (MS)", rate_block: Ice Factories, voltage_kv: 0.4}}, expect: {absent: true}}
+  # SIII.3.1, PDF page 244: General Industry 5.82 / 110
+  - {name: "FY 2025-26 · SP General Industry · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR SMALL POWER INDUSTRIAL SUPPLY (SP)", rate_block: General Industry, voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "110"}}
+  - {name: "FY 2025-26 · SP General Industry · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR SMALL POWER INDUSTRIAL SUPPLY (SP)", rate_block: General Industry, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "5.82"}}
+  # SVII.3, PDF page 249: SVII.3.1 LT 7.01 / 260; SVII.3.2 HT 6.78 / 340
+  - {name: "FY 2025-26 · BS at HT · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR BULK SUPPLY (BS)", rate_block: "SVII.3.2 HT", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "340"}}
+  - {name: "FY 2025-26 · BS at HT · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR BULK SUPPLY (BS)", rate_block: "SVII.3.2 HT", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.78"}}
+  - {name: "FY 2025-26 · BS at LT · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR BULK SUPPLY (BS)", rate_block: "SVII.3.1 LT", voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "7.01"}}

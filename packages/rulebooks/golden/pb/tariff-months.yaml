@@ -1,0 +1,36 @@
+# Months of a consumer's bill worked by hand from the order pages (rates read from the text layer of the PDFs,
+# independently of the importer), for the versions imported from the ARR Network. Each case is evaluated through
+# rulebook.sandbox on the draft in force at the end of the month and engine.tariff_eval
+# (apps/api/tests/regreader/test_arr_ts_ap_pb_hr.py). Recorded demand is above 80% of the sanctioned contract demand
+# in every case, so the floor on which PSERC levies the fixed charge (General Conditions of Tariff, in words) does not
+# enter. Time-of-day tariff is not tabulated as approved at the source, so these months carry no time-of-day units.
+#
+# PSERC FY 2025-26 (order 178): SI.3.1 General Industry, PDF page 240.
+# PSERC FY 2023-24 (order 179): SI.3.2 Power Intensive Units, PDF page 279.
+origin: arr_network
+state: PB
+cases:
+  - name: PSPCL LS General Industry, 2,000 kVA contract, August 2025 (FY 2025-26 order)
+    # above 1000 kVA: fixed 1,800 kVA x 280 = 504,000; energy 800,000 kVAh x 6.70 = 5,360,000
+    discom: pspcl
+    category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)"
+    rate_block: General Industry
+    voltage_kv: 11
+    month: 2025-08
+    contract_kva: 2000
+    max_kva: 1800
+    units: 800000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, billing_basis: kvah, demand_charge: "504000.00", energy_charge: "5360000.00", tod_adjustment: "0.00", total: "5864000.00"}
+  - name: PSPCL LS Power Intensive Unit, 3,000 kVA contract, August 2023 (FY 2023-24 order)
+    # above 2500 kVA: fixed 2,900 kVA x 345 = 1,000,500; energy 1,500,000 kVAh x 6.89 = 10,335,000
+    discom: pspcl
+    category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)"
+    rate_block: Power Intensive Units
+    voltage_kv: 66
+    month: 2023-08
+    contract_kva: 3000
+    max_kva: 2900
+    units: 1500000
+    by_slot: {}
+    expect: {tariff_year: FY2023-24, billing_basis: kvah, demand_charge: "1000500.00", energy_charge: "10335000.00", tod_adjustment: "0.00", total: "11335500.00"}

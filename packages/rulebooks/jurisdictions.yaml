@@ -44,6 +44,7 @@ groups:
   - {id: tg_discoms, name: "Telangana DISCOMs (one TGERC tariff order: TGSPDCL, TGNPDCL)", state: TS}
   - {id: ap_discoms, name: "Andhra Pradesh DISCOMs (one APERC tariff order: APSPDCL, APCPDCL, APEPDCL)", state: AP}
   - {id: gj_discoms, name: "Gujarat state DISCOMs (one GERC tariff schedule: DGVCL, MGVCL, PGVCL, UGVCL)", state: GJ}
+  - {id: hr_discoms, name: "Haryana DISCOMs (one HERC tariff order: UHBVN, DHBVN)", state: HR}
 discoms:
   - {id: npcl, name: Noida Power Company Limited, state: UP}
   - {id: pvvnl, name: Paschimanchal Vidyut Vitran Nigam Limited, state: UP, parent: uppcl}
@@ -70,8 +71,8 @@ discoms:
   - {id: tgspdcl, name: Southern Power Distribution Company of Telangana Ltd., state: TS, parent: tg_discoms}
   - {id: apcpdcl, name: A.P. Central Power Distribution Corporation Ltd., state: AP, parent: ap_discoms}
   - {id: pspcl, name: Punjab State Power Corporation Limited, state: PB}
-  - {id: dhbvn, name: Dakshin Haryana Bijli Vitran Nigam, state: HR}
-  - {id: uhbvn, name: Uttar Haryana Bijli Vitran Nigam, state: HR}
+  - {id: dhbvn, name: Dakshin Haryana Bijli Vitran Nigam, state: HR, parent: hr_discoms}
+  - {id: uhbvn, name: Uttar Haryana Bijli Vitran Nigam, state: HR, parent: hr_discoms}
   - {id: tgnpdcl, name: Northern Power Distribution Company of Telangana Ltd., state: TS, parent: tg_discoms}
   - {id: apspdcl, name: Southern Power Distribution Company of A.P. Ltd., state: AP, parent: ap_discoms}
   - {id: apepdcl, name: Eastern Power Distribution Company of A.P. Ltd., state: AP, parent: ap_discoms}
