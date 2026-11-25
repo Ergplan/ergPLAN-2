@@ -390,6 +390,33 @@ Build:
 
 Done when: an analyst generates the month's books, reviews one in the browser, approves it, and downloads its file; a client cannot open a draft; the group-captive route is cheaper than third party by exactly the exempted surcharges less the assumed equity cost (test); watcher green; reviewer clean.
 
+### Stage 11 — Parallel deployment on the Google Cloud VM
+
+Goal (the person, 25 Nov 2026): a second, public deployment beside the Mac mini's, on the VM `replan2` (project `replanner-513407`, zone `asia-south2-b`, Debian 13, 4 vCPU, 16 GB), built and finished there by Claude Code. "Give a public url, no passwords." The Mac mini's install is not touched and stays private (Tailscale).
+
+This session runs on the VM, in `/work/ergPLAN-2`, inside tmux. Read the project, zone and instance name from the metadata server; ask only if that fails.
+
+Build:
+1. **Check the box**: Docker works, the disk is at least 50 GB, `ANTHROPIC_API_KEY` is unset (the builder runs on the subscription), git identity set repo-locally. Start the watcher and confirm it is green on the commit you start from before changing anything.
+2. **Settings**: create `/work/ergPLAN-2/.env` (mode 600, gitignored) from `.env.example` with `ERGPLAN_ENV=prod`, `SITE_ADDRESS` and `ERGPLAN_PUBLIC_URL=https://` + the hostname the person gives (default `ergplan.joulewise.tech`), a generated `POSTGRES_PASSWORD` and `BILLX_TOKEN`. Ask the person to type `OPENAI_API_KEY` (and billx's own keys) into the file on the VM, in a second tmux window. Never print the file, a key or a sign-in token; presence checks only.
+3. **Network**: the static address `replan2-ip` and the IAP-only SSH rules exist already; confirm them, do not recreate them. Add `replan2-allow-web` (tcp 80 and 443, from anywhere, target tag `replan2`). Keep the rules in `tools/dev/vm-firewall.sh` with an allowlist file, so a change is an edit and a rerun. Touch no rule this build did not create; list the others in the report.
+4. **DNS**: print the static address and ask the person to point the hostname at it (an A record; the zone is on Vercel DNS). Wait until it resolves before starting Caddy, so the certificate is issued on the first try.
+5. **Run it**: `docker compose -f docker/compose.yaml -f docker/compose.prod.yaml up -d --build`; migrations; `python -m ergplan.rulebook.cli restore`; the register import. Every container healthy; only Caddy published.
+6. **Sign-in without passwords**: sign-in stays the emailed link (invariant: client bills are never open to an anonymous visitor; "no passwords" is met because there are none). No mail server is set up, so mint the first analyst's link with `python -m ergplan.platform.signin` and show the person how; record in `docs/known-gaps.md` that links are minted by hand until `ERGPLAN_SMTP_URL` is set. If the person says they want no sign-in at all, stop and ask them to confirm it in those words, with the consequence stated, before changing anything.
+7. **Regulation library**: the PDFs are on the Mac mini, not here. Register whatever `data/documents/` holds; list the documents the approved rules cite that are missing, and tell the person how to send them (`gcloud compute scp` from Cloud Shell, or the app's upload). Until they arrive, numbers that cite them say so instead of opening a broken page.
+8. **Backups**: a nightly `pg_dump` and a copy of `data/` to `/data/backups` (14 kept), by a systemd timer; one restore rehearsed into a scratch database and recorded.
+9. **Restart safety**: the stack comes back by itself after `sudo reboot` (test it once).
+
+Done when: `https://` + the hostname serves the sign-in page with a valid certificate from outside the VM; an analyst signs in by link; the end-to-end journeys (`tools/dev/e2e-journey.sh`, both test files) pass against the VM's own stack; a bill from `data/bills/` or billx's examples is read by the real billx container (not the stub); the month's rule books generate and one number opens its stored page; the stack survives a reboot; a backup exists and was restored once; watcher green; reviewer clean; `docs/stage-reports/stage-11.md` written; tag `stage-11-done`; STOP.
+
+### Stage 12 — Every register figure opens its page
+
+Goal: "Every number should be clickable and traced to source order or regulation." Ten states rest on the State Regulation Master, which names an order, table and page but stores no PDF.
+
+Build: for each order the register cites (about 68), find it in the library (`packages/rulebooks/corpus/tariff-library.json`) or ask the person for it; register it in `source_documents`; for each register row, find its value on the cited page (and the two pages either side) in the text layer, take the line as the quote, and propose a new rule version through `rulebook.service` whose ref is an `order` ref with document, page and quote. The grounding check of `regreader/direct.py` applies: no verbatim quote, no page ref — the row keeps its register ref and is listed. An analyst approves each state's new version in the app. No model decides a number; a model may only help locate a page, through `providers/`.
+
+Done when: for every state, the rule book's count of figures that open a stored page is reported before and after; every row that could not be grounded is listed with the reason; golden tests pass for each re-issued version; watcher green; reviewer clean; report; tag; STOP.
+
 ---
 
 ## 8. Reference data
