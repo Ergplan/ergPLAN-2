@@ -28,11 +28,12 @@ Built on 25 Nov 2026 on the VM, from `stage-13-start` (ca8e704). Brief of 25 Nov
 | A client signs in by emailed link; a share link opens only its plan | Tests |
 | Bill upload and sign-in are rate-limited | Tests |
 | Watcher green | Green at 21:14 UTC on 25 Nov on the code committed |
-| `pytest -m slow` and the last CI run | SLOW |
+| `pytest -m slow` and the last CI run | The two 15-minute sites, the mix journey and both browser journeys passed on the final code (the Uttar Pradesh full test was last run on Stage 11's code; the stage does not touch what it exercises); the real-bill tests skip (no real bills on the VM). CI on `f6b8c03` passed; the run on this stage's commit is read at the start of Stage 14 |
 | Reviewer clean | Not run: no OpenAI key (`docs/questions-for-review.md`, 1) |
 
 ## What was skipped, and why
 
+- Live check after the redeploy: every `vm-check.py` check passed and `GET /api/auth/me` reports `password_sign_in: false`, as intended with the variables absent.
 - Nothing MCP-specific: Stage 16 builds on this account. The session from `/auth/login` already works as a bearer token (tested).
 
 ## Deviations from the master prompt
