@@ -418,6 +418,92 @@ Build: for each order the register cites (about 68), find it in the library (`pa
 
 Done when: for every state, the rule book's count of figures that open a stored page is reported before and after; every row that could not be grounded is listed with the reason; golden tests pass for each re-issued version; watcher green; reviewer clean; report; tag; STOP.
 
+### Stage 13 — Sign-in with a username and password
+
+Goal (the person's brief of 25 Nov 2026, `docs/vm-brief-2026-11-25.md` part B; Stages 13 to 19 are its parts B to H, and its "No questions for 24 hours" section applies to each: take the most reasonable reading, record it in `docs/questions-for-review.md`, keep building): one administrator account, username and password, for the web app and the MCP. This is the Stage 8 security work arriving.
+
+Build:
+- The username and password are typed by the person into `/work/ergPLAN-2/.env` on the VM (`ERGPLAN_ADMIN_USER`, `ERGPLAN_ADMIN_PASSWORD`). If they are not there, password sign-in stays switched off and the emailed link is kept; a password is never invented, defaulted or printed. They are never written in git, a test, a log, a report or a chat, and never printed. The repository is public.
+- Only a salted hash is stored (argon2 or scrypt). Five wrong attempts from an address lock that address out for fifteen minutes; every attempt is logged without the password. HTTPS only; the cookie is `Secure`, `HttpOnly`, `SameSite=Lax`.
+- A warning at start-up, in the log and on the analyst's screen, if the password is shorter than twelve characters or is the username with a suffix. The server still starts: the choice is the person's.
+- The emailed sign-in link stays for clients; a share link still opens only its own plan.
+- Rate limits on sign-in and on bill upload, and the checks of `tools/dev/secrets-check.py`, are part of this stage.
+
+Done when: the administrator signs in on the VM's address with the username and password from `.env` and reaches the analyst screens; a sixth wrong attempt from one address is refused for fifteen minutes (test) and each attempt is in the log without the password (test); no plaintext password is in the database, a log or the repository (test and `secrets-check.py`); the weak-password warning shows in the log and on screen (test); a client still signs in by emailed link and a share link opens only its plan (tests); bill upload and sign-in are rate-limited (tests); watcher green; `pytest -m slow` and the last CI run read; reviewer clean; report; tag; push; STOP.
+
+### Stage 14 — Tariffs for every DISCOM, from the ARR Network
+
+Goal (brief part C): the person's source for DISCOM tariffs is the **ARR Network**: the site `https://arr-101.vercel.app/` (JSON API under `/api/v1/`, starting at `/api/v1/states`), built from `Ergplan/tariff-oder` (`apps/arr-network`, `tools/arrnet`, `docs/arr-network/ARCHITECTURE.md`; the master database is on the Mac mini, the public read copy on Neon behind the Vercel site). This is the locked upstream: `regreader/tariff_oder.py` imports its published facts; ergPLAN does not rebuild the extraction. Read that repository's architecture document and API before writing the importer.
+
+Build:
+- The site says its figures have not been reviewed by a person. So everything imported is a **draft** rule version; nothing imported reaches a client screen until an analyst approves it in the app (invariant 2). The builder does not approve. Drafts are evaluated only through `rulebook.sandbox`.
+- Where the read copy lacks the order PDF, store the regulator's link and the page and say that the page is not stored.
+- Import the retail schedule, ToD slots, wheeling, transmission, losses, cross-subsidy surcharge, additional surcharge, banking and green tariff for every DISCOM it covers, as draft rule versions with the order page and quote as the `source_ref`; golden tests per version; an analyst approves in the app.
+- The previous year's order as well where it exists, so that a year of bills can be replayed (finding 4 of the Uttar Pradesh full test).
+- One tariff order per state is work that divides: subagents in parallel, their output reviewed before it is committed.
+
+Done when: for each state the report says what is now sourced to a page, what still rests on the State Regulation Master, and what is missing; every imported version has golden tests and they pass; the twelve assumed Uttar Pradesh bills replay across both tariff years in the sandbox or the report names the order that is missing; no draft reaches a client (the absurd-draft test still passes) and nothing imported was approved by the builder; watcher green; `pytest -m slow` and the last CI run read; reviewer clean; report; tag; push; STOP. This stage and Stage 12 together are what "every number opens its order" needs.
+
+### Stage 15 — Sizing from the user's own profiles and answers
+
+Goal (brief part D).
+
+Build:
+- Generation profiles: the user can give a solar and a wind profile (hourly or 15-minute, one year, CSV; per MW or for a stated capacity). Validate them (length, units, gaps, a capacity factor that is physically possible), store them with `provenance = measured` or `stated` and a sha256, show the CUF they imply, and use them in settlement and the optimizer in place of the library curve. A run pins the profile it used.
+- Consumption profile: when there are only bills, ask what the bills do not say — shifts and their hours, the weekly off, seasonal shutdowns, large loads and when they run, the power factor, planned expansion, the roof and land available, the contract demand intended. Each answer is a `client_stated` value that the profile synthesis uses and the report shows. A measured 15-minute file replaces the synthesis.
+- The transition plan: from today's bill to a stated target (a share of renewable energy, or the lowest cost), in phases the client can act on (rooftop first, then open access, then storage), each phase with its capacity, cost, saving, the rule that binds it, and what must be signed or applied for. Every figure a `SourcedValue`.
+
+Done when: a solar and a wind CSV, hourly and 15-minute, are accepted, and a file with a gap, a wrong length or an impossible capacity factor is refused with the reason (tests); a run with a supplied profile differs from the library-curve run, pins the profile's sha256 and replays to the paisa (test); each answer changes the synthesised profile in the stated way and appears on the report as client-stated (tests); a measured file replaces the synthesis (test); the transition plan for the assumed Uttar Pradesh site lists its phases with every figure sourced (test, field-trace complete); watcher green; `pytest -m slow` and the last CI run read; reviewer clean; report; tag; push; STOP.
+
+### Stage 16 — The ergPLAN 2 MCP server
+
+Goal (brief part E): a bill dropped into Claude (the app or Claude Code) gets a savings analysis and a sizing after a few questions.
+
+Build:
+- Served by the API at `/mcp` (streamable HTTP), in `ergplan/mcp/` (a new folder: add it to `docs/architecture.md` in the commit that creates it). It calls the same functions as the screens and computes nothing of its own. The invariants hold: billx is the only bill reader, no model decides a number, every figure comes back with its source.
+- Tools, typed: `read_bill` (the bill goes to billx; returns what was read and what needs confirming), `confirm_field`, `list_questions` (what is still missing, from Stage 15), `answer`, `add_generation_profile`, `todays_cost`, `landed_cost`, `run_sizing` (returns "running" and a status tool when it takes more than a few seconds), `get_plan`, `transition_plan`, `state_rule_book`, `share_link`.
+- Server instructions tell Claude to ask the open questions one or two at a time before sizing, to state numbers only from tool results, and to say which figures are assumed.
+- If Claude cannot hand a file to a tool, `read_bill` returns a one-time upload link; test which works in claude.ai and in Claude Code, and say so.
+- Access: the administrator sign-in of Stage 13 (OAuth for the connector, backed by that account). Never open to anyone who only has the address.
+
+Done when: with the connector added in claude.ai, one assumed Uttar Pradesh bill goes in, the questions are asked, a solar profile is supplied, and the answer equals `tests/e2e/test_up_assumed.py`'s figures for the same inputs; every tool has a test; a request without the sign-in is refused (test); the person is told the address to add as a connector; watcher green; `pytest -m slow` and the last CI run read; reviewer clean; report; tag; push; STOP.
+
+### Stage 17 — The savings logic and the sizing tested on several states
+
+Goal (brief part F): do for every state with an approved retail schedule and open-access charges (at least Uttar Pradesh, Maharashtra, Karnataka, Gujarat, Punjab, Telangana; add any state Stage 14 makes ready, through the sandbox) what `tests/e2e/test_up_assumed.py` does for Uttar Pradesh.
+
+Build:
+- Twelve bills worked by hand from that state's own order, in the test, independent of the app's code (energy, demand, ToD, fixed charges, and the levies the order names), for a realistic HT industrial consumer; a different load shape in at least two states (single shift, continuous process).
+- Bill replay against the hand bills; today's cost; landed cost for solar and wind on each route against the sum of the order's own figures; settlement after banking against the state's rule (cycle, charge in kind or in money, caps, lapse, ToD restrictions), with the energy balance closed by hand; an optimizer run with five components at hourly blocks and one at 15 minutes; the grid bill recomputed from the dispatch file; replay identical; the rule book.
+- One report, `docs/stage-reports/multi-state-test.md`: per state, what agreed to the rupee, every difference with its cause, every rule that is missing or doubtful, and solver time and gap. A difference is a defect to fix or a gap to list, never a tolerance to widen (rule 18).
+- Fix the defects the tests find. Keep the tests in the slow suite. A test per state is work that divides: subagents in parallel.
+
+Done when: each of the six states (and any Stage 14 made ready) has its test in the slow suite, passing or with each failing assertion's defect fixed or listed as a rule gap; `docs/stage-reports/multi-state-test.md` is written; watcher green; `pytest -m slow` and the last CI run read; reviewer clean; report; tag; push; STOP.
+
+### Stage 18 — IEX: data in, and exchange purchase suggested only where it can really be scheduled
+
+Goal (brief part G).
+
+Build:
+- **Prices in.** IEX market-clearing prices by 15-minute block for the day-ahead, green day-ahead (solar, non-solar, hydro) and real-time markets, for the northern, western and southern bid areas as published, at least the last 24 months, into `price_series` with a vintage (source, period, sha256). The locked decision is an analyst's CSV upload; a fetcher for IEX's published market data is added only if its terms of use allow automated download — read and quote the terms in `docs/decisions.md` first. If they do not, keep the upload, make it take a whole year in one file, and say so in `docs/questions-for-review.md`. No price is typed by hand or estimated by a model.
+- **Feasibility before price.** Buying on the exchange as an open-access consumer depends on the state's rules, and some states make it hard in practice (the person names Rajasthan). For each state a rule family, cited to the state's open-access regulations, SLDC procedure and tariff order like every other rule (draft until approved): who is eligible (contract demand, voltage, metering); the SLDC's no-objection or standing clearance and its validity; whether the schedule must be uniform over the day or may vary by block; day-ahead notice and revision rules; whether the DISCOM's contract demand must be reduced or stays, and the charges on standby drawal; deviation settlement on under- and over-drawal; the cross-subsidy and additional surcharges on exchange power; whether banking or time-shifting is allowed (it is not for exchange power, unless the rule says so); any minimum period or lock-in. Where the regulation does not say, record "not stated" (rule 18), never a guess.
+- **The suggestion.** `engine.scope` gives each state a verdict for exchange purchase — feasible, feasible with conditions, or not practical — with the conditions in words and their sources. The optimizer offers IEX sources only where the verdict allows, models the schedule the rule requires (a uniform block if that is the rule), and prices the deviation risk the rule creates. The plan says when the exchange lowers the cost, in which hours and seasons, and what must be applied for; where it is not practical it says why, citing the rule.
+
+Done when: 24 months of prices for each market and bid area are in `price_series` with vintages, or the report says exactly which are not and why; the feasibility family has a schema, a draft version per state with page citations, and golden tests; Rajasthan and two states where the exchange is workable each have a hand-worked landed cost for one month of real prices (test) and a non-uniform schedule is refused where the rule requires a uniform one (test); the optimizer offers no IEX source where the verdict forbids it (test); watcher green; `pytest -m slow` and the last CI run read; reviewer clean; report; tag; push; STOP.
+
+### Stage 19 — A landed-cost calculator for every state
+
+Goal (brief part H): one screen (`/calculator`, and an MCP tool `landed_cost_calculator`) on top of `platform.routers.landed.landed()` and the state rule books — it computes nothing of its own.
+
+Build:
+- Pick the state, DISCOM, consumer category, supply voltage and contract demand; set the PPA tariff or the plant's capital cost and CUF, the equity share, and the IEX market and month. It answers at once.
+- Three routes side by side for solar and for wind: **captive** (own plant, and 26% equity), **third party**, and **IEX** (day-ahead, green day-ahead, real-time). For each: the build-up line by line (generation cost or tariff, transmission, wheeling, losses, cross-subsidy surcharge, additional surcharge, duty, banking charge on banked units, exemptions), the landed cost per kWh by ToD slot, the grid tariff beside it, and the saving.
+- Every number opens its source; what is assumed is marked; what is not sourced says so; a route the state's rules do not allow says why. The exchange-feasibility verdict of Stage 18 shows on the IEX route.
+- A table for all states at once (one consumer definition, every state, every route), downloadable as CSV and as the month's state rule book.
+- Works for a visitor without a client or a bill; nothing is stored unless they sign in.
+
+Done when: for each state of Stage 17, the calculator's figures equal the hand-worked landed cost of that state's test (test); every figure on the screen carries a `source_ref` or is marked assumed or not sourced (test, field-trace complete); a visitor's use stores nothing (test); the all-states table downloads as CSV; the MCP tool returns the same figures as the screen (test); watcher green; `pytest -m slow` and the last CI run read; reviewer clean; report; tag; push; STOP.
+
 ---
 
 ## 8. Reference data
