@@ -1,0 +1,33 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# HERC order on the ARR of UHBVNL and DHBVNL for FY 2026-27 (petitions 94 & 95 of 2025, sha256 799a4a6c…, 592 pages),
+# Annexure-A "Schedule of Tariff and Charges", PDF page 356, the columns headed "Tariff for 2026-27 (W.E.F. 01.04.2026)":
+# energy charge in paisa per kWh or kVAh, fixed charge in Rs. per kW of connected load or per kVA of sanctioned contract
+# demand per month.
+jurisdiction: hr_discoms
+family: tariff_schedule
+effective_on: '2026-08-01'
+tests:
+  # 3 HT Supply (above 50 kW) including Traction and DMRC: 11 kV 695/kVAh, 33 kV 685, 66/132 kV 675, 220 kV 670,
+  # 400 kV 655; Rs. 290/kVA/month at every voltage; arc furnaces / steel rolling mills (supply at 11 kV) 725/kVAh
+  - {name: "FY 2026-27 · HT Supply at 11 kV · energy", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.95"}}
+  - {name: "FY 2026-27 · HT Supply at 11 kV · fixed", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "290"}}
+  - {name: "FY 2026-27 · HT Supply fixed charge is per kVA", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 11}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  - {name: "FY 2026-27 · HT Supply billed in kVAh", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 11}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "FY 2026-27 · HT Supply at 33 kV · energy", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "6.85"}}
+  - {name: "FY 2026-27 · HT Supply at 66 kV · energy", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 66}, field: /energy_charge/base}, expect: {value: "6.75"}}
+  - {name: "FY 2026-27 · HT Supply at 132 kV · energy", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "6.75"}}
+  - {name: "FY 2026-27 · HT Supply at 220 kV · energy", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "6.70"}}
+  - {name: "FY 2026-27 · HT Supply at 400 kV · energy", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 400}, field: /energy_charge/base}, expect: {value: "6.55"}}
+  - {name: "FY 2026-27 · HT Supply at 400 kV · fixed", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", voltage_kv: 400}, field: /demand_charge/value}, expect: {value: "290"}}
+  - {name: "FY 2026-27 · arc furnaces and steel rolling mills at 11 kV · energy", given: {context: {category: "HT Supply (above 50 kW) including Traction and DMRC", rate_block: Arc furnaces Steel Rolling Mills, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "7.25"}}
+  # 4 LT Supply - up to 50 kW: upto 10 kW 645/kVAh Rs. 100/kW/month; above 10 and upto 20 kW 680/kVAh Rs. 100/kW/month;
+  # above 20 and upto 50 kW 660/kVAh Rs. 250/kW/month
+  - {name: "FY 2026-27 · LT Supply 8 kW · energy", given: {context: {category: "LT Supply - up to 50 kW", voltage_kv: 0.4, load_kw: 8}, field: /energy_charge/base}, expect: {value: "6.45"}}
+  - {name: "FY 2026-27 · LT Supply 8 kW · fixed per kW", given: {context: {category: "LT Supply - up to 50 kW", voltage_kv: 0.4, load_kw: 8}, field: /demand_charge/basis}, expect: {value: inr_per_kw_month}}
+  - {name: "FY 2026-27 · LT Supply 15 kW · energy", given: {context: {category: "LT Supply - up to 50 kW", voltage_kv: 0.4, load_kw: 15}, field: /energy_charge/base}, expect: {value: "6.80"}}
+  - {name: "FY 2026-27 · LT Supply 15 kW · fixed", given: {context: {category: "LT Supply - up to 50 kW", voltage_kv: 0.4, load_kw: 15}, field: /demand_charge/value}, expect: {value: "100"}}
+  - {name: "FY 2026-27 · LT Supply 30 kW · energy", given: {context: {category: "LT Supply - up to 50 kW", voltage_kv: 0.4, load_kw: 30}, field: /energy_charge/base}, expect: {value: "6.60"}}
+  - {name: "FY 2026-27 · LT Supply 30 kW · fixed", given: {context: {category: "LT Supply - up to 50 kW", voltage_kv: 0.4, load_kw: 30}, field: /demand_charge/value}, expect: {value: "250"}}
+  - {name: "FY 2026-27 · LT Supply billed in kVAh", given: {context: {category: "LT Supply - up to 50 kW", voltage_kv: 0.4, load_kw: 30}, field: /billing_basis}, expect: {value: kvah}}
+  # 1 Domestic Supply is printed in consumption slabs: no row
+  - {name: "FY 2026-27 · Domestic Supply slabs are not imported", given: {context: {category: Domestic Supply, voltage_kv: 0.4}}, expect: {absent: true}}

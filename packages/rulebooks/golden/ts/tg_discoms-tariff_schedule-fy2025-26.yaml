@@ -1,0 +1,51 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# TGERC Retail Supply Tariff Order FY 2025-26 (sha256 14c31930…, 380 pages), Appendix A "Abstract of the Retail Supply
+# Tariff for FY 2025-26 (applicable with effect from 01.05.2025 to 31.03.2026)", High Tension, PDF pages 306-308.
+# No approved rulebook holds this year: these cases are for the version imported from the ARR Network. The import keeps
+# the sub-schedule the appendix prints under each code ("HT-I (A): Industry General", "HT-I (A): Poultry Farms", …) as
+# the rate block. The rates are the same as in the FY 2026-27 order; the two orders differ in their time-of-day tariff.
+# Appendix A prices energy "Rs. /Unit"; the unit of every HT category is the kVAh (Chapter 4, e.g. para 4.16.4,
+# PDF page 285: "Energy Charge … Rate Rs. /kVAh"; pages 286-296 for the other HT categories).
+jurisdiction: tg_discoms
+family: tariff_schedule
+effective_on: '2025-08-01'
+tests:
+  # PDF page 306: HT-I (A): Industry General — 11 kV kVA 500 7.65; 33 kV kVA 500 7.15; 132 kV and above kVA 500 6.65
+  - {name: "FY 2025-26 · HT-I(A) Industry General at 11 kV · demand", given: {context: {category: HT-I(A), rate_block: Industry General, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "500"}}
+  - {name: "FY 2025-26 · HT-I(A) Industry General at 11 kV · energy", given: {context: {category: HT-I(A), rate_block: Industry General, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "7.65"}}
+  - {name: "FY 2025-26 · HT-I(A) Industry General at 33 kV · energy", given: {context: {category: HT-I(A), rate_block: Industry General, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.15"}}
+  - {name: "FY 2025-26 · HT-I(A) Industry General at 132 kV · energy", given: {context: {category: HT-I(A), rate_block: Industry General, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "6.65"}}
+  - {name: "FY 2025-26 · HT-I(A) Industry General at 220 kV (132 kV and above) · energy", given: {context: {category: HT-I(A), rate_block: Industry General, voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "6.65"}}
+  - {name: "FY 2025-26 · HT-I(A) Industry General billed in kVAh", given: {context: {category: HT-I(A), rate_block: Industry General, voltage_kv: 33}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "FY 2025-26 · HT-I(A) demand charge is per kVA", given: {context: {category: HT-I(A), rate_block: Industry General, voltage_kv: 33}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  - {name: "FY 2025-26 · HT-I(A) without its sub-schedule matches no imported row", given: {context: {category: HT-I(A), voltage_kv: 33}}, expect: {absent: true}}
+  # PDF page 307
+  - {name: "FY 2025-26 · HT-I(A) Poultry Farms at 33 kV · energy", given: {context: {category: HT-I(A), rate_block: Poultry Farms, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.15"}}
+  - {name: "FY 2025-26 · HT-I(A) Seasonal Industries at 11 kV · energy", given: {context: {category: HT-I(A), rate_block: Seasonal Industries, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "8.60"}}
+  - {name: "FY 2025-26 · HT-I(A) Seasonal Industries at 132 kV · energy", given: {context: {category: HT-I(A), rate_block: Seasonal Industries, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "7.70"}}
+  - {name: "FY 2025-26 · HT-I(A) Optional Category up to 150 kVA at 11 kV · demand", given: {context: {category: HT-I(A), rate_block: Optional Category with CMD Up to 150 kVA, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "100"}}
+  - {name: "FY 2025-26 · HT-I(A) Optional Category up to 150 kVA at 11 kV · energy", given: {context: {category: HT-I(A), rate_block: Optional Category with CMD Up to 150 kVA, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "8.00"}}
+  # HT-I (A): Lights and Fans and Colony Consumption print no demand charge ("-"): no row
+  - {name: "FY 2025-26 · HT-I(A) Lights and Fans has no row (no demand charge printed)", given: {context: {category: HT-I(A), rate_block: Lights and Fans, voltage_kv: 11}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · HT-I(B) Ferro Alloys at 132 kV · energy", given: {context: {category: HT-I(B), rate_block: Ferro Alloys, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "6.65"}}
+  - {name: "FY 2025-26 · HT-II(A) Others at 11 kV · energy", given: {context: {category: HT-II(A), rate_block: Others, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "8.80"}}
+  - {name: "FY 2025-26 · HT-II(A) Others at 33 kV · energy", given: {context: {category: HT-II(A), rate_block: Others, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "8.00"}}
+  - {name: "FY 2025-26 · HT-II(A) Others at 132 kV · energy", given: {context: {category: HT-II(A), rate_block: Others, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "7.80"}}
+  - {name: "FY 2025-26 · HT-II(B) Wholly Religious Places at 11 kV · demand", given: {context: {category: HT-II(B), rate_block: Wholly Religious Places, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "285"}}
+  - {name: "FY 2025-26 · HT-II(B) Wholly Religious Places at 11 kV · energy", given: {context: {category: HT-II(B), rate_block: Wholly Religious Places, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.00"}}
+  - {name: "FY 2025-26 · HT-III Airports, Railway Stations and Bus Stations at 33 kV · energy", given: {context: {category: HT-III, rate_block: "Airports, Railway Stations and Bus Stations", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.85"}}
+  - {name: "FY 2025-26 · HT-IV(A) Irrigation and Agriculture at 33 kV · demand", given: {context: {category: HT-IV(A), rate_block: Irrigation and Agriculture, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "300"}}
+  - {name: "FY 2025-26 · HT-IV(A) Irrigation and Agriculture at 33 kV · energy", given: {context: {category: HT-IV(A), rate_block: Irrigation and Agriculture, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "6.30"}}
+  - {name: "FY 2025-26 · HT-IV(B) CPWS Schemes has no row (no demand charge printed)", given: {context: {category: HT-IV(B), rate_block: CPWS Schemes, voltage_kv: 33}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · HT-V(A) Railway Traction · demand", given: {context: {category: HT-V(A), rate_block: Railway Traction, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "500"}}
+  - {name: "FY 2025-26 · HT-V(A) Railway Traction · energy", given: {context: {category: HT-V(A), rate_block: Railway Traction, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "5.05"}}
+  - {name: "FY 2025-26 · HT-V(B) HMR · energy", given: {context: {category: HT-V(B), rate_block: HMR, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "4.95"}}
+  # PDF page 308: HT-VI, 11 kV, 33 kV and 132 kV and above: kVA 285 7.30
+  - {name: "FY 2025-26 · HT-VI Townships & Residential Colonies at 11 kV · demand", given: {context: {category: HT-VI, rate_block: Townships & Residential Colonies, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "285"}}
+  - {name: "FY 2025-26 · HT-VI Townships & Residential Colonies at 132 kV · energy", given: {context: {category: HT-VI, rate_block: Townships & Residential Colonies, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "7.30"}}
+  # PDF page 308
+  - {name: "FY 2025-26 · HT-VII Temporary Supply at 11 kV · energy", given: {context: {category: HT-VII, rate_block: Temporary Supply, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "11.80"}}
+  - {name: "FY 2025-26 · HT-VII Temporary Supply at 132 kV · energy", given: {context: {category: HT-VII, rate_block: Temporary Supply, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "10.80"}}
+  - {name: "FY 2025-26 · HT-VIII RESCOs has no row (no demand charge printed)", given: {context: {category: HT-VIII, rate_block: RESCOs, voltage_kv: 11}}, expect: {absent: true}}
+  - {name: "FY 2025-26 · HT-IX EV Charging Stations at 33 kV · demand", given: {context: {category: HT-IX, rate_block: EV Charging Stations, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "100"}}
+  - {name: "FY 2025-26 · HT-IX EV Charging Stations at 33 kV · energy", given: {context: {category: HT-IX, rate_block: EV Charging Stations, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "6.00"}}

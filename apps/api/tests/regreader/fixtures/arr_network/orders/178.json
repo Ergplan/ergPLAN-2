@@ -1,0 +1,25 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 178,
+  "commission": "PSERC",
+  "title": "PSPCL Tariff Order for FY 2025-26 (true-up FY2023-24, ARR FY2025-26; Petition 61 of 2024, order 28.03.2025)",
+  "url": "https://docs.pspcl.in/docs/cecommercial2520250329190314390.pdf",
+  "sha256": "60443240e11d26a9bce915d85deec6fb6e2da5d0c01b80db9a31498ce401ce90",
+  "pages": 417,
+  "pages_without_text": 10,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2025-26"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "session discovery agent 2026-11-14: fetched from the licensee's or commission's own site (https://docs.pspcl.in (PSPCL document host; found via web search)); %PDF and SHA-256 checked, text layer checked",
+  "fetched_on": "2026-11-14T00:00:00.000Z",
+  "read_status": "downloaded",
+  "utilities": [
+   "PSPCL"
+  ]
+ }
+}

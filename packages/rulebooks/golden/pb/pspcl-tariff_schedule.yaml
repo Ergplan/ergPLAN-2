@@ -3,6 +3,8 @@
 # 6.00/kVAh. Page 226 footnote: fixed charge on 80% of the contract demand (or the demand recorded, if higher).
 jurisdiction: pspcl
 family: tariff_schedule
+# these cases are for the FY 2026-27 order: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "LS GI 500 kVA demand", given: {context: {category: LS General Industry, voltage_kv: 11, contract_demand_kva: 500}, field: /demand_charge/value}, expect: {value: "210"}}
   - {name: "LS GI 500 kVA energy", given: {context: {category: LS General Industry, voltage_kv: 11, contract_demand_kva: 500}, field: /energy_charge/base}, expect: {value: "5.90"}}

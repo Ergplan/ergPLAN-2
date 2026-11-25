@@ -1,0 +1,29 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# PSERC Tariff Order FY 2023-24 for PSPCL (sha256 a5b27435…, 476 pages), Annexure-II "Schedules of Tariff for FY 2023-24
+# w.e.f. 16.05.2023" (PDF page 279 onwards). Date of effect (PDF page 268): applicable from May 16th, 2023, operative
+# till March 31, 2024.
+jurisdiction: pspcl
+family: tariff_schedule
+effective_on: '2023-08-01'
+tests:
+  # SI.3 Tariff, PDF page 279. SI.3.2 Power Intensive Units: i) above 100 and upto 1000 kVA 6.49 / 220;
+  # ii) above 1000 and upto 2500 kVA 6.80 / 305; iii) above 2500 kVA 6.89 / 345
+  - {name: "FY 2023-24 · LS Power Intensive Units 500 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 500}, field: /demand_charge/value}, expect: {value: "220"}}
+  - {name: "FY 2023-24 · LS Power Intensive Units 500 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 500}, field: /energy_charge/base}, expect: {value: "6.49"}}
+  - {name: "FY 2023-24 · LS Power Intensive Units 2000 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 2000}, field: /demand_charge/value}, expect: {value: "305"}}
+  - {name: "FY 2023-24 · LS Power Intensive Units 2000 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 2000}, field: /energy_charge/base}, expect: {value: "6.80"}}
+  - {name: "FY 2023-24 · LS Power Intensive Units 3000 kVA · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 66, contract_demand_kva: 3000}, field: /demand_charge/value}, expect: {value: "345"}}
+  - {name: "FY 2023-24 · LS Power Intensive Units 3000 kVA · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 66, contract_demand_kva: 3000}, field: /energy_charge/base}, expect: {value: "6.89"}}
+  - {name: "FY 2023-24 · LS billed in kVAh", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: Power Intensive Units, voltage_kv: 11, contract_demand_kva: 2000}, field: /billing_basis}, expect: {value: kvah}}
+  # SI.3.1 General Industry (6.45 / 215, 6.55 / 275, 6.67 / 315 on PDF page 279) is not in the ARR Network's rows: its
+  # table joins those three lines to the column headings. Until the source reads them, no General Industry row is imported.
+  - {name: "FY 2023-24 · LS General Industry is not imported (lost in the source's heading)", given: {context: {category: "SCHEDULE OF TARIFF FOR LARGE SUPPLY INDUSTRIAL POWER(LS)", rate_block: General Industry, voltage_kv: 11, contract_demand_kva: 500}}, expect: {absent: true}}
+  # SII.3.1, PDF page 282: General Industry 6.10 / 140
+  - {name: "FY 2023-24 · MS General Industry · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR MEDIUM SUPPLY INDUSTRIAL POWER (MS)", rate_block: General Industry, voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "140"}}
+  - {name: "FY 2023-24 · MS General Industry · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR MEDIUM SUPPLY INDUSTRIAL POWER (MS)", rate_block: General Industry, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "6.10"}}
+  # SIII.3.1, PDF page 283: General Industry 5.67 / 105
+  - {name: "FY 2023-24 · SP General Industry · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR SMALL POWER INDUSTRIAL SUPPLY (SP)", rate_block: General Industry, voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "105"}}
+  - {name: "FY 2023-24 · SP General Industry · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR SMALL POWER INDUSTRIAL SUPPLY (SP)", rate_block: General Industry, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "5.67"}}
+  # SVII.3, PDF page 289: SVII.3.1 LT 7.01 / 260; SVII.3.2 HT 6.78 / 340
+  - {name: "FY 2023-24 · BS at HT · fixed", given: {context: {category: "SCHEDULE OF TARIFF FOR BULK SUPPLY (BS)", rate_block: "SVII.3.2 HT", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "340"}}
+  - {name: "FY 2023-24 · BS at HT · energy", given: {context: {category: "SCHEDULE OF TARIFF FOR BULK SUPPLY (BS)", rate_block: "SVII.3.2 HT", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.78"}}

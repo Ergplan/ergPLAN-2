@@ -1,0 +1,26 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 180,
+  "commission": "HERC",
+  "title": "Commission's Order in HERC Petition 94 & 95 of 2025: True-up FY2024-25, Mid-Year Review FY2025-26 and ARR of FY2026-27, UHBVNL and DHBVNL (25.03.2026)",
+  "url": "https://uhbvn.org.in/staticContent/documents/HERC/2026/02_APR_2025_26_01GC.pdf",
+  "sha256": "799a4a6c948fb968028bde549b74287ac69b5667ac33688b5bff45a081d783a7",
+  "pages": 592,
+  "pages_without_text": 1,
+  "arr_year": "FY2026-27",
+  "years_decided": [
+   "FY2026-27"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "session discovery agent 2026-11-14: fetched from the licensee's or commission's own site (https://uhbvn.org.in/web/portal/herc-petition); %PDF and SHA-256 checked, text layer checked",
+  "fetched_on": "2026-11-14T00:00:00.000Z",
+  "read_status": "downloaded",
+  "utilities": [
+   "DHBVN",
+   "UHBVN"
+  ]
+ }
+}

@@ -226,3 +226,79 @@ def seasonal_adjustments(text: str) -> list[tuple[Decimal, list[int]]] | None:
     if sorted(mo for _, months in out for mo in months) != list(range(1, 13)):
         return None
     return out
+
+
+# ------------------------------------------------------------------ bands of load, slabs, joined cells
+
+_LOAD = r"(\d[\d,]*(?:\.\d+)?)\s*(kva|kw)(?![a-z])"
+_LOAD_FIELD = {"kva": "contract_demand_kva", "kw": "load_kw"}
+_LIST_MARK = re.compile(r"^\(?([ivx]{1,4}|[a-z]|\d{1,2})\)\s*")
+_SLAB = re.compile(
+    r"^(\d[\d,]*\s*-\s*\d[\d,]*|(above|up\s*to|upto|first|next|beyond|balance|>)\s*\d[\d,]*)"
+    r"\s*(units?|kwh|kvah)?(\s*(per|/)\s*month)?$"
+)
+
+
+def load_band(text: str) -> tuple[str, dict[str, int | float | bool]] | None:
+    """A band of contract demand or load as a schedule prints it against a rate: 'Above 100 kVA and
+    upto 1000 kVA' → ('contract_demand_kva', {min: 100, min_exclusive: true, max: 1000}); 'Upto 10 KW'
+    → ('load_kw', {max: 10}); 'Above 2500 kVA' → (…, {min: 2500, min_exclusive: true}). None unless the
+    text is nothing but such a band in one unit (a list mark such as 'ii)' before it is allowed)."""
+    t = _LIST_MARK.sub("", _norm(text))
+    t = re.sub(r"(?<=[a-z])(?=\d)", " ", t)  # 'upto1000 kVA', as a text layer runs it together
+    m = re.fullmatch(
+        rf"(?:(above|exceeding|more than)\s*{_LOAD})?\s*(?:and|&|but)?\s*"
+        rf"(?:(up\s*to|upto|not exceeding)\s*{_LOAD})?",
+        t,
+    )
+    if not m or not (m.group(1) or m.group(4)):
+        return None
+    units = {u for u in (m.group(3), m.group(6)) if u}
+    if len(units) != 1:
+        return None
+
+    def num(s: str) -> int | float:
+        v = float(s.replace(",", ""))
+        return int(v) if v == int(v) else v
+
+    band: dict[str, int | float | bool] = {}
+    if m.group(1):
+        band["min"] = num(m.group(2))
+        band["min_exclusive"] = True
+    if m.group(4):
+        band["max"] = num(m.group(5))
+    return _LOAD_FIELD[units.pop()], band
+
+
+def is_slab(text: str) -> bool:
+    """A row of a consumption slab ('0-50', '101-200', 'Above 500 units', 'ii) Upto 300 kWh'): its
+    rate applies to part of the month's units, which a one-rate row cannot hold."""
+    return bool(_SLAB.match(_LIST_MARK.sub("", _norm(text))))
+
+
+def joined(text: str, heading: str) -> tuple[Rate, Rate] | None:
+    """An energy charge and a fixed charge printed in one cell, as a schedule set side by side for
+    two years prints them: '695/kVAh Rs. 290/kVA /Month Nil' under a heading that says the energy
+    charge is in paise → (695 paise/kVAh, Rs. 290/kVA/month). None unless the cell states exactly
+    one of each and no other number; rupees or paise for the energy charge come from the heading."""
+    t, h = _norm(text), _norm(heading)
+    energy = re.findall(r"(?<![\w./])(\d[\d,]*(?:\.\d+)?)\s*/\s*(kwh|kvah)(?![a-z])", t)
+    fixed = re.findall(r"rs\.?\s*(\d[\d,]*(?:\.\d+)?)\s*/\s*(kva|kw)\s*/\s*month", t)
+    if len(energy) != 1 or len(fixed) != 1 or len(_NUMBER.findall(t)) != 2:
+        return None
+    said = re.search(r"energy\s+charges?\s*\(([^)]*)\)", h)
+    if not said:
+        return None
+    paise, rupee = bool(_PAISE.search(said.group(1))), bool(_RUPEE.search(said.group(1)))
+    if paise == rupee:
+        return None
+    kvah = energy[0][1] == "kvah"
+    if paise:
+        e_unit = Unit.PAISE_PER_KVAH if kvah else Unit.PAISE_PER_KWH
+    else:
+        e_unit = Unit.INR_PER_KVAH if kvah else Unit.INR_PER_KWH
+    f_unit = Unit.INR_PER_KVA_MONTH if fixed[0][1] == "kva" else Unit.INR_PER_KW_MONTH
+    return (
+        Rate(Decimal(energy[0][0].replace(",", "")), e_unit),
+        Rate(Decimal(fixed[0][0].replace(",", "")), f_unit),
+    )
