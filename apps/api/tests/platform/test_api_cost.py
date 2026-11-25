@@ -85,7 +85,18 @@ def test_avoided_cost_endpoint(connection: str) -> None:
     factor = next(c for c in a["cards"] if c["slot"] == "peak")["kvah_factor"]
     assert factor["source_refs"][0]["kind"] == "bill"  # kVAh / kWh from the bill
     assert a["annual"][0]["label"] == "Energy at avoided rates (year)"
-    assert set(a["gaps"]) == {"fppca_monthly", "electricity_duty"}
+    # FAC and duty are not in the approved schedule, but the client's bill prints both: they are in
+    # the rate at the bill's own rate, cited to the bill (never to the order), and no longer gaps
+    assert a["gaps"] == {}
+    comps = {c["label"].split(",")[0]: c for c in a["cards"][0]["components"]}
+    for name in ("Fuel and power purchase adjustment (FPPCA)", "Electricity duty"):
+        assert {r["kind"] for r in comps[name]["source_refs"]} == {"bill"} and comps[name][
+            "unit"
+        ] == "INR/kVAh"
+    assert (
+        comps["Fuel and power purchase adjustment (FPPCA)"]["value"] == "0.5000"
+    )  # 726,254.50 / 1,452,509 kVAh
+    assert sum("not at a rate sourced to a regulation" in n for n in a["notes"]) == 2
 
 
 def test_cost_endpoints_404_and_422() -> None:

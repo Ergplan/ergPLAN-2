@@ -32,6 +32,9 @@ OPTIONAL = (
     "consumer.name",
     "utility.name",
     "energy.billed_units",
+    # the supply period: the month the energy was used in (the bill month is usually the month after)
+    "period.from",
+    "period.to",
 )
 
 

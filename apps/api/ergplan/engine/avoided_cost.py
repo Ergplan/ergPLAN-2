@@ -4,8 +4,10 @@
 Under the retail tariffs ergPLAN covers, the marginal rate depends only on the month (season, ToD
 rows) and the time of day, so the 35,040 block rates are exactly a month × 96-block matrix. Each
 cell is built from rate cards (month × ToD slot) whose components are SourcedValues citing the rule
-rows; components the rulebook does not hold (FPPCA, duty when not in the row) are left out and
-named as gaps rather than estimated (rule 13).
+rows. FPPCA and electricity duty, when the approved row does not state them, are taken at the rate
+the client's own accepted bills print (engine/levies.py: a `bill`-kind value citing the bill lines,
+never a regulation), so the cost of today reconciles with the bills; where no bill prints them
+either they are left out and named as gaps rather than estimated (rule 13).
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from ..core.money import inr
 from ..core.sourced import SourcedValue, derive
 from ..core.units import Unit
 from ..rulebook.models import RuleView
+from . import levies as L
 from .tariff_eval import (
     RATE_OF_BASIS,
     billing_floor_kva,
@@ -35,6 +38,11 @@ HUNDRED = Decimal(100)
 # The year's two totals in `annual`, by name: what the Evaluate page's "today" reads
 ENERGY_YEAR = "Energy at avoided rates (year)"
 DEMAND_YEAR = "Demand charges (year)"
+# within the energy total: the two levies at the bills' own rates, by levy code
+LEVY_YEAR = {
+    L.FPPCA: "of which FPPCA at the rate on your bills (year)",
+    L.DUTY: "of which electricity duty at the rate on your bills (year)",
+}
 
 
 @dataclass(frozen=True)
@@ -44,6 +52,9 @@ class RateCard:
     components: list[SourcedValue]  # energy, ToD, wheeling, duty … in the billing unit
     kvah_factor: SourcedValue | None  # kVAh per kWh when the schedule bills kVAh
     rate_inr_per_kwh: SourcedValue  # the marginal avoided cost of one kWh in this month and slot
+    # levy code → INR per kWh bought from the DISCOM, for the levies taken from the bills (they are
+    # among `components` too, in the billing unit)
+    levies: dict[str, SourcedValue] = field(default_factory=dict)
 
 
 @dataclass
@@ -61,6 +72,24 @@ class Waterfall:
 class MonthRules:
     schedule: RuleView | None
     tod: RuleView | None
+    # FPPCA and duty at the rates on the connection's own bills, used only where the approved row
+    # does not state the levy (never for replaying a bill against itself)
+    levies: tuple[L.Levy, ...] = ()
+
+
+def levies_in_force(rules: MonthRules) -> tuple[L.Levy, ...]:
+    """The bill-rate levies that apply under these rules: those the approved schedule row does not
+    state itself (a rule always wins over the bills)."""
+    s = rules.schedule
+    if s is None:
+        return ()
+    in_rule = {
+        L.FPPCA: s.get("/fppca_inr_per_unit") not in (None, ""),
+        L.DUTY: s.get("/electricity_duty/pct") not in (None, "")
+        or s.get("/electricity_duty/inr_per_unit") not in (None, ""),
+    }
+    unit = RATE_OF_BASIS[str(s.body.get("billing_basis", "kwh"))]
+    return tuple(lv for lv in rules.levies if not in_rule[lv.code] and lv.rate(unit) is not None)
 
 
 def _rate(row: RuleView, pointer: str, unit: Unit, label: str) -> SourcedValue | None:
@@ -123,17 +152,25 @@ def rate_card(
     ed_unit = _rate(s, "/electricity_duty/inr_per_unit", unit, "Electricity duty")
     if ed_unit is not None:
         comps.append(ed_unit)
+    if basis == "kvah" and kvah_factor is None:
+        raise ValueError("a kVAh schedule needs the kVAh-per-kWh factor")
+    from_bills: dict[str, SourcedValue] = {}
+    for lv in levies_in_force(rules):
+        r = lv.rate(unit)
+        on_kwh = L.per_kwh(lv, basis, kvah_factor)
+        if r is not None and on_kwh is not None:
+            comps.append(r)
+            from_bills[lv.code] = on_kwh
     per_unit = sum((c.value for c in comps), Decimal(0))
     inputs = list(comps)
     if basis == "kvah":
-        if kvah_factor is None:
-            raise ValueError("a kVAh schedule needs the kVAh-per-kWh factor")
+        assert kvah_factor is not None
         per_unit = per_unit * kvah_factor.value
         inputs.append(kvah_factor)
     total = derive(
         per_unit, Unit.INR_PER_KWH, inputs, label=f"Avoided cost{f' · {slot_name}' if slot_name else ''}"
     )
-    return RateCard(month, slot_name, comps, kvah_factor if basis == "kvah" else None, total)
+    return RateCard(month, slot_name, comps, kvah_factor if basis == "kvah" else None, total, from_bills)
 
 
 def build(
@@ -157,6 +194,8 @@ def build(
     energy_cost = Decimal(0)
     energy_inputs: list[SourcedValue] = [profile_ref]
     demand_lines: list[SourcedValue] = []
+    levy_cost: dict[str, Decimal] = {}
+    levy_inputs: dict[str, list[SourcedValue]] = {}
     for m in range(12):
         y, mo = year_start.year + (year_start.month - 1 + m) // 12, (year_start.month - 1 + m) % 12 + 1
         first = date(y, mo, 1)
@@ -192,6 +231,14 @@ def build(
         cell_cards.append(idx_row)
         for k, v in enumerate(seg):
             energy_cost += v * Decimal("0.25") * row[k % 96]
+        # the levies taken from the bills are per unit, the same in every slot of the month
+        month_card = next((c for c in by_slot.values() if c is not None), None)
+        for code, on_kwh in (month_card.levies if month_card else {}).items():
+            levy_cost[code] = levy_cost.get(code, Decimal(0)) + sum(seg, Decimal(0)) * Decimal("0.25") * (
+                on_kwh.value
+            )
+            if on_kwh not in levy_inputs.setdefault(code, [profile_ref]):
+                levy_inputs[code].append(on_kwh)
         for c in by_slot.values():
             if c is not None and c.rate_inr_per_kwh not in energy_inputs:
                 energy_inputs.append(c.rate_inr_per_kwh)
@@ -232,8 +279,18 @@ def build(
             )
         )
         annual.extend(demand_lines)
-    for gap in ("fppca_monthly", "electricity_duty"):
+    for code in L.CODES:
+        if code in levy_cost:
+            annual.append(derive(inr(levy_cost[code]), Unit.INR, levy_inputs[code], label=LEVY_YEAR[code]))
+    for gap, code in (("fppca_monthly", L.FPPCA), ("electricity_duty", L.DUTY)):
         sched_rows = [rules_for(date(year_start.year, year_start.month, 1)).schedule]
+        if code in levy_cost:
+            # not in the rulebook, but in the cost: at the rate the client's own bills print
+            notes.append(
+                f"{L.LABEL[code]} is not in the approved tariff: it is charged here at the rate on "
+                "your own bills (the citation opens the bill), not at a rate sourced to a regulation"
+            )
+            continue
         if gap == "fppca_monthly" and not any(s and s.get("/fppca_inr_per_unit") for s in sched_rows):
             gaps.append(gap)
         if gap == "electricity_duty" and not any(

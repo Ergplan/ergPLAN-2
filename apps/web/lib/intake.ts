@@ -20,7 +20,7 @@ export type Ref = {
 
 export type Fact<T> = { value: T; provenance: "bill" | "client_stated" | "assumption"; ref?: Ref | null };
 
-export type TodEnergy = { start: string; end: string; energy: Fact<string>; slot?: string | null };
+export type TodEnergy = { start: string; end: string; energy: Fact<string>; slot?: string | null; hours_ref?: Ref | null };
 
 export type MonthFacts = {
   month: string;
@@ -33,6 +33,8 @@ export type MonthFacts = {
   bill_id?: string | null;
   shutdown_days: number[];
   unmapped_tod_slots: string[];
+  unmapped_tod_reason?: string | null;
+  month_basis?: "supply_period" | "bill_month" | null;
 };
 
 export type AssetIn = { kind: string; params: Record<string, unknown>; provenance?: Fact<unknown>["provenance"] };
@@ -94,7 +96,7 @@ export type ProfileOut = {
   year_start: string;
   blocks: number;
   method: Record<string, unknown>;
-  months: { month: string; energy_kwh: SourcedValue; max_kw: SourcedValue; extrapolated: boolean; peak_shortfall_kw: string | null }[];
+  months: { month: string; energy_kwh: SourcedValue; max_kw: SourcedValue; extrapolated: boolean; peak_shortfall_kw: string | null; peak_excess_kw?: string | null }[];
   week_kw: string[];
 };
 
@@ -115,6 +117,8 @@ export type ShapeOut = { id: string; name: string; note: string | null; working_
 
 export const FIELD_LABEL: Record<string, string> = {
   "period.bill_month": "Bill month",
+  "period.from": "Supply period from",
+  "period.to": "Supply period to",
   "energy.kwh": "Energy (kWh)",
   "energy.kvah": "Energy (kVAh)",
   "energy.billed_units": "Billed units",

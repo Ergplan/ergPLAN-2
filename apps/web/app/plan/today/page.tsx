@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Heatmap } from "@/components/cost/Heatmap";
 import { ReplayCard } from "@/components/cost/ReplayCard";
 import { apiOrNull } from "@/lib/api";
-import type { AvoidedOut, ReplayOut } from "@/lib/cost";
+import { type AvoidedOut, type ReplayOut, replayTally, replayTallyWords } from "@/lib/cost";
 import type { ConnectionOut } from "@/lib/intake";
 
 // Journey step 2: today's cost. Each bill rebuilt from the approved tariff beside the real one; the
@@ -39,6 +39,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         </div>
       </div>
       {(replays ?? []).length === 0 && <p className="eg-muted">No accepted bills on this connection yet.</p>}
+      {(replays ?? []).length > 0 && <p className="eg-muted" data-testid="replay-tally">{replayTallyWords(replayTally(replays ?? []))}</p>}
       {(replays ?? []).map((r) => <ReplayCard key={r.bill_id} r={r} />)}
       {avoided && <Heatmap a={avoided} />}
     </>

@@ -196,3 +196,124 @@ def test_slots_in_kvah_make_a_kvah_month_when_the_bill_prints_both(billx: FakeBi
         month = site_intake.from_bills(s, [b["id"]]).months[0]
     assert month.energy_unit == "kVAh" and month.energy.value == 17000
     assert sum(t.energy.value for t in month.tod) == 17000
+
+
+def _ingested(billx: FakeBillx, tag: str, res: dict[str, Any]) -> str:
+    return str(_upload(billx, tag, res)[0]["id"])
+
+
+def test_the_tod_windows_are_those_of_the_supply_month_and_of_the_order_in_force_at_its_end(
+    billx: FakeBillx,
+) -> None:
+    from datetime import date
+
+    restore_committed()
+    bid = _ingested(billx, "win", result("pvvnl_passed"))
+    summer = {("05:00", "10:00"), ("10:00", "19:00"), ("19:00", "03:00"), ("03:00", "05:00")}
+    winter = {("05:00", "11:00"), ("11:00", "17:00"), ("17:00", "23:00"), ("23:00", "05:00")}
+    with session_scope(actor="t") as s:
+        bill = s.get(Bill, bid)
+        assert bill is not None
+        # October supply, billed in November: winter windows only
+        got = site_intake._approved_windows(s, bill, date(2026, 10, 1), date(2026, 10, 31))
+        assert got == winter
+        # the FY 2026-27 order starts on 2 July 2026: July's bill is under it, though 1 July is not
+        assert site_intake._approved_windows(s, bill, date(2026, 7, 1), date(2026, 7, 31)) == summer
+        assert site_intake._approved_windows(s, bill, date(2026, 7, 1)) == set()
+
+
+def _tod_rule(names: list[tuple[str, str, str]], category: str = "HV-2") -> Any:
+    from ergplan.rulebook.models import RuleView
+
+    return RuleView(
+        id="r1",
+        family="tod_slots",
+        version_id="v1",
+        jurisdiction_id="uppcl",
+        scope={"category": [category]},
+        body={"slots": [{"name": n, "start": a, "end": b} for n, a, b in names]},
+        source_ref={
+            "kind": "order",
+            "document_id": "d1",
+            "page": 446,
+            "quote": "TOD-1 05:00 hrs – 11:00 hrs",
+        },
+        label="HV-2 · ToD slots",
+    )
+
+
+NAMED = [("TOD-1", "05:00", "11:00"), ("TOD-2", "11:00", "17:00"), ("TOD-3", "17:00", "05:00")]
+
+
+def test_hours_by_name_takes_only_what_the_rule_states() -> None:
+    from ergplan.intake.site_intake import hours_by_name
+
+    labels = ["Tod-1", "Tod-2", "Tod-3"]
+    got = hours_by_name(labels, [_tod_rule(NAMED)], 8)
+    assert {k: v[:2] for k, v in got.items()} == {
+        "Tod-1": ("05:00", "11:00"),
+        "Tod-2": ("11:00", "17:00"),
+        "Tod-3": ("17:00", "05:00"),
+    }
+    # the order names its slots by their hours: nothing to match, nothing guessed
+    by_hours = [("05:00 hrs – 10:00 hrs", "05:00", "10:00"), ("10:00 hrs – 19:00 hrs", "10:00", "19:00")]
+    assert hours_by_name(labels, [_tod_rule(by_hours)], 8) == {}
+    # one name missing from the rule: no partial split
+    assert hours_by_name(labels, [_tod_rule(NAMED[:2])], 8) == {}
+    # a name the rules state for two different windows is ambiguous
+    other = _tod_rule([("TOD-1", "06:00", "10:00")])
+    assert hours_by_name(labels, [_tod_rule(NAMED), other], 8) == {}
+
+
+def test_named_slots_take_their_hours_from_the_approved_rule_that_names_them(
+    billx: FakeBillx, jurisdictions: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ergplan.rulebook import repository
+
+    seen: list[tuple[str, Any]] = []
+
+    def approved(session: Any, family: str, chain: list[str], on: Any) -> list[Any]:
+        if family != "tod_slots":
+            return []
+        seen.append((family, on))
+        return [_tod_rule(NAMED), _tod_rule([("TOD-1", "00:00", "06:00")], category="LMV-6")]
+
+    monkeypatch.setattr(repository, "approved_rules", approved)
+    bid = _ingested(billx, "named", result("pvvnl_passed"))
+    with session_scope(actor="t") as s:
+        si = site_intake.from_bills(s, [bid])
+    [m] = si.months
+    assert [(t.slot, t.start, t.end) for t in m.tod] == [
+        ("Tod-1", "05:00", "11:00"),
+        ("Tod-2", "11:00", "17:00"),
+        ("Tod-3", "17:00", "05:00"),
+    ]
+    assert m.unmapped_tod_slots == [] and m.unmapped_tod_reason is None
+    ref = m.tod[0].hours_ref
+    assert ref is not None and ref.kind == "order" and ref.page == 446 and ref.rule_id == "r1"
+    assert m.tod[0].energy.provenance == "bill"
+    assert seen and all(str(on) == "2026-08-31" for _, on in seen)  # the last day of the supply
+    assert not any("do not name their hours" in w for w in si.warnings())
+
+
+def test_uppcl_slot_names_are_not_in_the_order_and_the_intake_says_so(billx: FakeBillx) -> None:
+    restore_committed()
+    bid = _ingested(billx, "bare", result("pvvnl_passed"))
+    with session_scope(actor="t") as s:
+        si = site_intake.from_bills(s, [bid])
+    [m] = si.months
+    assert m.tod == [] and m.unmapped_tod_slots == ["Tod-1", "Tod-2", "Tod-3"]
+    [w] = [w for w in si.warnings() if "do not name their hours" in w]
+    assert w.startswith(
+        "Aug 2026: the bill's ToD slots Tod-1, Tod-2, Tod-3 do not name their hours, and the order's "
+        "hours for these names are not in the rulebook: the approved ToD rule for PVVNL "
+        "(HV-2 · Summer ToD (April to September)) names its slots 05:00 hrs – 10:00 hrs, "
+    )
+    assert "until the hours are typed" in w
+
+
+def test_named_slots_with_no_approved_tod_rule_say_that(billx: FakeBillx, jurisdictions: None) -> None:
+    bid = _ingested(billx, "norule", result("pvvnl_passed"))
+    with session_scope(actor="t") as s:
+        [m] = site_intake.from_bills(s, [bid]).months
+    assert m.unmapped_tod_reason == "no approved ToD rule for PVVNL is in force for Aug 2026"

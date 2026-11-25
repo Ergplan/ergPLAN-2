@@ -7,7 +7,11 @@ For each month with a bill, starting from the site's industry shape (packages/pr
   3. peak: stretch each window's deviations from its own mean by one factor k (which keeps every
      window's energy unchanged) so the month's highest block equals recorded MD × power factor.
      k is found by bisection; if the shape cannot reach the target without negative load, the
-     closest feasible profile is kept and the shortfall is recorded.
+     closest feasible profile is kept and the shortfall is recorded. If a window's energy alone
+     averages more than the target (the bill's ToD energy and its recorded demand cannot both
+     hold), energy and the ToD split are kept: that window is flat at its mean, the lowest peak
+     it can have, the others keep their shape up to the target, and the excess is recorded
+     (`peak_excess_kw`, `peak_excess_window`), never passed over in silence.
 Months without a bill take the mean daily energy of the billed months, flagged `extrapolated`.
 
 All checks the profile must pass (monthly kWh, ToD split within 0.1 %, max = MD) are returned in
@@ -155,18 +159,18 @@ def working_days(shape_id: str) -> list[int]:
     return sorted({int(x) for w in d.get("working", []) for x in w["days"]})
 
 
-def _windows(m: MonthInput, n_days: int) -> list[tuple[np.ndarray, float]]:
-    """Disjoint masks covering the month with their target energy (kWh)."""
+def _windows(m: MonthInput, n_days: int) -> list[tuple[np.ndarray, float, str]]:
+    """Disjoint masks covering the month with their target energy (kWh) and a name."""
     total = float(m.kwh)
     if not m.tod:
-        return [(np.ones(n_days * BLOCKS_PER_DAY, dtype=bool), total)]
+        return [(np.ones(n_days * BLOCKS_PER_DAY, dtype=bool), total, "the whole month")]
     masks, covered = [], np.zeros(n_days * BLOCKS_PER_DAY, dtype=bool)
     for w in m.tod:
         mask = _window_mask(n_days, w.start, w.end) & ~covered
         covered |= mask
-        masks.append((mask, float(w.kwh)))
+        masks.append((mask, float(w.kwh), f"{w.start}-{w.end}"))
     if not covered.all():  # hours the bill's slots do not name carry the remainder
-        masks.append((~covered, max(0.0, total - sum(e for _, e in masks))))
+        masks.append((~covered, max(0.0, total - sum(e for _, e, _ in masks)), "the other hours"))
     return masks
 
 
@@ -177,7 +181,7 @@ def synthesise_month(
     x = _month_base(m.month, week, base_level, m.shutdown_days, weekly_off).astype(float)
     windows = _windows(m, n)
     # 1. energy per window, exact
-    for mask, e in windows:
+    for mask, e, _ in windows:
         s = x[mask].sum() * HOURS_PER_BLOCK
         x[mask] = x[mask] * (e / s) if s > 0 else e / (mask.sum() * HOURS_PER_BLOCK)
     report: dict[str, Any] = {"month": m.month.isoformat(), "kwh_target": str(m.kwh)}
@@ -186,9 +190,11 @@ def synthesise_month(
         pf = float(m.power_factor) if m.power_factor else 1.0
         target = float(m.max_kva) * pf
         means = np.zeros_like(x)
-        for mask, _ in windows:
-            means[mask] = x[mask].mean()
+        for mask, _, _ in windows:
+            means[mask] = x[mask].mean() if mask.any() else 0.0
         dev = x - means
+        # a window whose energy alone averages more than the target cannot peak at it
+        over = [(mask, name) for mask, _, name in windows if mask.any() and means[mask][0] > target + 1e-6]
 
         def peak(k: float) -> float:
             return float((means + k * dev).max())
@@ -205,7 +211,26 @@ def synthesise_month(
             k = (lo + hi) / 2
         y = means + k * dev
         method = "linear"
-        if y.min() < 0:
+        if over:
+            method = "flat_above_md"
+            flat = np.zeros(len(x), dtype=bool)
+            for mask, _ in over:
+                flat |= mask
+            rest = ~flat
+            k = 1.0
+            if rest.any() and float(x[rest].max()) > target:
+                lo, hi = 0.0, 1.0  # the largest stretch that keeps the other windows at or under the target
+                for _ in range(80):
+                    mid = (lo + hi) / 2
+                    (lo, hi) = (
+                        (mid, hi) if float((means[rest] + mid * dev[rest]).max()) <= target else (lo, mid)
+                    )
+                k = lo
+            y = np.where(flat, means, means + k * dev)
+            worst = max(over, key=lambda o: float(means[o[0]][0]))
+            report["peak_excess_kw"] = round(float(y.max()) - target, 3)
+            report["peak_excess_window"] = worst[1]
+        elif y.min() < 0:
             # A linear stretch this large would need negative load (a flat-topped shape). Stretch only
             # while the lowest block stays above half the shape's lowest load (a plant does not drop
             # to zero to make its peak), then place the rest of the month's maximum demand
@@ -218,7 +243,7 @@ def synthesise_month(
             y = np.maximum(means + k * dev, 0.0)
             idx = int(np.argmax(y))
             if y[idx] < target:
-                mask = next(mk for mk, _ in windows if mk[idx])
+                mask = next(mk for mk, _, _ in windows if mk[idx])
                 others = mask.copy()
                 others[idx] = False
                 extra = (target - y[idx]) * HOURS_PER_BLOCK
@@ -253,14 +278,20 @@ def synthesise_month(
 def synthesise_year(
     months: list[MonthInput], shape_id: str, year_start: date | None = None, weekly_off: tuple[int, ...] = ()
 ) -> Profile:
-    """Twelve months from `year_start` (default: the first billed month's April-to-March year)."""
+    """Twelve months from `year_start`. By default the April-to-March year of the first billed month
+    when every billed month falls in it; otherwise the twelve months ending with the last billed
+    month, so the year is the one the bills cover (bills of November to October give that year)."""
     if not months:
         raise ValueError("at least one month of bills is needed")
     week, d = shape(shape_id)
     base_level = float(d["base"])
     by_month = {m.month: m for m in months}
-    first = min(by_month)
-    start = year_start or date(first.year if first.month >= 4 else first.year - 1, 4, 1)
+    first, last = min(by_month), max(by_month)
+    start = date(first.year if first.month >= 4 else first.year - 1, 4, 1)
+    if last >= date(start.year + 1, 4, 1):
+        n = last.year * 12 + last.month - 12  # eleven months before the last billed month
+        start = date(n // 12, n % 12 + 1, 1)
+    start = year_start or start
     daily = [float(m.kwh) / calendar.monthrange(m.month.year, m.month.month)[1] for m in months]
     mean_daily = sum(daily) / len(daily)
     mds = [m.max_kva * (m.power_factor or Decimal(1)) for m in months if m.max_kva is not None]

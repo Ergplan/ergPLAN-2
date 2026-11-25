@@ -387,6 +387,8 @@ class ProfileMonth(BaseModel):
     )
     extrapolated: bool
     peak_shortfall_kw: str | None = None
+    # the bill's ToD energy alone averages more than its recorded demand: the peak is this much over
+    peak_excess_kw: str | None = None
 
 
 class ProfileOut(BaseModel):
@@ -543,6 +545,7 @@ def _profile_out(p: LoadProfile) -> ProfileOut:
                 peak_shortfall_kw=None
                 if rep.get("peak_shortfall_kw") is None
                 else str(rep["peak_shortfall_kw"]),
+                peak_excess_kw=None if rep.get("peak_excess_kw") is None else str(rep["peak_excess_kw"]),
             )
         )
         i += n

@@ -161,3 +161,64 @@ def test_stored_decimals_keep_monthly_energy_exact_and_the_peak() -> None:
         assert sum(vals[a:b], Decimal(0)) * Decimal("0.25") == kwh
     may = vals[p.month_targets[1][0] : p.month_targets[1][1]]
     assert max(may) == Decimal("1862.000")
+
+
+def _year(first: date) -> list[MonthInput]:
+    return [
+        MonthInput(
+            month=date(first.year + (first.month - 1 + i) // 12, (first.month - 1 + i) % 12 + 1, 1),
+            kwh=Decimal(400000 + 1000 * i),
+        )
+        for i in range(12)
+    ]
+
+
+def test_the_year_is_the_twelve_months_the_bills_cover() -> None:
+    p = synthesise_year(_year(date(2025, 11, 1)), "two_shift")
+    months = [r["month"] for r in p.method["months"]]
+    assert p.year_start == date(2025, 11, 1)
+    assert months[0] == "2025-11-01" and months[-1] == "2026-10-01"
+    assert not any(r.get("extrapolated") for r in p.method["months"])
+    assert [r["from_bill_month"] for r in p.method["months"]] == months
+    assert len(p.kw) == 365 * 96
+    # bills of a whole April-to-March year keep that year
+    assert synthesise_year(_year(date(2025, 4, 1)), "two_shift").year_start == date(2025, 4, 1)
+    # a few bills across a year end: the twelve months ending with the last of them
+    few = [MonthInput(month=date(2026, m, 1), kwh=Decimal("400000")) for m in (2, 5)]
+    assert synthesise_year(few, "two_shift").year_start == date(2025, 6, 1)
+
+
+SUMMER_SPLIT = (("05:00", "10:00", "0.22"), ("10:00", "19:00", "0.42"), ("19:00", "03:00", "0.30"))
+
+
+def _june(md: str) -> MonthInput:
+    kwh = Decimal("2169882")
+    tod = tuple(TodWindow(a, b, (kwh * Decimal(share)).quantize(Decimal(1))) for a, b, share in SUMMER_SPLIT)
+    return MonthInput(month=date(2026, 6, 1), kwh=kwh, max_kva=Decimal(md), tod=tod)
+
+
+def test_tod_energy_above_the_recorded_demand_is_flagged_and_energy_kept() -> None:
+    # 42% of June's energy in the 270 hours of 10:00–19:00 averages 3,375 kW: a 3,250 kVA peak cannot hold
+    m = _june("3250")
+    p = synthesise_year([m], "two_shift", weekly_off=(6,))
+    rep = next(r for r in p.method["months"] if r["month"] == "2026-06-01")
+    june = _month_slice(p.kw, p.year_start, m.month)
+    mean = float(m.tod[1].kwh) / 270
+    assert rep["peak_method"] == "flat_above_md" and rep["peak_excess_window"] == "10:00-19:00"
+    assert rep["max_kw_target"] == 3250.0
+    assert abs(rep["max_kw"] - mean) < 0.01 and abs(rep["peak_excess_kw"] - (mean - 3250)) < 0.01
+    assert abs(june.max() - mean) < 0.01  # the lowest peak that energy allows, and no higher
+    assert abs(june.sum() * 0.25 - float(m.kwh)) < 0.01
+    for w, (a, b) in zip(m.tod, [(20, 40), (40, 76), (76, 12)], strict=True):
+        assert abs(june[_window(30, a, b)].sum() * 0.25 - float(w.kwh)) < 0.01
+    assert june[~_window(30, 40, 76)].max() <= 3250 + 1e-6  # the other windows stay within the demand
+    assert june.min() >= 0
+
+
+def test_the_peak_is_the_recorded_demand_when_the_tod_energy_allows_it() -> None:
+    m = _june("3600")
+    p = synthesise_year([m], "two_shift", weekly_off=(6,))
+    rep = next(r for r in p.method["months"] if r["month"] == "2026-06-01")
+    june = _month_slice(p.kw, p.year_start, m.month)
+    assert "peak_excess_kw" not in rep and abs(june.max() - 3600) < 0.01
+    assert abs(june.sum() * 0.25 - float(m.kwh)) < 0.01

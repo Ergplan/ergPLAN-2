@@ -1,5 +1,6 @@
 // State rule books: one month's issue for a DISCOM (a reference industrial consumer, or one client's
 // connection) with landed cost by source and route, the saving on the grid tariff and how energy is settled.
+import { qty } from "./format";
 import type { Ref } from "@/lib/intake";
 
 export type Sourced = { value: string; unit: string; source_refs: Ref[]; label?: string };
@@ -124,5 +125,5 @@ export function slotLabel(s: string): string {
 
 export function whoFor(c: Book["consumer"]): string {
   if (c.kind !== "reference") return [c.client, c.site].filter(Boolean).join(" · ") || "Client connection";
-  return `Reference consumer · ${c.category ?? "HT industrial"} · ${c.voltage_kv ?? "?"} kV · ${c.contract_demand_kva ?? "?"} kVA`;
+  return `Reference consumer · ${c.category ?? "HT industrial"} · ${qty(c.voltage_kv)} kV · ${qty(c.contract_demand_kva)} kVA`;
 }

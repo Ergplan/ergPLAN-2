@@ -270,3 +270,12 @@ RJ, HR and TN are registered jurisdictions with no approved rules ("not yet sour
 - Web: `components/documents/` (new folder: `MissingDocuments` — the cited documents not yet on the server and a form to add a PDF) on `/documents`; `components/statebook/Fig` and `BookView` say "not yet on this server" for such a figure and count them; `lib/statebook.markUnstored`.
 - `tools/dev/`: `vm-firewall.sh` + `vm-firewall.allow`, `vm-backup-install.sh`, `restore-rehearsal.sh`, `vm-watch.sh`, `fetch-corpus.py`, `vm-check.py`; `e2e-journey.sh` reads no `.env`.
 
+### What changed after the Uttar Pradesh full test (25 Nov 2026, Stage 11)
+
+- `intake.site_intake`: `supply_month()` files a bill under the month it was supplied in; `MonthFacts.month_basis` and `unmapped_tod_reason`; `TodEnergy.hours_ref`; `hours_by_name()` (hours of a named slot from an approved rule that names it); `profile_warnings()`. `bills.OPTIONAL` gains `period.from` and `period.to`.
+- `intake.profile_synthesis`: the year is the twelve months the bills cover; `flat_above_md` with `peak_excess_kw` and `peak_excess_window` when the ToD energy cannot fit under the recorded demand; `ProfileMonth.peak_excess_kw`.
+- `engine/levies.py` (new module, pure): FPPCA and duty at the bills' average rate, and their assumed treatment on units not bought from the DISCOM. `avoided_cost.MonthRules.levies`; `landed_cost.Scenario.duty_on_own_units`; `platform.routers.cost.bill_levies()`; `runs.pins.bills`; the run summary's `levies` block (`LevyOut`); `GET /connections/{id}/today` gains `fppca` and `electricity_duty`.
+- `engine.replay`: status `no_tariff` (not rebuilt, no difference); `rulebook.repository.earliest_approved()` (read-only) names the earliest order.
+- `platform.routers.landed`: the `oa_bess` card is priced from the plant. `report.statebook.quantity()` prints quantities without trailing zeros.
+- `optimizer.highs_solve`: `compile_model()` passes the matrix to highspy; `_tree()` searches models with few integers, `_mip()` (HiGHS's own search) the others; `Solution.passes` records each pass's build, load, first LP and tree seconds; `SOLVER_VERSION` is "search 3". `optimizer.model`: bankable sources pooled in the sizing settlement, tight banking-limit rows. `optimizer.scenarios.unproven_note()` feeds `summary.notes` in `platform.runs.summarise()`.
+

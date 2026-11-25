@@ -107,9 +107,25 @@ def test_replay_flags_a_wrong_rule(committed: None) -> None:
     assert any("+20.0%" in n for n in rep.notes)
 
 
-def test_replay_without_a_schedule_is_the_tariff_period_gap() -> None:
-    rep = replay.replay("b1", msedcl_bill(), {}, date(2025, 4, 30), None, None, None)
-    assert rep.status == "explained" and {ln.gap for ln in rep.lines} == {"tariff_period"}
+def test_replay_without_a_schedule_is_not_replayed_and_not_explained() -> None:
+    """A bill dated before every approved order (up-full-test finding 4): its own status, no computed
+    figure, no difference dressed up as explained, and the words name the dates."""
+    early = replay.EarliestTariff(date(2026, 7, 2), "UPERC tariff order FY 2026-27")
+    rep = replay.replay("b1", msedcl_bill(), {}, date(2025, 4, 30), None, None, None, early)
+    assert rep.status == replay.NO_TARIFF == "no_tariff"
+    assert rep.status not in ("match", "explained") and rep.status not in replay.REPLAYED
+    assert rep.lines and {ln.status for ln in rep.lines} == {"no_tariff"}
+    assert {ln.gap for ln in rep.lines} == {"tariff_period"}
+    assert rep.computed_total is None and rep.total_difference is None and rep.tariff is None
+    assert all(ln.computed is None and ln.difference is None for ln in rep.lines)
+    assert all(ln.billed is not None for ln in rep.lines)  # what the bill charged is still shown
+    [why] = rep.notes
+    assert why.startswith("No tariff in force for this date")
+    assert "31 Mar 2026 to 30 Apr 2026" in why  # the bill's own supply period
+    assert "2 Jul 2026" in why and "UPERC tariff order FY 2026-27" in why
+    assert all(ln.explanation == why for ln in rep.lines)
+    none = replay.replay("b1", msedcl_bill(), {}, date(2025, 4, 30), None, None, None)
+    assert "holds no approved tariff order" in none.notes[0]
 
 
 def test_demand_proration_is_recognised(committed: None) -> None:

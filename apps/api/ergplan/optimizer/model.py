@@ -36,6 +36,7 @@ from ..settlement import cycle as cyc
 from ..settlement.simulate import Bank, _period_index
 
 AGGREGATED = ("tod_slot_monthly", "monthly_aggregate", "annual")
+POOL_BANKS, POOL_OTHER = "sources that may bank", "sources that may not"  # sizing's settlement pools
 
 
 @dataclass(frozen=True)
@@ -442,10 +443,14 @@ def build(p: Problem) -> pyo.ConcreteModel:
             e = e - m.out[u, t]
         return e
 
+    # a block that is a netting unit of its own needs no row: its settlement row equals the metered
+    # drawal to set-off, withdrawals and grid energy, none of which can be negative
     has_btm = bool(btm or bids or tids)
     if has_btm:
-        for t in T:
-            add(metered(t) >= 0)
+        for idx in net.groups:
+            if len(idx) > 1:
+                for t in idx:
+                    add(metered(t) >= 0)
 
     # dispatchable open-access purchases (exchange): scheduled per block up to capacity × shape
     disp = [c for c in oa if c.dispatchable]
@@ -511,8 +516,24 @@ def build(p: Problem) -> pyo.ConcreteModel:
         idx = net.groups[g]
         return sum(metered(t) for t in idx) if has_btm else sum(p.load_kwh[t] for t in idx)
 
+    # the most each source can be (its ceiling, or its size once sizes are fixed) and the most the
+    # batteries behind the meter can add to a block's drawal
+    cap_top = {c.id: (p.fixed.cap_kw.get(c.id, 0.0) if p.fixed is not None else c.max_kw) for c in oa}
+    charge_top = h * sum(
+        p.fixed.bess_kw.get(b.id, 0.0) if p.fixed is not None else b.max_kw for b in p.batteries
+    )
+
     settle_cost = _settlement(
-        m, p, net, add, group_load, supplied, {k: [v > 0 for v in S[k]] for k in S}, "size"
+        m,
+        p,
+        net,
+        add,
+        group_load,
+        supplied,
+        {k: [v > 0 for v in S[k]] for k in S},
+        "size",
+        lambda k, g: cap_top[k] * S[k][g],
+        lambda g: sum(p.load_kwh[t] for t in net.groups[g]) + len(net.groups[g]) * charge_top,
     )
 
     # demand
@@ -605,6 +626,8 @@ def _settlement(
     supplied: Any,
     has_supply: dict[str, list[bool]],
     mode: str,
+    supply_top: Any,
+    load_top: Any,
 ) -> Any:
     """Settlement variables and rows, shared by the sizing model and the settlement pass.
 
@@ -615,20 +638,39 @@ def _settlement(
     of two ceilings (linear, conservative).
     `settle`: the dispatch is fixed; the objective imposes the rule's order — direct set-off first,
     then withdrawals as early as the windows allow (in the rule's bucket priority), then the least
-    lapse under the ceiling (the higher of two ceilings exactly, by a binary per period)."""
+    lapse under the ceiling (the higher of two ceilings exactly, by a binary per period).
+
+    `supply_top(k, g)` and `load_top(g)` are the most a source can supply to, and the most the meter
+    can draw in, netting unit g (kWh): the ranges the binary rows are relaxed over."""
     G = range(len(net.groups))
-    ks = list(has_supply)
+    srcs = list(has_supply)
     cat = {c.id: c.category for c in p.candidates}
     prio = {c: i for i, c in enumerate(set_off_order(p))}
-    m.so = pyo.Var([(k, g) for k in ks for g in G if has_supply[k][g]], within=pyo.NonNegativeReals)
+    banks = {k: _may_bank(p, k) for k in srcs}
+    # Sizing settles the sources that may bank as one pool and the others as another: which source
+    # of a pool is set off, banked or left over in a netting unit changes no cost and no limit there
+    # (they are written on the pool's totals and on each source's supply), and the settlement pass
+    # then settles every source by the rule's order. The pass itself keeps each source apart.
+    if mode == "size":
+        pools = {
+            name: members
+            for name, members in (
+                (POOL_BANKS, [k for k in srcs if banks[k]]),
+                (POOL_OTHER, [k for k in srcs if not banks[k]]),
+            )
+            if members
+        }
+    else:
+        pools = {k: [k] for k in srcs}
+    ks = list(pools)
+    pool_banks = {k: banks[pools[k][0]] for k in ks}
+    has = {k: [any(has_supply[x][g] for x in pools[k]) for g in G] for k in ks}
+    m.so = pyo.Var([(k, g) for k in ks for g in G if has[k][g]], within=pyo.NonNegativeReals)
     bankable = [
-        (k, g)
-        for k in ks
-        for g in G
-        if has_supply[k][g] and _may_bank(p, k) and net.deposit_bucket[g] is not None
+        (k, g) for k in ks for g in G if has[k][g] and pool_banks[k] and net.deposit_bucket[g] is not None
     ]
     m.dep = pyo.Var(bankable, within=pyo.NonNegativeReals)
-    m.unb = pyo.Var([(k, g) for k in ks for g in G if has_supply[k][g]], within=pyo.NonNegativeReals)
+    m.unb = pyo.Var([(k, g) for k in ks for g in G if has[k][g]], within=pyo.NonNegativeReals)
     draw_idx = [(bk, g) for g in G for bk in net.drawable[g]] if net.banking else []
     m.w = pyo.Var(draw_idx, within=pyo.NonNegativeReals)
     m.grid = pyo.Var(list(G), within=pyo.NonNegativeReals)
@@ -636,29 +678,29 @@ def _settlement(
     for g in G:
         terms: Any = m.grid[g]
         for k in ks:
-            if has_supply[k][g]:
+            if has[k][g]:
                 terms = terms + m.so[k, g]
                 use: Any = m.so[k, g] + m.unb[k, g]
                 if (k, g) in dep_set:
                     use = use + m.dep[k, g]
-                add(use == supplied(k, g))
+                add(use == sum(supplied(x, g) for x in pools[k] if has_supply[x][g]))
         for bk in net.drawable[g] if net.banking else []:
             terms = terms + m.w[bk, g]
         add(terms == group_load(g))
         # exchange purchases fill only what the sources set off before them leave (the rule's
         # set-off order): never bought where those sources already cover the netting unit, so the
         # solver cannot set off the exchange and bank the generation the rule sets off first
-        exch = [k for k in ks if has_supply[k][g] and cat.get(k) == "exchange"]
+        exch = [k for k in srcs if has_supply[k][g] and cat.get(k) == "exchange"]
         if exch:
             ahead: Any = 0
-            for k in ks:
+            for k in srcs:
                 if has_supply[k][g] and prio.get(cat.get(k, ""), 0) < prio["exchange"]:
                     ahead = ahead + supplied(k, g)
             if net.banking and prio["banked_energy"] < prio["exchange"]:
                 for bk in net.drawable[g]:
                     ahead = ahead + m.w[bk, g]
             # the settlement pass reads the dispatch to the watt-hour: allow that rounding
-            tol = 0.002 * len(net.groups[g]) * len(ks) if mode == "settle" else 0.0
+            tol = 0.002 * len(net.groups[g]) * len(srcs) if mode == "settle" else 0.0
             add(sum(supplied(k, g) for k in exch) + ahead <= group_load(g) + tol, "exchange_after_order")
 
     keep_c = 1 - net.charge_pct / 100
@@ -744,8 +786,8 @@ def _settlement(
                 legs.append(float(lim.drawal_pct) / 100 * drawal)
             if lim is not None and lim.generation_pct is not None and lim.combine != "drawal":
                 inj_q: Any = 0
-                for k in ks:
-                    if _may_bank(p, k):
+                for k in srcs:
+                    if banks[k]:
                         inj_q = inj_q + sum(supplied(k, g) for g in gq if has_supply[k][g]) / share.get(
                             k, 1.0
                         )
@@ -757,15 +799,47 @@ def _settlement(
             elif len(legs) == 2 and lim is not None and lim.combine == "min":
                 add(banked <= legs[0], "banking_limit")
                 add(banked <= legs[1], "banking_limit")
-            elif len(legs) == 2:  # the higher of the two: a binary per cycle
-                big = _big_m(p, gq, net)
-                add(banked <= legs[0] + big * m.limit_z[q], "banking_limit")
-                add(banked <= legs[1] + big * (1 - m.limit_z[q]), "banking_limit")
+            elif len(legs) == 2 and lim is not None:  # the higher of the two: a binary per cycle
+                # Each row is relaxed, when the other leg is the one that applies, by no more than
+                # the banked energy can then exceed it: the other leg's ceiling (or all that can be
+                # banked). The two rows without a binary are the convex hull of "banked ≤ the higher
+                # leg" over the legs' ranges: they hold at every integer solution and only tighten
+                # the relaxation the solver branches from.
+                load_q = sum(load_top(g) for g in gq)
+                inj_top = sum(
+                    supply_top(k, g) / share.get(k, 1.0)
+                    for k in srcs
+                    if banks[k]
+                    for g in gq
+                    if has_supply[k][g]
+                )
+                top0 = _above(float(lim.drawal_pct or 0) / 100 * load_q)
+                top1 = _above(float(lim.generation_pct or 0) / 100 * inj_top)
+                most = _above(
+                    sum(
+                        supply_top(x, g)
+                        for k, g in bankable
+                        if g in gqs
+                        for x in pools[k]
+                        if has_supply[x][g]
+                    )
+                )
+                big0, big1 = min(top1, most), min(top0, most)
+                if p.big_m_kwh is not None:
+                    big0 = big1 = p.big_m_kwh
+                add(banked <= legs[0] + big0 * m.limit_z[q], "banking_limit")
+                add(banked <= legs[1] + big1 * (1 - m.limit_z[q]), "banking_limit")
+                if p.big_m_kwh is None:
+                    add(banked <= legs[0] + legs[1])
+                    if top0 >= top1 > 0:
+                        add(banked <= top1 + (1 - top1 / top0) * legs[0])
+                    elif top1 > top0 > 0:
+                        add(banked <= top0 + (1 - top0 / top1) * legs[1])
             if net.cycle.cap_pct_of_consumption is not None:
                 served: Any = drawal
                 for k in ks:
-                    if _may_bank(p, k):
-                        served = served + sum(m.so[k, g] for g in gq if has_supply[k][g])
+                    if pool_banks[k]:
+                        served = served + sum(m.so[k, g] for g in gq if has[k][g])
                 add(banked <= float(net.cycle.cap_pct_of_consumption) / 100 * served, "banking_limit")
 
     if mode == "settle":
@@ -777,7 +851,7 @@ def _settlement(
             (1000.0 + 100.0 * (n_cat - prio.get(cat.get(k, ""), n_cat))) * m.so[k, g]
             for k in ks
             for g in G
-            if has_supply[k][g]
+            if has[k][g]
         )
         n_groups = max(1, len(net.groups))
         for bk, g in draw_idx:
@@ -788,7 +862,7 @@ def _settlement(
                 continue
             rank = net.drawable[g].index(bk)
             obj -= (10.0 * (1 - g / n_groups) + 1e-6 * (len(net.drawable[g]) - rank)) * m.w[bk, g]
-        obj += 100.0 * sum(m.unb[k, g] for k in ks for g in G if has_supply[k][g] and (k, g) in dep_set)
+        obj += 100.0 * sum(m.unb[k, g] for k in ks for g in G if has[k][g] and (k, g) in dep_set)
         # keep as much as the ceiling allows at each period end (earlier lapse weighs more); when it
         # binds, the bucket that keeps first is the judge's (Bank.keep_order)
         n_q = len(periods)
@@ -878,6 +952,8 @@ def build_settlement(p: Problem, metered: list[float], supply: dict[str, list[fl
         lambda k, g: sums[k][g],
         {k: [x > 0 for x in v] for k, v in sums.items()},
         "settle",
+        lambda k, g: sums[k][g],
+        lambda g: sum(metered[t] for t in net.groups[g]),
     )
     m.obj = pyo.Objective(expr=obj, sense=pyo.minimize)
     m.cons_names = names
@@ -897,6 +973,11 @@ def _group_rate(p: Problem, idx: list[int]) -> float:
     if w <= 0:
         return sum(p.grid.rate[t] for t in idx) / len(idx)
     return sum(p.grid.rate[t] * p.load_kwh[t] for t in idx) / w
+
+
+def _above(x: float) -> float:
+    """A ceiling worked in floats, raised by more than its rounding (a millionth and a watt-hour)."""
+    return max(0.0, x) * (1 + 1e-6) + 1e-3
 
 
 def _big_m(p: Problem, gq: list[int], net: Netting) -> float:

@@ -5,6 +5,10 @@ elements and totals).
 A group's status is `match` when computed and billed agree within ₹1, `explained` when the
 difference is covered by a named gap (engine/gaps.py, listed in docs/known-gaps.md) or a billx
 flag, otherwise `unexplained`. The bill's status is the worst of its groups (and of the total).
+
+A bill for whose supply period no approved tariff is in force is not replayed at all: its status
+and every line's is `no_tariff`, with no computed figure and no difference (a difference equal to
+the whole bill is not a finding). It is neither a match nor explained and counts toward no tally.
 """
 
 from __future__ import annotations
@@ -23,6 +27,8 @@ from . import gaps as G
 from .tariff_eval import MonthQuantities, TariffBill, evaluate, slot_adjustment_pct
 
 TOLERANCE = Decimal("1.00")
+NO_TARIFF = "no_tariff"  # not replayed: no approved tariff in force for the bill's supply period
+REPLAYED = ("match", "explained", "unexplained")  # the statuses of a bill that was rebuilt
 SUMMARY_LABELS = ("PAYABLE", "DUE DATE AMOUNT", "TOTAL", "NET PAY", "CURRENT BILL AMOUNT", "BILL AMOUNT")
 CREDIT_CODES = {"prompt_payment_rebate", "load_factor_rebate", "subsidy", "other_rebate", "tds"}
 GROUP_LABEL = {
@@ -93,8 +99,8 @@ class ReplayLine:
     label: str
     billed: Decimal | None
     computed: SourcedValue | None
-    difference: Decimal
-    status: str  # match | explained | unexplained | not_billed
+    difference: Decimal | None  # None when the line was not rebuilt (no_tariff)
+    status: str  # match | explained | unexplained | not_billed | no_tariff
     explanation: str
     gap: str | None = None
     billed_items: list[str] = field(default_factory=list)
@@ -108,8 +114,8 @@ class ReplayReport:
     lines: list[ReplayLine]
     computed_total: SourcedValue | None
     billed_total: Decimal | None
-    total_difference: Decimal
-    status: str
+    total_difference: Decimal | None  # None when the bill was not rebuilt (no_tariff)
+    status: str  # match | explained | unexplained | no_tariff
     tariff: TariffBill | None
     notes: list[str]
 
@@ -331,6 +337,44 @@ def printed_rate_notes(bill: Mapping[str, Any], schedule: RuleView) -> list[str]
     return out
 
 
+@dataclass(frozen=True)
+class EarliestTariff:
+    """The earliest approved tariff order the rulebook holds for the connection's DISCOM."""
+
+    effective_from: date
+    title: str | None = None
+
+
+def supply_period(bill: Mapping[str, Any], confirmed: Mapping[str, str]) -> tuple[date | None, date | None]:
+    per = (bill.get("fields") or {}).get("period") or {}
+
+    def one(key: str) -> date | None:
+        raw = confirmed.get(f"period.{key}") or (per.get(key) or {}).get("value")
+        try:
+            return date.fromisoformat(str(raw)[:10]) if raw else None
+        except ValueError:
+            return None
+
+    return one("from"), one("to")
+
+
+def no_tariff_words(
+    month: date, period: tuple[date | None, date | None], earliest: EarliestTariff | None
+) -> str:
+    """Why a bill was not replayed, naming its supply period and the earliest order in the rulebook."""
+    a, b = period
+    when = f"{a:%-d %b %Y} to {b:%-d %b %Y}" if a and b else f"{(b or a or month):%-d %b %Y}"
+    out = f"No tariff in force for this date: the bill's supply period is {when}"
+    if earliest is None:
+        return out + ", and the rulebook holds no approved tariff order for this connection."
+    name = f" ({earliest.title})" if earliest.title else ""
+    return (
+        out + f"; the earliest approved tariff order in the rulebook for this connection{name} takes "
+        f"effect on {earliest.effective_from:%-d %b %Y}. The bill is not rebuilt and is counted "
+        "neither as matching nor as explained."
+    )
+
+
 def replay(
     bill_id: str,
     bill: Mapping[str, Any],
@@ -339,37 +383,21 @@ def replay(
     schedule: RuleView | None,
     tod: RuleView | None,
     contract_kva: SourcedValue | None,
+    earliest: EarliestTariff | None = None,
 ) -> ReplayReport:
     flags = [str(x) for x in bill.get("flags") or []]
     billed = billed_lines(bill)
     billed_total = _dec(((bill.get("fields") or {}).get("totals") or {}).get("current_charges"))
     if schedule is None:
+        # not replayed: nothing is computed, so there is no difference to show or to explain
+        why = no_tariff_words(month, supply_period(bill, confirmed), earliest)
         lines = [
             ReplayLine(
-                b.group,
-                b.label,
-                b.amount,
-                None,
-                -b.amount,
-                "explained",
-                G.GAPS["tariff_period"],
-                "tariff_period",
-                [b.label],
-                [b.index],
+                b.group, b.label, b.amount, None, None, NO_TARIFF, why, "tariff_period", [b.label], [b.index]
             )
             for b in billed
         ]
-        return ReplayReport(
-            bill_id,
-            month,
-            lines,
-            None,
-            billed_total,
-            -sum((b.amount for b in billed), Decimal(0)),
-            "explained",
-            None,
-            ["no approved tariff schedule for this connection on the bill's date"],
-        )
+        return ReplayReport(bill_id, month, lines, None, billed_total, None, NO_TARIFF, None, [why])
     basis = str(schedule.body.get("billing_basis", "kwh"))
     base = Decimal(str(schedule.get("/energy_charge/base") or 0))
     q, notes = quantities(bill, bill_id, confirmed, basis, month, contract_kva, tod, base)

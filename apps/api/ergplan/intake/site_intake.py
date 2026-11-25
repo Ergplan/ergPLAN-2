@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import calendar
 import re
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Generic, Literal, TypeVar
 
@@ -21,6 +21,8 @@ from sqlalchemy.orm import Session
 
 from ..core.sourced import RefKind, SourceRef
 from ..db.models import Asset, Bill, Client, Connection, LoadProfile, Site
+from ..rulebook.models import RuleView
+from ..rulebook.scope import norm_code
 from . import bills as bill_store
 from . import defaults, recognise
 from .bill_fields import parse_month
@@ -74,6 +76,8 @@ class TodEnergy(BaseModel):
     end: str
     energy: Fact[Decimal]
     slot: str | None = None  # the bill's slot name, when the window came from a bill
+    # the approved rule the hours were taken from, when the bill's slot prints a name and no hours
+    hours_ref: SourceRef | None = None
 
     @field_validator("start", "end")
     @classmethod
@@ -96,6 +100,11 @@ class MonthFacts(BaseModel):
     bill_id: str | None = None
     shutdown_days: list[int] = Field(default_factory=list)
     unmapped_tod_slots: list[str] = Field(default_factory=list)
+    # why the hours of those slots could not be taken from the rulebook either
+    unmapped_tod_reason: str | None = None
+    # how a bill's month was chosen: from its supply period, or (the bill states none) its bill month,
+    # which is usually the month after the supply; None for a typed month
+    month_basis: Literal["supply_period", "bill_month"] | None = None
 
     @field_validator("month")
     @classmethod
@@ -299,11 +308,18 @@ class SiteIntake(BaseModel):
                     f"{m.month:%b %Y}: recorded demand {m.max_kva.value} kVA exceeds "
                     f"contract demand {cd} kVA by more than 20%"
                 )
+            if m.month_basis == "bill_month":
+                out.append(
+                    f"{m.month:%b %Y}: the bill states no supply period, so its energy is filed under its "
+                    "bill month, which is usually the month after the supply; check the month"
+                )
             if m.unmapped_tod_slots:
+                why = f", and {m.unmapped_tod_reason}" if m.unmapped_tod_reason else ""
                 out.append(
                     f"{m.month:%b %Y}: the bill's ToD slots {', '.join(m.unmapped_tod_slots)} "
-                    "do not name their hours; "
-                    "the month's total is used and the day's shape comes from the operating pattern"
+                    f"do not name their hours{why}; "
+                    "the month's total is used and the day's shape comes from the operating pattern "
+                    "until the hours are typed"
                 )
         if len(self.months) < 12:
             out.append(f"{len(self.months)} of 12 months given; the other months are extrapolated from them")
@@ -366,31 +382,133 @@ def one_scheme(
     return min(schemes, key=rank)
 
 
-def _approved_windows(session: Session, bill: Bill, month: date) -> set[tuple[str, str]]:
-    """The ToD windows the approved rules name for the bill's DISCOM in that month."""
+def _tod_rules(session: Session, bill: Bill, month: date, on: date) -> tuple[str | None, list[RuleView]]:
+    """The bill's DISCOM and the approved ToD rules in force for it on `on` that apply to the
+    calendar month `month` (a rule scoped to the summer months is not a winter month's rule)."""
     from ..rulebook import repository
     from ..rulebook.service import UnknownJurisdiction, jurisdiction_chain
 
     discom = recognise.discom_of(bill).discom
     if not discom:
-        return set()
+        return None, []
     try:
         chain = jurisdiction_chain(session, discom)
     except UnknownJurisdiction:
-        return set()
-    out: set[tuple[str, str]] = set()
-    for r in repository.approved_rules(session, "tod_slots", chain, month):
-        for sl in r.body.get("slots") or []:
-            if not sl.get("months") or month.month in sl["months"]:
-                out.add((str(sl.get("start")), str(sl.get("end"))))
+        return discom, []
+    rules = [
+        r
+        for r in repository.approved_rules(session, "tod_slots", chain, on)
+        if not r.scope.get("months") or month.month in r.scope["months"]
+    ]
+    return discom, rules
+
+
+def _slots_in(rules: list[RuleView], month: int) -> list[tuple[RuleView, dict[str, Any]]]:
+    return [
+        (r, sl)
+        for r in rules
+        for sl in r.body.get("slots") or []
+        if not sl.get("months") or month in sl["months"]
+    ]
+
+
+def _approved_windows(
+    session: Session, bill: Bill, month: date, on: date | None = None
+) -> set[tuple[str, str]]:
+    """The ToD windows the approved rules name for the bill's DISCOM in that month (the rules in
+    force on `on`: the end of the supply period, as the bill replay takes it; else the month)."""
+    _, rules = _tod_rules(session, bill, month, on or month)
+    return {(str(sl.get("start")), str(sl.get("end"))) for _, sl in _slots_in(rules, month.month)}
+
+
+def _name_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+
+def hours_by_name(
+    labels: list[str], rules: list[RuleView], month: int
+) -> dict[str, tuple[str, str, RuleView]]:
+    """The hours of bill ToD slots that print a name and no hours ('TOD-1', 'Peak'), from approved
+    ToD rules that name a slot the same way (compared without case, spaces or punctuation). All or
+    nothing: empty unless every label is the name of exactly one window in those rules. A name the
+    order does not state, or states for two different windows, is never guessed."""
+    named: dict[str, dict[tuple[str, str], RuleView]] = {}
+    for r, sl in _slots_in(rules, month):
+        key = _name_key(str(sl.get("name") or ""))
+        if key:
+            named.setdefault(key, {}).setdefault((str(sl.get("start")), str(sl.get("end"))), r)
+    out: dict[str, tuple[str, str, RuleView]] = {}
+    for label in labels:
+        hit = named.get(_name_key(label)) or {}
+        if len(hit) != 1:
+            return {}
+        [((start, end), rule)] = hit.items()
+        out[label] = (start, end, rule)
     return out
 
 
+def _no_hours_reason(discom: str | None, rules: list[RuleView], month: date) -> str:
+    """Why the rulebook does not give the hours of a bill's named slots, in words for the client."""
+    if not discom:
+        return "the DISCOM was not recognised, so no approved ToD rule could be consulted for them"
+    if not rules:
+        return f"no approved ToD rule for {discom.upper()} is in force for {month:%b %Y}"
+    names = list(dict.fromkeys(str(sl.get("name")) for _, sl in _slots_in(rules, month.month)))
+    labels = list(dict.fromkeys(r.label for r in rules if r.label))
+    which = f" ({'; '.join(labels)})" if labels else ""
+    return (
+        "the order's hours for these names are not in the rulebook: the approved ToD rule for "
+        f"{discom.upper()}{which} names its slots {', '.join(names)}"
+    )
+
+
+def _day(text: str | None) -> date | None:
+    try:
+        return date.fromisoformat(text.strip()[:10]) if text else None
+    except ValueError:
+        return None
+
+
+def supply_month(start: date | None, end: date | None) -> date | None:
+    """The calendar month a supply period belongs to: the month holding most of its days (both ends
+    counted); a tie goes to the later month, the one the closing reading falls in. A period with one
+    end stated is taken as the thirty days up to (or from) it. None when no end is stated, the end
+    precedes the start, or the period is longer than a quarter (a misread date, not a period)."""
+    if start is None and end is None:
+        return None
+    if start is None:
+        assert end is not None
+        start = end - timedelta(days=29)
+    if end is None:
+        end = start + timedelta(days=29)
+    if end < start or (end - start).days > 92:
+        return None
+    days: dict[date, int] = {}
+    first = start.replace(day=1)
+    while first <= end:
+        last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
+        days[first] = (min(end, last) - max(start, first)).days + 1
+        first = last + timedelta(days=1)
+    return max(days, key=lambda k: (days[k], k))
+
+
 def month_from_bill(session: Session, bill: Bill) -> MonthFacts:
+    """A month's facts from one accepted bill. The month is the one the energy was used in: the
+    supply period's (period.from to period.to). Only a bill that states no usable period is filed
+    under its bill month, and says so (`month_basis`), since a bill month is usually the month after."""
     v = bill_store.values(session, bill)
-    month = parse_month(v["period.bill_month"].value) if "period.bill_month" in v else bill.bill_month
+    start = _day(v["period.from"].value) if "period.from" in v else None
+    end = _day(v["period.to"].value) if "period.to" in v else None
+    month = supply_month(start, end)
+    basis: Literal["supply_period", "bill_month"] = "supply_period"
     if month is None:
-        raise ValueError(f"bill {bill.id} has no bill month")
+        month = parse_month(v["period.bill_month"].value) if "period.bill_month" in v else bill.bill_month
+        basis, end = "bill_month", None
+    if month is None:
+        raise ValueError(f"bill {bill.id} has no supply period and no bill month")
+    # the tariff in force for a bill is the one on the last day of its supply, as the bill replay
+    # takes it (an order that starts mid-month covers that month's bill)
+    on = end or month
     if "energy.kwh" in v and v["energy.kwh"].dec:
         energy, unit = from_bill(v["energy.kwh"], v["energy.kwh"].dec), "kWh"
     elif "energy.kvah" in v and v["energy.kvah"].dec:
@@ -399,18 +517,46 @@ def month_from_bill(session: Session, bill: Bill) -> MonthFacts:
         raise ValueError(f"bill {bill.id} has no energy")
     tod, unmapped = [], []
     tod_units: set[str] = set()
-    for i, slot in enumerate(bill_store.tod_slots(bill)):
-        bv = v.get(f"energy.tod.{i}.kwh")
-        w = window_of(slot)
-        if bv is None or bv.dec is None:
-            continue
+    read = [
+        (i, slot, bv)
+        for i, slot in enumerate(bill_store.tod_slots(bill))
+        if (bv := v.get(f"energy.tod.{i}.kwh")) is not None and bv.dec is not None
+    ]
+    # slots that print a name and no hours: the hours are the approved rule's, when it names the
+    # same slots (invariant 2: read through approved_rules only); otherwise the client types them
+    bare = [slot for _, slot, _ in read if slot and window_of(slot) is None]
+    discom: str | None = None
+    rules: list[RuleView] = []
+    reason: str | None = None
+    if bare:
+        discom, rules = _tod_rules(session, bill, month, on)
+        printed = v["tariff.category"].value if "tariff.category" in v else None
+        cat = defaults.category_from_printed(defaults.state_of(discom) or "", printed) if discom else None
+        if cat is not None:
+            code = norm_code(str(cat.value))
+            rules = [
+                r
+                for r in rules
+                if not r.scope.get("category") or code in {norm_code(str(a)) for a in r.scope["category"]}
+            ]
+    by_name = hours_by_name(bare, rules, month.month)
+    for i, slot, bv in read:
+        assert bv.dec is not None
         tod_units.add(bv.unit or "kWh")
-        if w is None:
+        w = window_of(slot)
+        if w is not None:
+            tod.append(TodEnergy(start=w[0], end=w[1], energy=from_bill(bv, bv.dec), slot=slot))
+        elif slot in by_name:
+            a, b, rule = by_name[slot]
+            tod.append(
+                TodEnergy(start=a, end=b, energy=from_bill(bv, bv.dec), slot=slot, hours_ref=rule.ref())
+            )
+        else:
             unmapped.append(slot or f"slot {i + 1}")
-            continue
-        tod.append(TodEnergy(start=w[0], end=w[1], energy=from_bill(bv, bv.dec), slot=slot))
     if unmapped:
         tod = []  # a partial split would mislead; the month's total is used until the client types the hours
+        if bare:
+            reason = _no_hours_reason(discom, rules, month)
     # the slots and the month in one unit: a bill whose slots are in kVAh (UPPCL) is a kVAh month
     # when the bill prints its kVAh, though it also prints a kWh register
     if tod and tod_units == {"kVAh"} and unit == "kWh":
@@ -427,9 +573,11 @@ def month_from_bill(session: Session, bill: Bill) -> MonthFacts:
         tod = []
     if tod and sum((t.energy.value for t in tod), Decimal(0)) > energy.value * Decimal("1.001"):
         # no complete day: the month's total is used and the day's shape comes from the pattern
-        tod = one_scheme(tod, energy.value, _approved_windows(session, bill, month))
+        tod = one_scheme(tod, energy.value, _approved_windows(session, bill, month, on))
     return MonthFacts(
         month=month,
+        month_basis=basis,
+        unmapped_tod_reason=reason,
         energy=energy,
         energy_unit=unit,
         tod=tod,
@@ -675,6 +823,24 @@ def synthesise(session: Session, connection_id: str, intake: SiteIntake) -> Load
     return lp
 
 
+def profile_warnings(method: dict[str, Any]) -> list[str]:
+    """What the synthesised profile could not match, in words: a month whose ToD energy alone
+    averages more than its recorded maximum demand keeps the energy and peaks above the demand."""
+    out = []
+    for rep in method.get("months") or []:
+        if rep.get("peak_excess_kw") is None:
+            continue
+        month = date.fromisoformat(rep["month"])
+        out.append(
+            f"{month:%b %Y}: the energy billed for {rep.get('peak_excess_window')} averages more than the "
+            f"recorded maximum demand allows ({rep['max_kw_target']} kW = recorded kVA × power factor); "
+            f"the profile keeps the bill's energy and ToD split, so its peak is {rep['max_kw']} kW, "
+            f"{rep['peak_excess_kw']} kW above the recorded demand. Check the ToD energy, the maximum "
+            "demand and the power factor on the bill"
+        )
+    return out
+
+
 def build(
     session: Session, intake: SiteIntake, actor: str, connection_id: str | None = None
 ) -> dict[str, Any]:
@@ -758,5 +924,5 @@ def build(
         "connection_id": conn.id,
         "load_profile_id": lp.id,
         "load_profile_version": lp.version,
-        "warnings": intake.warnings(),
+        "warnings": intake.warnings() + profile_warnings(lp.method),
     }

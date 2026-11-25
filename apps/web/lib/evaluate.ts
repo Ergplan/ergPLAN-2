@@ -20,6 +20,8 @@ export type EvaluationOut = {
 };
 export type TodayOut = {
   source: string; annual: SourcedValue | null; energy: SourcedValue | null; demand: SourcedValue | null; kwh: SourcedValue | null;
+  // at the rate the client's own bills print (source kind `bill`), where the tariff order states none
+  fppca?: SourcedValue | null; electricity_duty?: SourcedValue | null;
   average_inr_per_kwh: SourcedValue | null; months: number; note: string; gaps: string[];
 };
 

@@ -337,3 +337,119 @@ def test_shift_days_and_times_validated() -> None:
         site_intake.Shift(start="06:00", end="14:00", days=[7])
     with pytest.raises(ValidationError, match="HH:MM"):
         site_intake.Shift(start="6am", end="14:00")
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "month"),
+    [
+        (date(2026, 6, 1), date(2026, 6, 30), date(2026, 6, 1)),
+        (date(2026, 1, 16), date(2026, 2, 15), date(2026, 1, 1)),  # 16 days of January, 15 of February
+        (date(2026, 5, 26), date(2026, 6, 25), date(2026, 6, 1)),
+        (date(2026, 4, 16), date(2026, 5, 15), date(2026, 5, 1)),  # 15 days each: the closing month
+        (None, date(2026, 7, 1), date(2026, 6, 1)),  # the thirty days up to the reading
+        (date(2026, 3, 1), None, date(2026, 3, 1)),
+        (None, None, None),
+        (date(2026, 6, 30), date(2026, 6, 1), None),  # ends before it starts
+        (date(2025, 6, 1), date(2026, 6, 30), None),  # a misread year, not a period
+    ],
+)
+def test_supply_month(start: date | None, end: date | None, month: date | None) -> None:
+    assert site_intake.supply_month(start, end) == month
+
+
+def test_a_bill_is_filed_under_its_supply_month_not_its_bill_month(billx: FakeBillx) -> None:
+    # the fixture is supplied 1–31 August 2026 and billed on 3 September (bill month 09/2026)
+    [b] = _ingest(billx, "aug", result("pvvnl_passed"))
+    assert b.bill_month == date(2026, 9, 1)
+    with session_scope() as s:
+        si = site_intake.from_bills(s, [b.id])
+    [m] = si.months
+    assert m.month == date(2026, 8, 1) and m.month_basis == "supply_period"
+    assert not any("no supply period" in w for w in si.warnings())
+
+
+def _period(res: dict[str, Any], change: str) -> dict[str, Any]:
+    r = copy.deepcopy(res)
+    for end in ("from", "to"):
+        node = r["bills"][0]["fields"]["period"][end]
+        if change == "absent":
+            node["value"] = None
+        else:  # read, but not verified by billx and not confirmed by anyone
+            node["verification"] = "unverified"
+    return r
+
+
+@pytest.mark.parametrize("change", ["absent", "unverified"])
+def test_a_bill_without_a_usable_supply_period_takes_its_bill_month_and_says_so(
+    billx: FakeBillx, change: str
+) -> None:
+    [b] = _ingest(billx, f"np-{change}", _period(result("pvvnl_passed"), change))
+    with session_scope() as s:
+        si = site_intake.from_bills(s, [b.id])
+        out = site_intake.build(s, si, "client@x")
+        s.commit()
+    [m] = si.months
+    assert m.month == date(2026, 9, 1) and m.month_basis == "bill_month"
+    assert any(w.startswith("Sep 2026: the bill states no supply period") for w in out["warnings"])
+
+
+def test_a_confirmed_supply_period_moves_the_month(billx: FakeBillx) -> None:
+    [b] = _ingest(billx, "conf", _period(result("pvvnl_passed"), "unverified"))
+    with session_scope() as s:
+        bill_store.confirm(s, b.id, "period.from", "2026-07-01", "client@x")
+        bill_store.confirm(s, b.id, "period.to", "2026-07-31", "client@x")
+        s.commit()
+    with session_scope() as s:
+        [m] = site_intake.from_bills(s, [b.id]).months
+    assert m.month == date(2026, 7, 1) and m.month_basis == "supply_period"
+
+
+def test_twelve_bills_billed_the_month_after_cover_their_supply_year(billx: FakeBillx) -> None:
+    rows = []
+    for i in range(12):  # supplied November 2025 to October 2026, each billed on the 3rd of the next month
+        y, mo = 2025 + (10 + i) // 12, (10 + i) % 12 + 1
+        res = with_month(result("pvvnl_passed"), f"{y}-{mo:02d}")
+        ny, nmo = y + mo // 12, mo % 12 + 1
+        res["bills"][0]["fields"]["period"]["bill_month"]["value"] = f"{ny}-{nmo:02d}"
+        rows.append(_ingest(billx, f"y{i}", res)[0])
+    with session_scope() as s:
+        si = site_intake.from_bills(s, [b.id for b in rows])
+        out = site_intake.build(s, si, "client@x")
+        s.commit()
+        lp = s.get(LoadProfile, out["load_profile_id"])
+        assert lp is not None
+        assert si.months[0].month == date(2025, 11, 1) and si.months[-1].month == date(2026, 10, 1)
+        assert lp.year_start == date(2025, 11, 1) and lp.blocks == 365 * 96
+        assert not any(r.get("extrapolated") for r in lp.method["months"])
+        assert [r["from_bill_month"] for r in lp.method["months"]] == [
+            r["month"] for r in lp.method["months"]
+        ]
+
+
+def test_tod_energy_above_the_recorded_demand_is_a_warning_on_the_build() -> None:
+    # 911,350 kWh in the 270 hours of 10:00–19:00 is 3,375 kW on average: above 3,250 kVA at any power factor
+    month = {
+        "month": "2026-06-01",
+        "energy": {"value": "2169882"},
+        "max_kva": {"value": "3250"},
+        "tod": [
+            {"start": "05:00", "end": "10:00", "energy": {"value": "477374"}},
+            {"start": "10:00", "end": "19:00", "energy": {"value": "911350"}},
+            {"start": "19:00", "end": "03:00", "energy": {"value": "650965"}},
+            {"start": "03:00", "end": "05:00", "energy": {"value": "130193"}},
+        ],
+    }
+    si = site_intake.SiteIntake.model_validate(_typed(contract_demand_kva={"value": "5000"}, months=[month]))
+    with session_scope() as s:
+        out = site_intake.build(s, si, "client@x")
+        s.commit()
+    [w] = [w for w in out["warnings"] if "above the recorded demand" in w]
+    assert w.startswith("Jun 2026: the energy billed for 10:00-19:00 averages more than")
+    feasible = dict(month, max_kva={"value": "3600"})
+    si = site_intake.SiteIntake.model_validate(
+        _typed(contract_demand_kva={"value": "5000"}, months=[feasible])
+    )
+    with session_scope() as s:
+        out = site_intake.build(s, si, "client@x")
+        s.commit()
+    assert not any("above the recorded demand" in w for w in out["warnings"])

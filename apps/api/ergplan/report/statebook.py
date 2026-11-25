@@ -45,7 +45,7 @@ from ..engine import landed_cost
 from ..engine import scope as escope
 from ..intake import defaults, site_intake
 from ..platform.routers import landed as landed_api
-from ..platform.routers.cost import _facts, _kvah_factor
+from ..platform.routers.cost import _facts, _kvah_factor, bill_levies
 from ..rulebook import repository
 from ..rulebook.models import RuleView
 from ..rulebook.scope import matches
@@ -451,6 +451,7 @@ def build(
         except Exception as e:  # the connection lacks a category or a voltage
             raise BookError(str(getattr(e, "detail", e))) from e
         factor, _pf = _kvah_factor(s, conn)
+        levies = bill_levies(s, conn)  # FPPCA and duty at the client's own bills' rates
         assets = list(s.scalars(select(Asset).where(Asset.site_id == conn.site_id)))
         recorded = site_intake.recorded_ownership(conn)
         site = s.get(Site, conn.site_id)
@@ -474,6 +475,7 @@ def build(
             rate_block=ref_block if cat == ref_cat else None,
         )
         factor, assets, recorded = _reference_factor(), [], None
+        levies = ()  # a reference consumer has no bills: the levies stay named gaps
         consumer = {"kind": "reference", "connection_id": None, "client": None, "site": None}
     consumer.update(
         rate_block=facts.rate_block,
@@ -500,6 +502,7 @@ def build(
             connection_id=connection_id or "",
             ownership_all=route,
             assume_equity=True,
+            levies=levies,
         )
     base = by_route["third_party"]
     hours = {x.name: _slot_hours(x.start, x.end) for x in base.slots}
@@ -923,6 +926,27 @@ def _money(v: dict[str, Any] | None) -> str:
     return "—" if v is None else f"{Decimal(v['value']):.2f}"
 
 
+def quantity(value: object) -> str:
+    """A quantity as it is printed: no trailing zeros the source never had ("33.000" is 33 kV) and
+    Indian digit grouping ("5000.000" is 5,000 kVA). Rendering only: a book's stored content is frozen
+    once approved and is not rewritten. A value that is not a number is printed as it stands."""
+    try:
+        d = Decimal(str(value))
+    except ArithmeticError:
+        return str(value)
+    if not d.is_finite():
+        return str(value)
+    text = format(d.normalize(), "f")
+    sign = "-" if text.startswith("-") else ""
+    whole, _, frac = text.lstrip("-").partition(".")
+    head, tail = whole[:-3], whole[-3:]
+    groups: list[str] = []
+    while head:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    return sign + ",".join([*groups, tail]) + (f".{frac}" if frac else "")
+
+
 def _cite(refs: list[dict[str, Any]], notes: list[str], stored: set[str] | None = None) -> str:
     """Footnote marks for a figure's sources; the notes list collects each distinct source once.
     Given `stored` (the documents in this server's library), a page that is not there is cited in
@@ -975,9 +999,11 @@ def to_markdown(book: StateRulebook, stored: set[str] | None = None) -> str:
         )
         + f" · rules in force on {c['as_of']}",
         "",
-        f"Consumer: {who} · category {cons['category']} · {cons['voltage_kv']} kV"
+        f"Consumer: {who} · category {cons['category']} · {quantity(cons['voltage_kv'])} kV"
         + (
-            f" · contract demand {cons['contract_demand_kva']} kVA" if cons.get("contract_demand_kva") else ""
+            f" · contract demand {quantity(cons['contract_demand_kva'])} kVA"
+            if cons.get("contract_demand_kva")
+            else ""
         ),
         *(
             ["", "Also covers (same figures): " + ", ".join(x["name"] for x in c["covers"]) + "."]
@@ -1090,7 +1116,8 @@ def to_markdown(book: StateRulebook, stored: set[str] | None = None) -> str:
         for lim in c["limits"]:
             v = lim["value"]
             L.append(
-                f"- {lim['label'] or lim['limit']}: {v['value']} {v['unit']}{_cite(v['source_refs'], notes, stored)}"
+                f"- {lim['label'] or lim['limit']}: {quantity(v['value'])} {v['unit']}"
+                f"{_cite(v['source_refs'], notes, stored)}"
             )
     if c.get("changes"):
         cw = c.get("compared_with") or {}

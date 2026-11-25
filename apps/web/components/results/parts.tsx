@@ -5,7 +5,7 @@ import { RefChips } from "@/components/cost/RefChips";
 import { inr, num } from "@/lib/evaluate";
 import type { Ref, SourcedValue } from "@/lib/intake";
 import type { Chain } from "@/lib/audit";
-import type { DispatchOut, LifecycleOut, MonthMix, RunOut, SizeOut, SummaryOut } from "@/lib/runs";
+import { levyRows, type DispatchOut, type LevyOut, type LifecycleOut, type MonthMix, type RunOut, type SizeOut, type SummaryOut } from "@/lib/runs";
 
 export const MIX_COLORS = ["#f5b544", "#4fb3d9", "#7fc97f", "#c084fc", "#f472b6", "#94a3b8", "#fb923c"];
 const V = (x: SourcedValue | null | undefined) => (x ? Number(x.value) : 0);
@@ -400,6 +400,7 @@ export function Inputs({ run, chain }: { run: RunOut; chain: Chain | null }) {
           <li>Settled {run.finished_at ? new Date(run.finished_at).toLocaleString("en-IN") : ""}; run {run.id.slice(0, 8)} is reproducible from its pinned rules, prices and profile.</li>
           {s.notes.map((n, i) => <li key={i}>{n}</li>)}
         </ul>
+        <Levies levies={s.levies} />
       </div>
       <div>
         <h3 className="eg-overline">Not yet sourced</h3>
@@ -407,6 +408,36 @@ export function Inputs({ run, chain }: { run: RunOut; chain: Chain | null }) {
           <ul className="ep-list ep-small">{gaps.map(([g, srcs]) => <li key={g}>{g} <span className="eg-muted">({srcs.join(", ")})</span></li>)}</ul>
         )}
       </div>
+    </div>
+  );
+}
+
+// FPPCA and electricity duty at the bills' own rates: what they come to today and with the plan, and
+// the treatment on units not bought from the DISCOM in words (an assumption, shown as one).
+export function Levies({ levies }: { levies: LevyOut[] | undefined }) {
+  const rows = levyRows(levies);
+  if (rows.length === 0) return null;
+  return (
+    <div data-testid="levies">
+      <h3 className="eg-overline">FPPCA and electricity duty</h3>
+      <p className="eg-muted ep-small">Not in the tariff order: charged at the rates your own bills print, inside both totals. On units not bought from the DISCOM the treatment is an assumption, not sourced to a regulation.</p>
+      <div className="ep-scroll">
+        <table className="ep-table ep-small">
+          <thead><tr><th>Levy</th><th>Rate</th><th className="num">Today</th><th className="num">With the plan, DISCOM units</th><th className="num">Open-access, captive and rooftop units</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.code}>
+                <td>{r.label} <RefChips refs={r.value.rates[0]?.source_refs.slice(0, 1) ?? []} max={1} /></td>
+                <td>{r.rate}</td>
+                <td className="num">{inr(r.before)}</td>
+                <td className="num">{inr(r.afterDiscom)}</td>
+                <td className="num">{r.value.charged_on_other_units ? inr(r.afterOther) : r.afterOther} <span className="eg-chip eg-chip--warning">assumed</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.map((r) => <p key={r.code} className="eg-muted ep-small">{r.words}</p>)}
     </div>
   );
 }

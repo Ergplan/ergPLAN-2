@@ -101,6 +101,23 @@ class ScenarioSpec(BaseModel):
     sensitivities: list[Sensitivity] = Field(default_factory=list, max_length=6)
 
 
+def unproven_note(status: str, gap: float | None) -> str | None:
+    """What a result says, wherever it is shown, when the search for it ended on its time limit: the
+    plan works and the judge settled it, but it was not shown to be the cheapest. None for a plan
+    proven within the solver's gap."""
+    if status == "optimal":
+        return None
+    how_far = (
+        f"its yearly cost is within {gap * 100:.2f}% of the lowest any plan could reach"
+        if gap is not None
+        else "how far its yearly cost is from the lowest any plan could reach is not known"
+    )
+    return (
+        "The optimizer stopped on its time limit before it could show this plan to be the cheapest: "
+        f"{how_far}. A longer run may find a cheaper plan."
+    )
+
+
 def reprice(lines: dict[str, Decimal], line: str, pct: Decimal) -> Decimal:
     """The year's total cost with one cost line scaled by pct (energy quantities held)."""
     return sum(lines.values(), Decimal(0)) + lines.get(line, Decimal(0)) * pct / 100

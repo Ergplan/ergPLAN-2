@@ -51,3 +51,15 @@ def test_explanation_input_keeps_values_and_sources_only() -> None:
         "unit": "INR/kWh",
         "sources": [{"kind": "order", "document": "MERC MYT order", "page": 106, "quote": "x" * 240}],
     }
+
+
+def test_quantities_print_without_trailing_zeros_and_with_indian_grouping() -> None:
+    """Finding 12 of the Uttar Pradesh full test: the rule book printed "33.000 kV" and "5000.000 kVA"."""
+    from ergplan.report.statebook import quantity
+
+    assert quantity("33.000") == "33" and quantity("5000.000") == "5,000"
+    assert quantity("0.400") == "0.4" and quantity("132") == "132" and quantity("11.50") == "11.5"
+    assert quantity("150000.000") == "1,50,000" and quantity("12345678.25") == "1,23,45,678.25"
+    assert quantity("100") == "100" and quantity("1000") == "1,000" and quantity("0") == "0"
+    assert quantity("-2500.0") == "-2,500"
+    assert quantity("n/a") == "n/a"  # not a number: printed as it stands

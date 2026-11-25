@@ -6,7 +6,7 @@ What is not yet right, and the stage that fixes it.
 | --- | --- |
 | Public VM (`replan2`): no mail account, so sign-in links are minted by hand (`tools/dev/vm.sh exec api python -m ergplan.platform.signin EMAIL`) and handed over; a person cannot ask for their own link | When `ERGPLAN_SMTP_URL` is set (`tools/dev/set-mail.sh`) |
 | Public VM: five regulation PDFs that approved rules cite are not on the server (UPERC CRE Regulations 2024, KERC combined order 2025, GERC/MGVCL FY 2026-27, PSERC FY 2026-27, TGERC FY 2026-27). Numbers citing them show the citation and say the page is not stored; `/documents` lists them for analysts | When the person sends the files from the Mac mini (`python -m ergplan.documents.missing` then lists none) |
-| Public VM: a five-component mix takes about seven minutes to size and settle (one solver thread on 4 vCPUs; the budget is raised to 800 s there). With the default 300 s the sizing pass ends without a solution and the run fails with the solver's message rather than a smaller answer | A warm start or a coarser first sizing pass; a faster machine type |
+| Public VM: the solve budget is still 800 s in the VM's `.env`. With "search 3" a five-component captive mix sizes in about 50 s standalone; lower the budget to the default after a week of runs under production load | Next |
 | Public VM: backups are on the VM's own disk (`/data/backups`); nothing is copied off the machine | Set `BACKUP_BUCKET` (gs://…) for the backup service |
 | Public VM: the password option is still offered on the sign-in page although the person asked for no passwords; nobody has one on this server | The person decides whether to remove it |
 | A cited PDF that is not stored is said so on the monthly rule book and at the link's target; the other screens (landed cost, plan, audit) still draw the page chip, which then opens the "not yet stored here" page rather than the PDF | When a server runs without its library for long |
@@ -125,6 +125,17 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | State rule books: Gujarat's saving is understated (the schedule's energy charge excludes FPPPA); Chhattisgarh's register rows should be re-checked against the order (its standby rate had been read as a per-unit levy) | Next |
 | `standby_charge` rows are held but standby supply (drawal when the open-access source is down) is not modelled anywhere | Next |
 | State rule books: in ten states (AP, BR, CG, GJ, HR, MP, OD, RJ, TN, UK) no figure opens a stored page — they rest on the State Regulation Master's citations (order, table and page by name). Each cited order has to be registered in the document library and each value grounded on its page | Next |
-| The 5 MVA Uttar Pradesh site (captive solar + battery) at 15 minutes solves in about 130 s, over the two-minute target, since the captive exemption of Stage 10; CI's slow step fails on it. About 27 s of the sizing pass is spent at the root with no LP work, and model building is a large share of the later passes | 11 |
-| A stage is called done on the watcher alone; CI (which also runs the slow site solves) is not read. Stage 11 adds the slow step to the stage checklist | 11 |
-
+| The 5 MVA Uttar Pradesh site at 15 minutes solves in about 48 s on the VM with solver path "search 3" (135 s before); to be confirmed on CI at the next push | 11 |
+| No approved rule says whether electricity duty or FPPCA falls on open-access, captive or rooftop units in Uttar Pradesh (and most states); an assumption is in use and shown as one. It closes when an `electricity_duty_oa` row is approved (`docs/questions-for-review.md`, 10) | 14 |
+| The assumed duty is charged on every delivered unit, so also on energy that later lapses, is taken as the banking charge in kind, or is lost in the plant's battery (the cautious side) | Next |
+| Uttar Pradesh's FY 2025-26 order is not in the rulebook: bills for supply before 2 Jul 2026 show "no tariff in force" and are not rebuilt | 14 |
+| The audit chain shows FPPCA and duty inside the rates and in its notes, not as money lines of their own | Next |
+| UPPCL's slot names (TOD-1, TOD-2, TOD-3) have no hours in the rulebook; the client types the hours | Analyst |
+| A named ToD slot that covers two windows (a "peak" in the morning and the evening) is not mapped from its name | Next |
+| A profile built before 25 Nov 2026 keeps its months one late until the intake is rebuilt from the bills (`POST /intake/from-bills`, then `POST /sites`) | Next |
+| Two bills that resolve to the same supply month: the last one silently replaces the first | Next |
+| A bill that prints no power factor is taken at 1.0 for the profile's peak in kW | Next |
+| In the third-party five-component case the two batteries cost exactly the same; which is chosen is the LP's tie-break | Next |
+| The results page prints the solver's raw status word (`time_limit`) beside the note in words | Next |
+| Month models are rebuilt in Pyomo for each dispatch pass (about 4 s of the Uttar Pradesh site's 48 s) | Next |
+| The independent reviewer has not run since Stage 10: no OpenAI key on the VM. Stages are tagged `-built`, not `-done`, until it has | Person |

@@ -78,6 +78,26 @@ def _approved_rules(session: Session, family: str, jurisdiction_ids: list[str], 
     ]
 
 
+_EARLIEST_SQL = text(
+    """
+    select v.effective_from, v.title
+    from rulebook_versions v
+    where v.status = 'approved' and v.family = :family and v.jurisdiction_id = any(:jids)
+    order by v.effective_from, v.id
+    limit 1
+    """
+)
+
+
+def earliest_approved(
+    session: Session, family: str, jurisdiction_ids: list[str]
+) -> tuple[date, str | None] | None:
+    """When the earliest approved version of a family in a jurisdiction chain takes effect, and its
+    title: what a bill dated before every approved tariff order is told (never a draft)."""
+    row = session.execute(_EARLIEST_SQL, {"family": family, "jids": jurisdiction_ids}).first()
+    return (row[0], row[1]) if row else None
+
+
 def applicable(
     session: Session, family: str, jurisdiction_id: str, ctx: dict[str, Any], on: date
 ) -> list[RuleView]:

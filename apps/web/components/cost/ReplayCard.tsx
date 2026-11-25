@@ -7,11 +7,14 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   explained: { label: "explained", tone: "eg-chip--warning" },
   unexplained: { label: "differs", tone: "eg-chip--negative" },
   not_billed: { label: "not billed", tone: "" },
+  // not rebuilt at all: neither a match nor explained, so it carries no success or warning tone
+  no_tariff: { label: "no tariff in force", tone: "" },
 };
 
 // One bill rebuilt from the approved tariff beside what the DISCOM charged.
 export function ReplayCard({ r }: { r: ReplayOut }) {
   const st = STATUS[r.status] ?? STATUS.unexplained;
+  const noTariff = r.status === "no_tariff";
   // Totals over the lines the approved rules compute, so the two sides cover the same charges.
   const rebuilt = r.lines.filter((l) => l.computed);
   const billedSum = rebuilt.reduce((s, l) => s + Number(l.billed?.value ?? 0), 0);
@@ -23,8 +26,8 @@ export function ReplayCard({ r }: { r: ReplayOut }) {
         <div>
           <h2 className="eg-card__title">{r.bill_month ? monthLabel(r.bill_month) : r.evaluated_on} bill, rebuilt</h2>
           <p className="eg-card__sub">
-            {r.schedule ? <>Tariff: {r.schedule}{r.tod ? ` · ToD: ${r.tod}` : ""}. </> : "No approved tariff covers this bill's dates. "}
-            Evaluated for {r.evaluated_on}.
+            {noTariff ? `${r.notes[0] ?? "No tariff in force for this date."} ` : r.schedule ? <>Tariff: {r.schedule}{r.tod ? ` · ToD: ${r.tod}` : ""}. </> : "No approved tariff covers this bill's dates. "}
+            {noTariff ? "What the bill charged is listed below; nothing is compared." : `Evaluated for ${r.evaluated_on}.`}
           </p>
         </div>
         <div className="ep-row">
@@ -34,11 +37,22 @@ export function ReplayCard({ r }: { r: ReplayOut }) {
       </div>
       <table className="ep-table ep-replay">
         <thead>
-          <tr><th>Line</th><th className="num">On the bill</th><th className="num">Rebuilt</th><th className="num">Difference</th><th>Status</th><th>Sources</th></tr>
+          {noTariff
+            ? <tr><th>Line</th><th className="num">On the bill</th><th>Status</th></tr>
+            : <tr><th>Line</th><th className="num">On the bill</th><th className="num">Rebuilt</th><th className="num">Difference</th><th>Status</th><th>Sources</th></tr>}
         </thead>
         <tbody>
           {r.lines.map((l) => {
             const s = STATUS[l.status] ?? STATUS.unexplained;
+            if (noTariff) {
+              return (
+                <tr key={l.group}>
+                  <td>{l.label}</td>
+                  <td className="num">{inr(l.billed?.value, 2)}</td>
+                  <td><span className="eg-chip" title={l.explanation}>{s.label}</span></td>
+                </tr>
+              );
+            }
             return (
               <tr key={l.group} className={l.status === "unexplained" ? "ep-diff" : undefined}>
                 <td>
@@ -53,13 +67,15 @@ export function ReplayCard({ r }: { r: ReplayOut }) {
               </tr>
             );
           })}
-          <tr className="ep-total">
-            <td>Lines rebuilt from the tariff order</td>
-            <td className="num">{inr(billedSum, 2)}</td>
-            <td className="num">{inr(computedSum, 2)}</td>
-            <td className="num">{Math.abs(computedSum - billedSum) < 1 ? "—" : inr(computedSum - billedSum, 2)}</td>
-            <td colSpan={2} className="eg-muted ep-small">Other lines on the bill (not yet sourced): {inr(elsewhere, 2)}</td>
-          </tr>
+          {!noTariff && (
+            <tr className="ep-total">
+              <td>Lines rebuilt from the tariff order</td>
+              <td className="num">{inr(billedSum, 2)}</td>
+              <td className="num">{inr(computedSum, 2)}</td>
+              <td className="num">{Math.abs(computedSum - billedSum) < 1 ? "—" : inr(computedSum - billedSum, 2)}</td>
+              <td colSpan={2} className="eg-muted ep-small">Other lines on the bill (not yet sourced): {inr(elsewhere, 2)}</td>
+            </tr>
+          )}
         </tbody>
       </table>
       {r.tariff_lines.length > 0 && (
@@ -86,7 +102,7 @@ export function ReplayCard({ r }: { r: ReplayOut }) {
       {(Object.keys(r.gaps).length > 0 || r.notes.length > 0) && (
         <div className="ep-gaps">
           {Object.entries(r.gaps).map(([k, v]) => <p key={k}><span className="eg-chip eg-chip--warning">{k.replaceAll("_", " ")}</span> {v}</p>)}
-          {r.notes.map((n) => <p key={n} className="eg-muted">{n}</p>)}
+          {(noTariff ? r.notes.slice(1) : r.notes).map((n) => <p key={n} className="eg-muted">{n}</p>)}
         </div>
       )}
     </section>

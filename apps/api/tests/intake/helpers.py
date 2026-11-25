@@ -3,6 +3,7 @@ examples in tests/fixtures/billx (synthetic bills)."""
 
 from __future__ import annotations
 
+import calendar
 import copy
 import json
 from pathlib import Path
@@ -25,8 +26,12 @@ def pdf(tag: str = "") -> bytes:
 
 
 def with_month(res: dict[str, Any], month: str, kwh: str | None = None) -> dict[str, Any]:
+    """The bill for `month` ('2026-07'): supplied over that calendar month and named for it."""
     r = copy.deepcopy(res)
     f = r["bills"][0]["fields"]
+    y, m = int(month[:4]), int(month[5:7])
+    f["period"]["from"]["value"] = f"{month}-01"
+    f["period"]["to"]["value"] = f"{month}-{calendar.monthrange(y, m)[1]:02d}"
     f["period"]["bill_month"]["value"] = month
     if kwh:
         f["energy"]["kwh"]["value"] = kwh

@@ -288,3 +288,18 @@ def test_bad_requests(site: dict[str, str]) -> None:
     )
     assert r.status_code == 422
     assert client.get("/statebooks/none", headers=AN).status_code == 404
+
+
+def test_the_file_prints_quantities_without_trailing_zeros(site: dict[str, str]) -> None:
+    """Finding 12 of the Uttar Pradesh full test ("33.000 kV", "5000.000 kVA"): the client's supply
+    voltage and contract demand are stored as the database holds them (the content is frozen once
+    approved); the file prints them as quantities."""
+    b = _gen(connection_id=site["conn"])
+    cons = b["content"]["consumer"]
+    assert cons["voltage_kv"] == "22.000" and cons["contract_demand_kva"] == "5000.000"  # stored, untouched
+    md = client.get(f"/statebooks/{b['id']}/file", headers=AN).text
+    head = next(ln for ln in md.splitlines() if ln.startswith("Consumer:"))
+    assert " · 22 kV · contract demand 5,000 kVA" in head
+    assert ".000" not in head
+    again = client.get(f"/statebooks/{b['id']}", headers=AN).json()
+    assert again["content"]["consumer"] == cons  # rendering changed nothing that is stored

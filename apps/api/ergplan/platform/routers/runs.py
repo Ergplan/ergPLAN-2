@@ -165,6 +165,37 @@ class ProvenanceOut(BaseModel):
     profile_ref: SourcedValue = _f("load_profiles.series_kw", ["measured", "derived"])
 
 
+_LEVY_OWNER = "bills.billx_result + runs.pins"
+_BILL_KINDS: list[JsonValue] = ["bill", "derived", "client_stated", "assumption"]
+
+
+class LevyOut(BaseModel):
+    """FPPCA or electricity duty at the rate the client's own accepted bills print (never a
+    regulation's): what it comes to today and with the plan, and how it is treated on the units not
+    bought from the DISCOM — an assumption the result names in words. The amounts are inside
+    `annual.before` and `annual.after`."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    code: str  # fppca | electricity_duty
+    label: str
+    bills: int  # the accepted bills that print it
+    rates: list[SourcedValue] = _f(_LEVY_OWNER, ["bill"])  # per billed unit, the bills' average
+    on_discom_kwh: SourcedValue = _f(_LEVY_OWNER, _BILL_KINDS)  # INR per kWh bought from the DISCOM
+    # INR per kWh not bought from the DISCOM (open access, captive, rooftop); None: assumed not charged
+    on_other_kwh: SourcedValue | None = _o(_LEVY_OWNER, _BILL_KINDS)
+    charged_on_other_units: bool
+    treatment: SourcedValue = _f("runs.pins", ["assumption"])  # percent charged on those units
+    treatment_words: str
+    sourced_to_regulation: bool
+    discom_kwh_before: SourcedValue = _f()
+    discom_kwh_after: SourcedValue = _f()
+    other_kwh: SourcedValue = _f()
+    before: SourcedValue = _f()
+    after_discom: SourcedValue = _f()
+    after_other: SourcedValue = _f()
+
+
 class SummaryOut(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -181,6 +212,7 @@ class SummaryOut(BaseModel):
     notes: list[str]
     monthly: list[MonthMixOut] = Field(default_factory=list)
     lifecycle: LifecycleOut | None = None
+    levies: list[LevyOut] = Field(default_factory=list)
 
 
 class RunOut(BaseModel):

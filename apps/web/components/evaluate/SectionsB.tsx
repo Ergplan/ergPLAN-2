@@ -23,9 +23,11 @@ export function TodaySection({ d, set, today, bills, discom }: { d: Draft; set: 
       {d.connectionId ? (
         today ? (
           <div className="ep-stats">
-            <div className="eg-stat"><span className="eg-stat__label">Grid cost today, a year</span><span className="eg-stat__value">{inr(today.annual?.value)}</span><span className="eg-stat__foot">at the approved tariff {today.annual && <RefChips refs={today.annual.source_refs} max={2} kinds={1} />}</span></div>
+            <div className="eg-stat"><span className="eg-stat__label">Grid cost today, a year</span><span className="eg-stat__value">{inr(today.annual?.value)}</span><span className="eg-stat__foot">{today.fppca || today.electricity_duty ? "the approved tariff, with FPPCA and duty as on your bills" : "at the approved tariff"} {today.annual && <RefChips refs={today.annual.source_refs} max={2} kinds={1} />}</span></div>
             <div className="eg-stat"><span className="eg-stat__label">Energy charges</span><span className="eg-stat__value">{inr(today.energy?.value)}</span><span className="eg-stat__foot">{num(today.kwh?.value)} kWh {today.kwh && <RefChips refs={today.kwh.source_refs} max={1} />}</span></div>
             <div className="eg-stat"><span className="eg-stat__label">Demand charges</span><span className="eg-stat__value">{inr(today.demand?.value)}</span><span className="eg-stat__foot">on billed demand</span></div>
+            {today.fppca && <div className="eg-stat"><span className="eg-stat__label">FPPCA</span><span className="eg-stat__value">{inr(today.fppca.value)}</span><span className="eg-stat__foot">at the rate on your bills, not a regulation&apos;s <RefChips refs={today.fppca.source_refs.filter((r) => r.kind === "bill")} max={1} /></span></div>}
+            {today.electricity_duty && <div className="eg-stat"><span className="eg-stat__label">Electricity duty</span><span className="eg-stat__value">{inr(today.electricity_duty.value)}</span><span className="eg-stat__foot">at the rate on your bills, not a regulation&apos;s <RefChips refs={today.electricity_duty.source_refs.filter((r) => r.kind === "bill")} max={1} /></span></div>}
             <div className="eg-stat"><span className="eg-stat__label">Average</span><span className="eg-stat__value">₹{today.average_inr_per_kwh ? Number(today.average_inr_per_kwh.value).toFixed(2) : "—"}</span><span className="eg-stat__foot">per kWh, all in</span></div>
           </div>
         ) : (

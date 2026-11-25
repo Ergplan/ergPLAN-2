@@ -3,7 +3,7 @@ import { RefChips } from "@/components/cost/RefChips";
 import { AnalystView } from "@/components/plan/AnalystView";
 import { Explain } from "@/components/plan/Explain";
 import { WhatIf } from "@/components/plan/WhatIf";
-import { CostTable, DispatchChart, Lifecycle, Settlement, YearMix } from "@/components/results/parts";
+import { CostTable, DispatchChart, Levies, Lifecycle, Settlement, YearMix } from "@/components/results/parts";
 import { VoicePanel } from "@/components/voice/VoicePanel";
 import { apiOrNull } from "@/lib/api";
 import type { Chain } from "@/lib/audit";
@@ -86,6 +86,7 @@ export default async function LivePlan({ params, searchParams }: { params: Promi
                 <tr><td>Grid CO₂ a year</td><td className="num">{Math.round(Number(s.emissions.before_t.value)).toLocaleString("en-IN")} → {Math.round(Number(s.emissions.after_t.value)).toLocaleString("en-IN")} t</td><td>{C([s.emissions.factor], 1)}</td></tr>
               </tbody>
             </table>
+            <Levies levies={s.levies} />
             {s.notes.map((n) => <p key={n} className="eg-muted ep-small">{n}</p>)}
             {s.sizes.some((z) => z.gaps.length > 0) && (
               <p className="ep-small"><span className="eg-chip eg-chip--warning">not yet sourced</span> {[...new Set(s.sizes.flatMap((z) => z.gaps))].join(", ").replaceAll("_", " ")} — these charges are left out until the order or regulation is read, so the saving may be overstated.</p>

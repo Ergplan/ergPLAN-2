@@ -18,7 +18,7 @@ from ...core.sourced import RefKind, SourcedValue, SourceRef, derive
 from ...core.units import Unit
 from ...db.base import session_scope
 from ...db.models import Bill, Connection, LoadProfile, Site
-from ...engine import avoided_cost, replay
+from ...engine import avoided_cost, levies, replay
 from ...engine import scope as escope
 from ...engine.gaps import GAPS
 from ...intake import bills as bill_store
@@ -80,6 +80,8 @@ class ReplayOut(BaseModel):
     bill_id: str
     bill_month: date | None
     evaluated_on: date
+    # match | explained | unexplained, or no_tariff: no approved tariff in force for the bill's supply
+    # period, so it was not rebuilt (no computed total, no difference; counted in no tally)
     status: str
     schedule: str | None
     tod: str | None
@@ -120,10 +122,12 @@ def _rules_for(
     facts: escope.ConnectionFacts,
     as_of: date | None = None,
     reader: Callable[[Session, str, list[str], date], list[RuleView]] = repository.approved_rules,
+    bill_levies: tuple[levies.Levy, ...] = (),
 ) -> Callable[[date], avoided_cost.MonthRules]:
     """Rules for a month. With `as_of`, the versions in force on that date (the tariff a plan faces)
     with the month choosing seasonal and ToD rows; without, the versions in force on the date itself
-    (a bill's own period)."""
+    (a bill's own period). `bill_levies` are FPPCA and duty at the connection's own bills' rates
+    (`bill_levies()`), for costing a year; a bill's replay passes none."""
     chain = jurisdiction_chain(s, facts.discom)
     cache: dict[date, avoided_cost.MonthRules] = {}
 
@@ -138,7 +142,7 @@ def _rules_for(
                 # no retail schedule approved anywhere in the DISCOM's chain: the consumer's own
                 # tariff (from the bill, or typed) prices the grid, and is shown as theirs
                 schedule = stated_schedule(facts)
-            cache[on] = avoided_cost.MonthRules(schedule, escope.first(td, ctx, chain))
+            cache[on] = avoided_cost.MonthRules(schedule, escope.first(td, ctx, chain), bill_levies)
         return cache[on]
 
     return get
@@ -174,6 +178,36 @@ def stated_schedule(facts: escope.ConnectionFacts) -> RuleView | None:
         field_refs={"/energy_charge/base": e_ref, "/demand_charge/value": d_ref},
         label=f"{facts.category} · the tariff on your bill",
     )
+
+
+def bill_levies(s: Session, conn: Connection) -> tuple[levies.Levy, ...]:
+    """FPPCA and electricity duty as the connection's accepted bills charge them (invariant 7: billx's
+    reading of the bill lines and units, nothing read again here), averaged over those bills."""
+    charges = []
+    for b in s.scalars(
+        select(Bill).where(Bill.connection_id == conn.id, Bill.accepted.is_(True)).order_by(Bill.id)
+    ):
+        bill = next(
+            (x for x in b.billx_result.get("bills", []) if int(x.get("index", 0)) == b.bill_index), None
+        )
+        if bill is None:
+            continue
+        amounts: dict[str, tuple[Decimal, tuple[int, ...]]] = {}
+        for ln in replay.billed_lines(bill):
+            if ln.group in levies.CODES:
+                amt, idx = amounts.get(ln.group, (Decimal(0), ()))
+                amounts[ln.group] = (amt + ln.amount, (*idx, ln.index))
+        v = bill_store.values(s, b)
+        kwh, kvah = v.get("energy.kwh"), v.get("energy.kvah")
+        charges.append(
+            levies.BillCharges(
+                bill_id=b.id,
+                amounts=amounts,
+                kvah=kvah.dec if kvah and kvah.dec and kvah.dec > 0 else None,
+                kwh=kwh.dec if kwh and kwh.dec and kwh.dec > 0 else None,
+            )
+        )
+    return levies.from_bills(charges)
 
 
 def _cd(conn: Connection) -> SourcedValue | None:
@@ -228,7 +262,12 @@ def _replay_out(
     when = _bill_date(b, conf)
     mr = rules(when)
     bill = next(x for x in b.billx_result.get("bills", []) if int(x.get("index", 0)) == b.bill_index)
-    r = replay.replay(b.id, bill, conf, when, mr.schedule, mr.tod, _cd(conn))
+    earliest = None
+    if mr.schedule is None:
+        first = repository.earliest_approved(s, "tariff_schedule", jurisdiction_chain(s, conn.discom_id))
+        earliest = replay.EarliestTariff(*first) if first else None
+    r = replay.replay(b.id, bill, conf, when, mr.schedule, mr.tod, _cd(conn), earliest)
+    rebuilt = r.status != replay.NO_TARIFF  # a bill that was not rebuilt shows no difference at all
     gaps = {
         g: GAPS[g]
         for g in dict.fromkeys([ln.gap for ln in r.lines if ln.gap] + (r.tariff.gaps if r.tariff else []))
@@ -251,14 +290,18 @@ def _replay_out(
         ),
         total_difference=_difference(
             r.computed_total, [_billed(b.id, ln) for ln in r.lines], "Rebuilt − billed"
-        ),
+        )
+        if rebuilt
+        else None,
         lines=[
             ReplayLineOut(
                 group=ln.group,
                 label=ln.label,
                 billed=_billed(b.id, ln),
                 computed=ln.computed,
-                difference=_difference(ln.computed, [_billed(b.id, ln)], f"{ln.label}: rebuilt − billed"),
+                difference=_difference(ln.computed, [_billed(b.id, ln)], f"{ln.label}: rebuilt − billed")
+                if rebuilt
+                else None,
                 status=ln.status,
                 explanation=ln.explanation,
                 gap=ln.gap,
@@ -297,7 +340,10 @@ class RateCardOut(BaseModel):
     month: date
     slot: str | None
     components: list[SourcedValue] = Field(
-        json_schema_extra={"owner": "rules.body", "ref_kinds": ["order", "regulation", "derived"]}
+        json_schema_extra={
+            "owner": "rules.body + bills.billx_result",
+            "ref_kinds": ["order", "regulation", "derived", "bill"],
+        }
     )
     kvah_factor: SourcedValue | None = Field(
         json_schema_extra={
@@ -386,7 +432,7 @@ def connection_avoided_cost(
         wf = avoided_cost.build(
             lp.year_start,
             kw,
-            _rules_for(s, _facts(s, conn), as_of or date.today()),
+            _rules_for(s, _facts(s, conn), as_of or date.today(), bill_levies=bill_levies(s, conn)),
             factor,
             pref,
             _cd(conn),

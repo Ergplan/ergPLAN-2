@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { markUnstored } from "../lib/statebook";
+import { qty } from "../lib/format";
+import { markUnstored, whoFor } from "../lib/statebook";
 
 describe("markUnstored", () => {
   const content = {
@@ -24,5 +25,19 @@ describe("markUnstored", () => {
     expect(markUnstored(content, [])).toBe(content);
     markUnstored(content, ["doc-gone"]);
     expect(JSON.stringify(content)).not.toContain("document_stored");
+  });
+});
+
+describe("quantities in a rule book", () => {
+  it("prints no trailing zeros and groups the Indian way", () => {
+    expect(qty("33.000")).toBe("33");
+    expect(qty("5000.000")).toBe("5,000");
+    expect(qty("150000.000")).toBe("1,50,000");
+    expect(qty("0.400")).toBe("0.4");
+    expect(qty(null)).toBe("?");
+  });
+  it("names the reference consumer as 33 kV and 5,000 kVA, not 33.000 and 5000.000", () => {
+    const c = { kind: "reference", client: null, site: null, category: "HV-2", rate_block: null, voltage_kv: "33.000", contract_demand_kva: "5000.000" };
+    expect(whoFor(c)).toBe("Reference consumer · HV-2 · 33 kV · 5,000 kVA");
   });
 });

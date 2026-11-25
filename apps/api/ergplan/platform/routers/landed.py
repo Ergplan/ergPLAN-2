@@ -20,6 +20,7 @@ from ...core.units import Unit
 from ...db.base import session_scope
 from ...db.models import Asset, Connection, PricePoint, PriceVintage
 from ...engine import avoided_cost, landed_cost, lcoe
+from ...engine import levies as elevies
 from ...engine import scope as escope
 from ...engine.gaps import GAPS
 from ...engine.tariff_eval import slot_of
@@ -28,7 +29,7 @@ from ...rulebook import repository
 from ...rulebook.models import RuleView
 from ...rulebook.scope import matches
 from ...rulebook.service import jurisdiction_chain
-from .cost import _facts, _kvah_factor, _rules_for
+from .cost import _facts, _kvah_factor, _rules_for, bill_levies
 
 router = APIRouter(tags=["landed cost"])
 
@@ -56,6 +57,9 @@ DEFAULT_PRICE = {
     "group_captive": ("3.10", "group-captive solar PPA before the equity cost"),
 }
 DEFAULT_OWNERSHIP = {"group_captive": "group_captive"}
+# the plant a battery at the open-access plant is taken to store for its landed-cost card (the
+# optimizer stores whichever open-access solar, wind or hybrid plant is in the plan)
+OA_BESS_PLANT = "oa_solar_intra"
 
 
 class SourceScenario(BaseModel):
@@ -227,6 +231,7 @@ def connection_landed_cost(
             recorded=site_intake.recorded_ownership(conn),  # the open access the client already takes
             sc_in=sc_in,
             connection_id=conn.id,
+            levies=bill_levies(s, conn),
         )
 
 
@@ -242,16 +247,31 @@ def landed(
     connection_id: str,
     ownership_all: str | None = None,
     assume_equity: bool = False,
+    levies: tuple[elevies.Levy, ...] = (),
 ) -> LandedOut:
     """Every source's landed cost per ToD slot for a consumer described by `facts` (a client's
     connection, or a reference consumer of a DISCOM for the state rule book). `ownership_all` sets
     the ownership of every open-access PPA source; `assume_equity` adds the assumed cost of the 26%
-    equity to every source taken as group captive."""
+    equity to every source taken as group captive. `levies` are FPPCA and duty at the rates on the
+    client's own bills (none for a reference consumer): on DISCOM units they are in the grid rate;
+    on other units they follow the stated assumption (engine.levies)."""
     as_of = sc_in.as_of or date.today()
     month = sc_in.month or as_of.month
     chain = jurisdiction_chain(s, facts.discom)
     mdate = date(as_of.year if month >= as_of.month else as_of.year + 1, month, 15)
-    mr = _rules_for(s, facts, as_of)(mdate)
+    mr = _rules_for(s, facts, as_of, bill_levies=levies)(mdate)
+    basis = str(mr.schedule.body.get("billing_basis", "kwh")) if mr.schedule is not None else "kwh"
+    duty_own = next(
+        (
+            elevies.on_other_units(lv, basis, factor)
+            for lv in avoided_cost.levies_in_force(mr)
+            if lv.code == elevies.DUTY
+        ),
+        None,
+    )
+    in_force = avoided_cost.levies_in_force(mr)
+    # the levies assumed not charged on units not bought from the DISCOM, said on those sources' cards
+    not_charged = [lv.words for lv in in_force if lv.treatment.value == 0]
     slot_names: list[str] = []
     slots: list[SlotOut] = []
     if mr.tod is not None:
@@ -278,19 +298,62 @@ def landed(
     limits_rows = repository.approved_rules(s, "regulatory_limit", chain, as_of)
     all_gaps: set[str] = set()
     sources: list[SourceOut] = []
-    for spec in landed_cost.SOURCES:
-        o = sc_in.sources.get(spec.id, SourceScenario())
-        ownership = (
-            o.ownership
+
+    def ownership_of(spec: landed_cost.SourceSpec) -> str:
+        return (
+            sc_in.sources.get(spec.id, SourceScenario()).ownership
             or DEFAULT_OWNERSHIP.get(spec.id)
             or (ownership_all if spec.price_kind == "ppa" else None)
             or recorded
             or "third_party"
         )
+
+    def ppa(spec: landed_cost.SourceSpec, ownership: str) -> tuple[SourcedValue, tuple[SourcedValue, ...]]:
+        """A PPA source's price at the generator bus and its source-specific additions."""
+        o = sc_in.sources.get(spec.id, SourceScenario())
+        if o.price_inr_per_kwh is not None:
+            v = _stated(o.price_inr_per_kwh, Unit.INR_PER_KWH, "PPA tariff")
+        else:
+            val, note = DEFAULT_PRICE[spec.id]
+            v = _assumed(val, Unit.INR_PER_KWH, f"{note}; change it to your quote", "PPA tariff")
+        if spec.id == "group_captive" or (assume_equity and ownership == "group_captive"):
+            eq = (
+                _stated(o.equity_cost_inr_per_kwh, Unit.INR_PER_KWH, "Equity cost")
+                if o.equity_cost_inr_per_kwh is not None
+                else _assumed(
+                    "0.25",
+                    Unit.INR_PER_KWH,
+                    "26% equity in the generating company, carried over its life, per kWh consumed",
+                    "Equity cost (group captive)",
+                )
+            )
+            return v, (eq,)
+        return v, ()
+
+    def common(
+        spec: landed_cost.SourceSpec, ownership: str, extra: tuple[SourcedValue, ...]
+    ) -> dict[str, object]:
+        o = sc_in.sources.get(spec.id, SourceScenario())
+        return dict(
+            ownership=ownership,
+            commissioned=o.commissioned,
+            on=as_of,
+            geoa=sc_in.geoa,
+            extra=extra,
+            capacity_mw=_stated(o.capacity_mw, Unit.MW, "Capacity") if o.capacity_mw else None,
+            cuf_pct=_stated(o.cuf_pct, Unit.PERCENT, "CUF") if o.cuf_pct else None,
+            duty_on_own_units=duty_own,
+        )
+
+    for spec in landed_cost.SOURCES:
+        o = sc_in.sources.get(spec.id, SourceScenario())
+        ownership = ownership_of(spec)
         notes: list[str] = []
         prices: dict[str, SourcedValue] = {}
         extra: tuple[SourcedValue, ...] = ()
         reason = None
+        pre_gaps: list[str] = []
+        pre_used: list[str] = []
         if spec.price_kind == "grid":
             prices = dict(cards)
             reason = None if cards else "no approved tariff for this connection"
@@ -320,6 +383,47 @@ def landed(
             day = [sl.name for sl in slots if _overlaps_daylight(sl.start, sl.end)]
             prices = {n: v for n in day}
             notes.append("rooftop energy comes only in daylight (07:00–17:00 assumed); other slots take none")
+        elif spec.id == "oa_bess":
+            # as the optimizer treats it: charged from the open-access plant's own generation (never
+            # from the grid) and delivered later through the same open access, so the energy it
+            # stores carries the plant's landed cost (losses and charges as for the plant) and the
+            # round-trip loss is energy generated and paid for but not delivered
+            st = lcoe.default_bess()
+            v = lcoe.lcos(st)
+            plant = landed_cost.SOURCE_BY_ID[OA_BESS_PLANT]
+            plant_own = ownership_of(plant)
+            p_price, p_extra = ppa(plant, plant_own)
+            pwf = landed_cost.evaluate(
+                plant,
+                ctx,
+                landed_cost.Scenario(price=p_price, **common(plant, plant_own, p_extra)),  # type: ignore[arg-type]
+                oa_rows,
+                waivers,
+                None,  # banking is the settlement's, as in the optimizer
+            )
+            stored = derive(
+                pwf.total.value / (st.round_trip_pct.value / 100),
+                Unit.INR_PER_KWH,
+                [pwf.total, st.round_trip_pct],
+                label=f"Energy stored from the plant ({plant.label}): its landed cost at the meter "
+                "÷ round-trip efficiency",
+            )
+            extra = (stored,)
+            prices = {n: v for n in slot_names}
+            pre_gaps, pre_used = list(pwf.gaps), list(pwf.rules_used)
+            notes.append(
+                "charged from the open-access plant's own generation, not from the grid, and delivered "
+                "later through the same open access: the plant's losses and open-access charges are "
+                "inside the cost of the energy it stores, and the round-trip loss is energy generated "
+                "and paid for but not delivered"
+            )
+            notes.append(
+                f"the card takes {plant.label.lower()} ({plant_own.replace('_', ' ')}) as the plant; a plan "
+                "stores whichever open-access solar, wind or hybrid plant it contains, and the cost per "
+                "kWh of storage (LCOS) rests on the cycles a year assumed, so the figure for a plan "
+                "comes from its own sizing"
+            )
+            notes += pwf.notes
         elif spec.price_kind == "lcos":
             st = lcoe.default_bess()
             v = lcoe.lcos(st)
@@ -356,38 +460,21 @@ def landed(
             else:
                 reason = "the thermal plant's variable cost is not stated"
         else:  # ppa
-            if o.price_inr_per_kwh is not None:
-                v = _stated(o.price_inr_per_kwh, Unit.INR_PER_KWH, "PPA tariff")
-            else:
-                val, note = DEFAULT_PRICE[spec.id]
-                v = _assumed(val, Unit.INR_PER_KWH, f"{note}; change it to your quote", "PPA tariff")
+            v, extra = ppa(spec, ownership)
             prices = {n: v for n in slot_names}
-            if spec.id == "group_captive" or (assume_equity and ownership == "group_captive"):
-                eq = (
-                    _stated(o.equity_cost_inr_per_kwh, Unit.INR_PER_KWH, "Equity cost")
-                    if o.equity_cost_inr_per_kwh is not None
-                    else _assumed(
-                        "0.25",
-                        Unit.INR_PER_KWH,
-                        "26% equity in the generating company, carried over its life, per kWh consumed",
-                        "Equity cost (group captive)",
-                    )
-                )
-                extra = (eq,)
-        scn_common = dict(
-            ownership=ownership,
-            commissioned=o.commissioned,
-            on=as_of,
-            geoa=sc_in.geoa,
-            extra=extra,
-            capacity_mw=_stated(o.capacity_mw, Unit.MW, "Capacity") if o.capacity_mw else None,
-            cuf_pct=_stated(o.cuf_pct, Unit.PERCENT, "CUF") if o.cuf_pct else None,
-        )
+        scn_common = common(spec, ownership, extra)
         src_ctx = {**ctx, "connection": spec.connection, "source": spec.source, "ownership": ownership}
         settlement = next((r for r in settlements if matches(r.scope, src_ctx)), None)
         by_slot: list[SlotWaterfall] = []
-        gaps: list[str] = []
-        used: list[str] = []
+        gaps: list[str] = list(pre_gaps)
+        used: list[str] = list(pre_used)
+        if spec.price_kind == "grid" and prices and in_force:
+            notes.append(
+                f"{' and '.join(lv.label for lv in in_force)}: not in the approved tariff, so in this "
+                "rate at the rates on your own bills (cited to the bills, not sourced to a regulation)"
+            )
+        if spec.open_access or spec.price_kind in landed_cost.OWN_GENERATION or spec.id == "oa_bess":
+            notes += not_charged
         for name in slot_names:
             if name not in prices:
                 continue

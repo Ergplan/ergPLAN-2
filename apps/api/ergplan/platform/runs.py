@@ -35,18 +35,19 @@ from ..db.models import (
     Site,
 )
 from ..engine import avoided_cost, landed_cost, lcoe, lifecycle, tariff_eval
+from ..engine import levies as elevies
 from ..engine import scope as escope
 from ..engine.tariff_eval import slot_classes, slot_of
 from ..intake import generation, profile_synthesis
 from ..optimizer import model as om
 from ..optimizer.highs_solve import Solution, SolveFailed, solve
 from ..optimizer.resettle import INR, Resettled, resettle, status_quo
-from ..optimizer.scenarios import CandidateSpec, ScenarioSpec, reprice
+from ..optimizer.scenarios import CandidateSpec, ScenarioSpec, reprice, unproven_note
 from ..rulebook.models import RuleView
 from ..rulebook.repository import Reader
 from ..rulebook.scope import matches
 from ..rulebook.service import jurisdiction_chain
-from .routers.cost import _facts, _kvah_factor, _rules_for
+from .routers.cost import _facts, _kvah_factor, _rules_for, bill_levies
 from .routers.landed import DEFAULT_PRICE
 
 WORKER = "worker@ergplan"
@@ -91,6 +92,18 @@ class CandMeta:
     rule: RuleView | None = None
     gaps: list[str] = field(default_factory=list)
     ownership: str | None = None
+    # electricity duty per kWh assumed on this source's units (engine.levies), when it was applied:
+    # no approved electricity_duty_oa row covers the source
+    own_duty: SourcedValue | None = None
+
+
+@dataclass
+class LevyUse:
+    """A levy taken from the client's bills, as the run used it."""
+
+    levy: elevies.Levy
+    on_discom_kwh: SourcedValue  # INR per kWh bought from the DISCOM (in the grid rate of every block)
+    on_other_kwh: SourcedValue | None  # INR per kWh not bought from the DISCOM, None when not charged
 
 
 @dataclass
@@ -109,6 +122,11 @@ class Assembled:
     cd: SourcedValue | None
     grid_factor: SourcedValue
     spec: ScenarioSpec | None = None
+    # what the run read from the client's bills, pinned so a replay reproduces it (invariant 5)
+    bill_levies: tuple[elevies.Levy, ...] = ()
+    bill_factors: tuple[SourcedValue, SourcedValue] | None = None  # kVAh per kWh, power factor
+    levies: list[LevyUse] = field(default_factory=list)  # those in force (the rule does not state them)
+    thermal_duty: SourcedValue | None = None
 
 
 def _f(x: Decimal | float) -> float:
@@ -205,7 +223,10 @@ def assemble(
     reader: Reader,
     profile_id: str | None = None,
     vintage_pins: dict[str, str] | None = None,
+    bill_pins: dict[str, Any] | None = None,
 ) -> Assembled:
+    """`bill_pins` (a replay): what the original run read from the client's bills — the levies and
+    the kVAh factor and power factor — used instead of reading the bills again."""
     conn = s.get(Connection, sc.connection_id)
     if conn is None:
         raise RunError("connection not found")
@@ -221,8 +242,18 @@ def assemble(
     days = profile_synthesis.year_days(lp.year_start)
     facts = _facts(s, conn)
     chain = jurisdiction_chain(s, facts.discom)
-    rules_for = _rules_for(s, facts, as_of, reader)
-    factor, pf = _kvah_factor(s, conn)
+    if bill_pins is None:
+        from_bills = bill_levies(s, conn)
+        factor, pf = _kvah_factor(s, conn)
+    else:
+        from_bills = tuple(elevies.Levy.from_json(x) for x in bill_pins.get("levies") or [])
+        pinned = bill_pins.get("factors")
+        factor, pf = (
+            (SourcedValue.model_validate(pinned[0]), SourcedValue.model_validate(pinned[1]))
+            if pinned
+            else _kvah_factor(s, conn)  # a run made before the factors were pinned
+        )
+    rules_for = _rules_for(s, facts, as_of, reader, from_bills)
     notes: list[str] = []
 
     # blocks, ToD slots and the avoided-cost rate of each block
@@ -250,6 +281,23 @@ def assemble(
             names = ["all hours"]
         slots_of[mf.month] = names
         slot_meta[mf] = []
+    # FPPCA and duty at the rates on the client's bills, where the approved tariff does not state
+    # them: on DISCOM units they are in every block's grid rate (rate cards above), today and with the
+    # plan alike; on units not bought from the DISCOM they follow the stated assumption
+    mr0 = rules_for(month_firsts[0])
+    basis0 = str(mr0.schedule.body.get("billing_basis", "kwh")) if mr0.schedule is not None else "kwh"
+    levy_uses: list[LevyUse] = []
+    for lv in avoided_cost.levies_in_force(mr0):
+        on_grid = elevies.per_kwh(lv, basis0, factor)
+        if on_grid is None:
+            continue
+        levy_uses.append(LevyUse(lv, on_grid, elevies.on_other_units(lv, basis0, factor)))
+        notes.append(
+            f"{lv.label}: not in the approved tariff, so charged at the rate on your own bills "
+            f"(₹{lv.rate(tariff_eval.RATE_OF_BASIS[basis0]).value}/{'kVAh' if basis0 == 'kvah' else 'kWh'} "  # type: ignore[union-attr]
+            f"billed) on every unit bought from the DISCOM, today and with the plan. {lv.words}"
+        )
+    duty_own = next((u.on_other_kwh for u in levy_uses if u.levy.code == elevies.DUTY), None)
     hours = spec.resolution_min / 60
     step = spec.resolution_min // 15
     if step > 1:
@@ -495,7 +543,7 @@ def assemble(
                 om.Candidate(
                     cid,
                     shape=shape,
-                    energy_inr_per_kwh=[0.0] * n,
+                    energy_inr_per_kwh=[_f(duty_own.value) if duty_own is not None else 0.0] * n,
                     fixed_inr_per_kw_year=_f(yearly),
                     min_kw=min(_f(lo_kw), _f(mx2)),
                     max_kw=_f(mx2),
@@ -506,8 +554,12 @@ def assemble(
             meta.om_pct, meta.life_sv, meta.degradation = g.om_pct_of_capex, g.life_years, g.degradation_pct
             meta.cuf = g.cuf_pct
             fixed_kw[cid] = yearly
-            energy_d[cid] = [ZERO] * n
+            # rooftop units are not bought from the DISCOM: the assumed duty, when the bills print one
+            energy_d[cid] = [duty_own.value if duty_own is not None else ZERO] * n
+            meta.own_duty = duty_own
             meta.inputs = [g.capex_inr_per_kw, g.om_pct_of_capex, g.cuf_pct, f]
+            if duty_own is not None:
+                meta.inputs.append(duty_own)
             cands.append(meta)
             continue
         # open access (PPA or exchange)
@@ -609,9 +661,12 @@ def assemble(
                         "Capacity",
                     ),
                     cuf_pct=cuf_sv,
+                    duty_on_own_units=duty_own,
                 )
                 # banking is settled by the model and the judge, not as an upper bound (None)
                 wf = landed_cost.evaluate(src, ctx, base, oa_rows, waivers, None)
+                if duty_own is not None and duty_own in wf.lines:
+                    meta.own_duty = duty_own  # no approved electricity_duty_oa row covers this source
                 energy[(mo, nm)] = wf.total.value
                 if src.price_kind == "iex":
                     up = landed_cost.evaluate(
@@ -771,6 +826,11 @@ def assemble(
             ],
         )
     thermals = _thermals(s, site.id, hours, notes)
+    if duty_own is not None and thermals:
+        # captive thermal units are not bought from the DISCOM either: the same assumed duty
+        thermals = [
+            dataclasses.replace(u, fuel_inr_per_kwh=u.fuel_inr_per_kwh + _f(duty_own.value)) for u in thermals
+        ]
     lapse = spec.lapse_price_inr_per_kwh or ZERO
     problem = om.Problem(
         blocks=blocks,
@@ -842,6 +902,10 @@ def assemble(
         cd=cd_sv,
         grid_factor=gf,
         spec=spec,
+        bill_levies=from_bills,
+        bill_factors=(factor, pf),
+        levies=levy_uses,
+        thermal_duty=duty_own if thermals else None,
     )
 
 
@@ -1033,6 +1097,7 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
         ZERO,
     )
     gf = a.grid_factor
+    levies_json = _levies(a, sol, grid_before, grid_after, grid_inputs, all_inputs)
     binding = []
     for name in sol.binding:
         words, refs = a.limits.get(name, (name, []))
@@ -1047,6 +1112,9 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
         },
         "lines_before": {k: str(v) for k, v in before_lines.items()},
         "lines_after": {k: str(v) for k, v in after_lines.items()},
+        # FPPCA and duty at the bills' rates: amounts inside the costs above, and the treatment on
+        # units not bought from the DISCOM in words (an assumption, not sourced to a regulation)
+        "levies": levies_json,
         "lifecycle": lifecycle_json,
         # the headline payback and IRR are the lifecycle's (escalation, degradation and replacements in)
         "payback_years": lifecycle_json.get("simple_payback_years"),
@@ -1085,9 +1153,86 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
             "profile_ref": a.profile_ref.model_dump(mode="json"),
         },
         "sensitivities": [],
-        "notes": a.notes,
+        # a plan the search could not prove the cheapest says so wherever its notes are shown
+        "notes": [*a.notes, *filter(None, [unproven_note(sol.status, sol.gap)])],
         "monthly": monthly,
     }
+
+
+def _levies(
+    a: Assembled,
+    sol: Solution,
+    load_kwh: Decimal,
+    grid_kwh: Decimal,
+    grid_inputs: list[SourcedValue],
+    all_inputs: list[SourcedValue],
+) -> list[dict[str, Any]]:
+    """Each levy taken from the bills: its rate, what it comes to today and with the plan on the
+    units bought from the DISCOM, and on the other units (rooftop, open access, captive) under the
+    assumption the result names. The amounts are inside `annual.before` and `annual.after`."""
+    p = a.problem
+    out = []
+    for u in a.levies:
+        other_kwh = ZERO
+        if u.on_other_kwh is not None:
+            for m in a.cands:
+                if m.own_duty is None:
+                    continue
+                series = sol.gen[m.cid] if m.spec.kind == "rooftop_pv" else sol.delivered[m.cid]
+                other_kwh += sum((Decimal(f"{x:.3f}") for x in series), ZERO)
+                # what a battery at the plant stored was generated and charged like the rest
+                other_kwh += sum((Decimal(f"{x:.3f}") for x in sol.oa_charged.get(m.cid, [])), ZERO)
+            if a.thermal_duty is not None:
+                other_kwh += sum(
+                    (Decimal(f"{x:.3f}") for t in p.thermals for x in sol.thermal.get(t.id, [])), ZERO
+                )
+        ins_other = [*all_inputs, *([u.on_other_kwh] if u.on_other_kwh is not None else [u.levy.treatment])]
+
+        def money(v: Decimal, label: str, inputs: list[SourcedValue]) -> dict[str, Any]:
+            return derive(_q(v, "0.01"), Unit.INR, inputs, label=label).model_dump(mode="json")
+
+        out.append(
+            {
+                "code": u.levy.code,
+                "label": u.levy.label,
+                "bills": u.levy.bills,
+                "rates": [r.model_dump(mode="json") for r in u.levy.rates],
+                "on_discom_kwh": u.on_discom_kwh.model_dump(mode="json"),
+                "on_other_kwh": u.on_other_kwh.model_dump(mode="json") if u.on_other_kwh else None,
+                "charged_on_other_units": u.on_other_kwh is not None,
+                "treatment": u.levy.treatment.model_dump(mode="json"),
+                "treatment_words": u.levy.words,
+                "sourced_to_regulation": False,
+                "discom_kwh_before": derive(
+                    _q(load_kwh), Unit.KWH, grid_inputs, label="Bought from the DISCOM today"
+                ).model_dump(mode="json"),
+                "discom_kwh_after": derive(
+                    _q(grid_kwh), Unit.KWH, all_inputs, label="Bought from the DISCOM with the plan"
+                ).model_dump(mode="json"),
+                "other_kwh": derive(
+                    _q(other_kwh),
+                    Unit.KWH,
+                    all_inputs,
+                    label="Units not bought from the DISCOM that the levy is charged on",
+                ).model_dump(mode="json"),
+                "before": money(
+                    load_kwh * u.on_discom_kwh.value,
+                    f"{u.levy.label} today, for the year",
+                    [*grid_inputs, u.on_discom_kwh],
+                ),
+                "after_discom": money(
+                    grid_kwh * u.on_discom_kwh.value,
+                    f"{u.levy.label} with the plan, on units bought from the DISCOM",
+                    [*all_inputs, u.on_discom_kwh],
+                ),
+                "after_other": money(
+                    other_kwh * (u.on_other_kwh.value if u.on_other_kwh is not None else ZERO),
+                    f"{u.levy.label} with the plan, on units not bought from the DISCOM (assumed)",
+                    ins_other,
+                ),
+            }
+        )
+    return out
 
 
 def _lifecycle(
@@ -1317,6 +1462,8 @@ def execute(run_id: str) -> str:
                 reader,
                 profile_id=pins.get("load_profile_id") if run.replay_of else None,
                 vintage_pins=pins.get("price_vintages_by_segment") if run.replay_of else None,
+                # a run made before the bill pins existed replays with no levies, as it was solved
+                bill_pins=(pins.get("bills") or {"levies": []}) if run.replay_of else None,
             )
             used_versions = sorted(reader.used)
             vint_by_seg = {
@@ -1353,6 +1500,14 @@ def execute(run_id: str) -> str:
                 "solver": sol.solver,
                 "resolution_min": run.resolution_min,
                 "as_of": a.as_of.isoformat(),
+                # what the run read from the client's accepted bills (the levies' rates with their
+                # bill citations and the treatment assumed, the kVAh factor and the power factor)
+                "bills": {
+                    "levies": [lv.to_json() for lv in a.bill_levies],
+                    "factors": [x.model_dump(mode="json") for x in a.bill_factors]
+                    if a.bill_factors
+                    else None,
+                },
             }
             run.solver = {
                 "status": sol.status,

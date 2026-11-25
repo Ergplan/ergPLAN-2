@@ -12,6 +12,28 @@ export type SourceOption = {
   price_note: string | null; ownerships: string[]; available: boolean; reason: string | null;
   inputs?: Record<string, string>;
 };
+// FPPCA or electricity duty at the rate the client's own bills print (never a regulation's), with the
+// treatment on units not bought from the DISCOM: an assumption, named in words.
+export type LevyOut = {
+  code: string; label: string; bills: number; rates: SourcedValue[]; on_discom_kwh: SourcedValue; on_other_kwh: SourcedValue | null;
+  charged_on_other_units: boolean; treatment: SourcedValue; treatment_words: string; sourced_to_regulation: boolean;
+  discom_kwh_before: SourcedValue; discom_kwh_after: SourcedValue; other_kwh: SourcedValue;
+  before: SourcedValue; after_discom: SourcedValue; after_other: SourcedValue;
+};
+// One row per levy for the results and plan pages: the rate as the bills print it and, in words, what
+// is charged on open-access, captive and rooftop units ("not charged" is said, never left blank).
+export function levyRows(levies: LevyOut[] | undefined): { code: string; label: string; rate: string; before: string; afterDiscom: string; afterOther: string; words: string; value: LevyOut }[] {
+  return (levies ?? []).map((l) => {
+    const r = l.rates[0];
+    return {
+      code: l.code, label: l.label, value: l,
+      rate: r ? `₹${Number(r.value).toFixed(2)}/${r.unit.replace("INR/", "")} on your ${l.bills} bill${l.bills === 1 ? "" : "s"}` : "—",
+      before: l.before.value, afterDiscom: l.after_discom.value,
+      afterOther: l.charged_on_other_units ? l.after_other.value : "not charged (assumed)",
+      words: l.treatment_words,
+    };
+  });
+}
 export type SummaryOut = {
   sizes: SizeOut[];
   annual: { before: SourcedValue; after: SourcedValue; saving: SourcedValue; capex: SourcedValue };
@@ -25,6 +47,7 @@ export type SummaryOut = {
   notes: string[];
   monthly?: MonthMix[];
   lifecycle?: LifecycleOut | null;
+  levies?: LevyOut[];
   lines_before?: Record<string, string>;
   lines_after?: Record<string, string>;
   settlement_rule?: string | null;

@@ -4,6 +4,7 @@ connections, profiles (summary, CSV, measured upload), prices (upload, overlap, 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -224,3 +225,39 @@ def test_kvah_month_carries_the_conversion_assumption() -> None:
     assert apr["energy_kwh"]["value"] == "950000.000"
     notes = [r.get("note") or "" for r in apr["energy_kwh"]["source_refs"]]
     assert any("0.95 (assumed)" in n for n in notes)
+
+
+def test_profile_says_when_the_tod_energy_is_above_the_recorded_demand() -> None:
+    # 911,350 kWh in the 270 hours of 10:00–19:00 averages 3,375 kW against 3,250 kVA recorded
+    month = {
+        "month": "2026-06-01",
+        "energy": {"value": "2169882"},
+        "max_kva": {"value": "3250"},
+        "tod": [
+            {"start": "05:00", "end": "10:00", "energy": {"value": "477374"}},
+            {"start": "10:00", "end": "19:00", "energy": {"value": "911350"}},
+            {"start": "19:00", "end": "03:00", "energy": {"value": "650965"}},
+        ],
+    }
+    intake = {
+        "client_name": {"value": "Acme"},
+        "site_name": {"value": "Plant 1"},
+        "state": {"value": "UP"},
+        "discom": {"value": "pvvnl"},
+        "category": {"value": "HV-2"},
+        "voltage_kv": {"value": "33"},
+        "contract_demand_kva": {"value": "5000"},
+        "industry_shape": {"value": "two_shift"},
+        "weekly_off": {"value": [6]},
+        "months": [month],
+    }
+    built = client.post("/sites", json={"intake": intake})
+    assert built.status_code == 201, built.text
+    assert any("above the recorded demand" in w for w in built.json()["warnings"])
+    prof = client.get(f"/connections/{built.json()['connection_id']}/profile").json()
+    june = next(m for m in prof["months"] if m["month"] == "2026-06-01")
+    assert june["energy_kwh"]["value"] == "2169882.000"
+    assert Decimal(june["max_kw"]["value"]) - Decimal("3250") == Decimal(june["peak_excess_kw"])
+    assert Decimal(june["peak_excess_kw"]) == Decimal("125.370")
+    april = next(m for m in prof["months"] if m["month"] == "2026-04-01")
+    assert april["peak_excess_kw"] is None

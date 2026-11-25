@@ -11,7 +11,10 @@ Order and meaning of the lines (master prompt Stage 4):
    the banked quantity);
 5. the ISTS waiver by commissioning date, on ISTS charges and losses;
 6. exemptions by scope (captive, group captive, GEOA, voltage, RE waivers with sunset), each a line
-   citing its rule row.
+   citing its rule row;
+7. electricity duty on units not bought from the DISCOM: the approved `electricity_duty_oa` row when
+   one applies (step 4); otherwise, when the caller passes it, the duty at the rate on the client's
+   own bills as an assumption-kind line that says it is not sourced to a regulation (engine/levies.py).
 A component the rulebook does not hold is a named gap; nothing is estimated (rule 13).
 """
 
@@ -31,6 +34,12 @@ from ..rulebook.scope import matches
 HUNDRED = Decimal(100)
 HOURS_IN_MONTH = Decimal(8760) / 12  # 730, for INR/MW/month over scheduled energy
 DAYS_IN_MONTH = Decimal(365) / 12  # INR/MW/day → INR/MW/month
+# behind-the-meter sources whose units are generated on site and not bought from the DISCOM
+OWN_GENERATION = ("lcoe", "thermal")
+ASSUMED_DUTY_NOTE = (
+    "electricity duty on these units is an assumption at the rate on your own bills, not sourced to "
+    "a regulation: no approved rule states the duty on open-access, captive or rooftop units here"
+)
 
 
 @dataclass(frozen=True)
@@ -111,6 +120,10 @@ class Scenario:
     extra: tuple[
         SourcedValue, ...
     ] = ()  # source-specific additions (group-captive equity cost, charging energy)
+    # electricity duty per kWh on units not bought from the DISCOM, at the rate on the client's bills
+    # under the stated assumption (engine.levies.on_other_units); used only where no approved
+    # `electricity_duty_oa` row applies, and never for DISCOM supply or a battery charged from the grid
+    duty_on_own_units: SourcedValue | None = None
 
 
 @dataclass(frozen=True)
@@ -246,6 +259,10 @@ def evaluate(
     if not spec.open_access:
         lines.extend(sc.extra)
         steps.extend(Step("extra", "extra", str(x.label or "Other cost"), x) for x in sc.extra)
+        if sc.duty_on_own_units is not None and spec.price_kind in OWN_GENERATION:
+            lines.append(sc.duty_on_own_units)
+            steps.append(_assumed_duty_step(sc.duty_on_own_units))
+            notes.append(ASSUMED_DUTY_NOTE)
         total = derive(
             sum((x.value for x in lines), Decimal(0)), Unit.INR_PER_KWH, lines, label="Landed cost"
         )
@@ -461,6 +478,11 @@ def evaluate(
                 "(Stage 5) decides the banked quantity"
             )
             used.append(settlement.id)
+    if sc.duty_on_own_units is not None and "electricity_duty_oa" not in by_comp:
+        # no approved row states the duty on open-access units: the assumption, named as one
+        lines.append(sc.duty_on_own_units)
+        steps.append(_assumed_duty_step(sc.duty_on_own_units))
+        notes.append(ASSUMED_DUTY_NOTE)
     lines.extend(sc.extra)
     steps.extend(Step("extra", "extra", str(x.label or "Other cost"), x) for x in sc.extra)
     total = derive(
@@ -479,6 +501,14 @@ def evaluate(
     wf._a = a
     wf.delivered = delivered
     return wf
+
+
+def _assumed_duty_step(line: SourcedValue) -> Step:
+    """The assumed duty as a link of the chain: an `extra`, not a `drawal` charge — a drawal charge
+    has a rule row behind it and can be corrected against that row; this has none."""
+    return Step(
+        "extra", "electricity_duty_assumed", str(line.label or "Electricity duty (assumed)"), line, line
+    )
 
 
 def _waive(

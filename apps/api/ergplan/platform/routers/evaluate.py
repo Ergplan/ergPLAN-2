@@ -274,13 +274,21 @@ class TodayOut(BaseModel):
 
     source: str  # tariff
     annual: SourcedValue | None = _sv_field()  # INR for the year
-    energy: SourcedValue | None = _sv_field()  # INR, the energy charges
+    energy: SourcedValue | None = _sv_field()  # INR, the tariff's energy charges (without the levies)
     demand: SourcedValue | None = _sv_field()  # INR, the demand charges
+    # INR for the year at the rate the connection's own accepted bills print (source kind `bill`),
+    # when the approved tariff does not state the levy; None when neither does
+    fppca: SourcedValue | None = _sv_field()
+    electricity_duty: SourcedValue | None = _sv_field()
     kwh: SourcedValue | None = _sv_field()  # the profile's energy for the year
     average_inr_per_kwh: SourcedValue | None = _sv_field()
     months: int
     note: str
     gaps: list[str] = []
+
+
+def _whole(x: SourcedValue | None, label: str) -> SourcedValue | None:
+    return None if x is None else derive(x.value.quantize(Decimal("1")), Unit.INR, [x], label=label)
 
 
 @router.get("/connections/{connection_id}/today", response_model=TodayOut)
@@ -296,8 +304,14 @@ def today(
     card = cost_router.connection_avoided_cost(connection_id, None, as_of)
     energy_lines = [x for x in card.annual if x.label == avoided_cost.ENERGY_YEAR]
     demand_lines = [x for x in card.annual if x.label == avoided_cost.DEMAND_YEAR]
-    energy = sum((x.value for x in energy_lines), Decimal(0))  # SourcedValue.value is a Decimal
+    with_levies = sum((x.value for x in energy_lines), Decimal(0))  # SourcedValue.value is a Decimal
     demand = sum((x.value for x in demand_lines), Decimal(0))
+    levy = {
+        code: next((x for x in card.annual if x.label == label), None)
+        for code, label in avoided_cost.LEVY_YEAR.items()
+    }
+    # the energy total at avoided rates holds the bill-rate levies: show the tariff's charge apart
+    energy = with_levies - sum((x.value for x in levy.values() if x is not None), Decimal(0))
     profile: SourcedValue | None = None
     with session_scope() as s:
         lp = s.scalars(
@@ -318,7 +332,7 @@ def today(
                 source_refs=(SourceRef(kind=kind, note=f"load profile v{lp.version} ({lp.provenance})"),),
             )
     lines = energy_lines + demand_lines
-    total = energy + demand
+    total = with_levies + demand
     kwh = profile.value if profile is not None else Decimal(0)
 
     def money(v: Decimal, label: str) -> SourcedValue | None:
@@ -329,6 +343,10 @@ def today(
         annual=money(total, "Grid cost today, for the year"),
         energy=money(energy, "Energy charges, for the year"),
         demand=money(demand, "Demand charges, for the year"),
+        fppca=_whole(levy["fppca"], "FPPCA at the rate on your bills, for the year"),
+        electricity_duty=_whole(
+            levy["electricity_duty"], "Electricity duty at the rate on your bills, for the year"
+        ),
         kwh=profile,
         average_inr_per_kwh=(
             derive(
@@ -341,7 +359,19 @@ def today(
             else None
         ),
         months=12,
-        note="the approved tariff applied to the year's load profile (energy and demand charges); "
-        + ("; ".join(card.gaps.values()) if card.gaps else "every component sourced"),
+        note="the approved tariff applied to the year's load profile (energy and demand charges)"
+        + (
+            ", with FPPCA and electricity duty at the rates your own bills print where the tariff "
+            "order does not state them (cited to the bills, not sourced to a regulation); "
+            if any(levy.values())
+            else "; "
+        )
+        + (
+            "; ".join(card.gaps.values())
+            if card.gaps
+            else "every other component sourced"
+            if any(levy.values())
+            else "every component sourced"
+        ),
         gaps=list(card.gaps.values()),
     )

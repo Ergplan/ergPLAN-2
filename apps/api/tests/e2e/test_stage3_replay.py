@@ -87,9 +87,12 @@ def test_real_bill_replays(filename: str, bill: dict[str, Any], committed: None)
     )
     rep = rp.replay("b", bill, {}, when, r.schedule, r.tod, cdv)
     bad = [(ln.group, str(ln.difference), ln.explanation) for ln in rep.lines if ln.status == "unexplained"]
-    assert rep.status in ("match", "explained"), bad
+    # a bill dated before every approved order is not replayed at all (its own status, never
+    # "explained"); the bills inside the approved tariffs must be rebuilt
+    assert rep.status in ("match", "explained", "no_tariff"), bad
     assert not bad
     if filename in COMPUTED:
+        assert rep.status in ("match", "explained"), rep.notes
         groups = {ln.group: ln for ln in rep.lines}
         assert groups["demand"].status in ("match", "explained") and groups["demand"].computed is not None
         assert groups["energy"].status == "match", (groups["energy"].billed, groups["energy"].computed)

@@ -1,8 +1,14 @@
-"""Solve a built model with HiGHS (through Pyomo's highspy interface) and read the solution back.
-Deterministic for the same problem and options (one thread), which the replay test relies on."""
+"""Solve a built model with HiGHS and read the solution back. The Pyomo model is compiled to its
+matrix once and handed to HiGHS directly (highspy). A model with few integer columns (the banking
+guards and the like) is searched here, branch and bound over HiGHS's simplex; one with many (a
+thermal fleet's commitment) goes to HiGHS's own MIP search. Deterministic for the same problem and
+options (one thread, a fixed seed, a fixed order of rows, columns and nodes), which the replay test
+relies on."""
 
 from __future__ import annotations
 
+import heapq
+import math
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -10,10 +16,11 @@ from datetime import date
 from typing import Any
 
 import highspy
+import numpy as np
 import pyomo
 import pyomo.environ as pyo
-from pyomo.contrib.solver.common.factory import SolverFactory
-from pyomo.contrib.solver.common.results import TerminationCondition
+from pyomo.repn.linear import LinearRepnVisitor
+from pyomo.repn.util import VarRecorder
 
 from .model import (
     Fixed,
@@ -29,8 +36,9 @@ from .model import (
 )
 
 _HIGHS = getattr(highspy, "__version__", "1.15.1")
-# "search 2": the TUNING options below (25 Nov 2026); a run made before them names the solver without it
-SOLVER_VERSION = f"highspy {_HIGHS} / pyomo {pyomo.__version__} / search 2"
+# "search 3": the matrix handed to HiGHS directly and the search of few-integer models here
+# (25 Nov 2026); "search 2" was HiGHS's own search with the TUNING options, through Pyomo's interface
+SOLVER_VERSION = f"highspy {_HIGHS} / pyomo {pyomo.__version__} / search 3"
 
 
 class SolveFailed(RuntimeError):
@@ -61,12 +69,37 @@ class Solution:
     # open-access candidate → kWh per block a battery at the plant took before delivery (the energy
     # was generated and is paid for; `delivered` is net of it)
     oa_charged: dict[str, list[float]] = field(default_factory=dict)
+    # where the time went, pass by pass (sizing, each month's dispatch, each period's settlement)
+    passes: list[Pass] = field(default_factory=list)
 
 
-# The models have a handful of binaries (banking and demand guards) over tens of thousands of continuous
-# variables, so each node's LP is the cost. HiGHS's sub-problem heuristics, symmetry detection and strong
-# branching spent more than half of the sizing pass without changing the answer (measured on the
-# 5 MVA Uttar Pradesh site at 15 minutes, 25 Nov 2026: 138 s to 84 s, the same optimum to the paisa).
+@dataclass
+class Pass:
+    """One solve: its size, how it was searched and where its time went."""
+
+    name: str = ""
+    rows: int = 0
+    cols: int = 0
+    integers: int = 0
+    search: str = "lp"  # lp | tree (here) | highs (HiGHS's MIP search)
+    nodes: int = 0
+    lp_iterations: int = 0
+    gap: float | None = None
+    optimal: bool = True
+    build_s: float = 0.0  # the Pyomo model
+    load_s: float = 0.0  # its matrix, into HiGHS
+    held_s: float = 0.0  # tree: the search with storage held at zero
+    held_nodes: int = 0
+    root_s: float = 0.0  # the whole problem's first LP (tree) or the whole run (lp, highs)
+    tree_s: float = 0.0  # tree: the whole problem's nodes
+    read_s: float = 0.0  # values back into the model
+
+
+# HiGHS's own MIP search, for models with many integer columns. The models have few binaries over
+# tens of thousands of continuous variables, so each node's LP is the cost. HiGHS's sub-problem
+# heuristics, symmetry detection and strong branching spent more than half of the sizing pass without
+# changing the answer (measured on the 5 MVA Uttar Pradesh site at 15 minutes, 25 Nov 2026: 138 s to
+# 84 s, the same optimum to the paisa).
 TUNING: dict[str, Any] = {
     "mip_detect_symmetry": False,
     "mip_heuristic_run_rins": False,
@@ -75,35 +108,370 @@ TUNING: dict[str, Any] = {
     "mip_pscost_minreliable": 0,
     "mip_allow_cut_separation_at_nodes": False,
 }
+# Every LP: the dual simplex with Devex pricing. On these models (one row per block for each
+# storage and settlement relation, nearly as many pivots as rows) steepest-edge pricing takes the
+# same number of pivots at about twice the time; HiGHS's MIP search does not let it be chosen.
+LP_OPTIONS: dict[str, Any] = {
+    "threads": 1,
+    "random_seed": 0,
+    "output_flag": False,
+    "solver": "simplex",
+    "simplex_dual_edge_weight_strategy": 1,
+}
+# A model with no more integer columns than this is searched here: for a handful of binaries
+# HiGHS's MIP search spends longer before its first branch (an interior-point solve for a rounding
+# heuristic, with steepest-edge pivots throughout) than the whole tree takes with warm-started LPs.
+TREE_MAX_INTEGERS = 40
+HOLD_SHARE = 0.25  # of a solve's time, at most, for the search with storage held at zero
+INTEGRAL = 1e-6  # an integer column is integral within this (HiGHS's mip_feasibility_tolerance)
+_INF = float(highspy.kHighsInf)
+_OPTIMAL = highspy.HighsModelStatus.kOptimal
+_TIME = highspy.HighsModelStatus.kTimeLimit
+_INFEASIBLE = highspy.HighsModelStatus.kInfeasible
 
 
-def _run(m: Any, time_limit_s: float, mip_gap: float) -> tuple[Any, float | None, bool]:
-    opt = SolverFactory("highs")
-    res = opt.solve(
-        m,
-        load_solutions=False,
-        raise_exception_on_nonoptimal_result=False,
-        time_limit=max(1.0, time_limit_s),
-        solver_options={
-            "threads": 1,
-            "mip_rel_gap": mip_gap,
-            "random_seed": 0,
-            "output_flag": False,
-            **TUNING,
-        },
+@dataclass
+class _Matrix:
+    """A model as HiGHS takes it: rows in the order they were added, columns in the order the
+    variables were declared."""
+
+    cols: list[Any]  # the Pyomo variable of each column
+    lower: Any
+    upper: Any
+    cost: Any
+    offset: float
+    integers: list[int]  # columns that must be integral
+    start: Any  # row-wise matrix
+    index: Any
+    value: Any
+    row_lower: Any
+    row_upper: Any
+
+
+def compile_model(m: Any) -> _Matrix:
+    """The model's rows, bounds and objective as arrays (fixed variables folded into constants)."""
+    var_map: dict[int, Any] = {}
+    visitor = LinearRepnVisitor({}, var_recorder=VarRecorder(var_map, None))
+    ids: list[int] = []
+    vals: list[float] = []
+    start = [0]
+    lo: list[float] = []
+    hi: list[float] = []
+    for c in m.cons.values():
+        lb, body, ub = c.to_bounded_expression(True)
+        repn = visitor.walk_expression(body)
+        if repn.nonlinear is not None:
+            raise SolveFailed("a constraint is not linear")
+        ids.extend(repn.linear)
+        vals.extend(repn.linear.values())
+        start.append(len(ids))
+        lo.append(-_INF if lb is None else lb - repn.constant)
+        hi.append(_INF if ub is None else ub - repn.constant)
+    obj = visitor.walk_expression(m.obj.expr)
+    if obj.nonlinear is not None:
+        raise SolveFailed("the objective is not linear")
+    cols = list(var_map.values())
+    col = {vid: j for j, vid in enumerate(var_map)}
+    cost = np.zeros(len(cols))
+    for vid, coef in obj.linear.items():
+        cost[col[vid]] = coef
+    lower = np.empty(len(cols))
+    upper = np.empty(len(cols))
+    integers = []
+    for j, v in enumerate(cols):
+        lb, ub = v.bounds
+        lower[j] = -_INF if lb is None else lb
+        upper[j] = _INF if ub is None else ub
+        if v.is_integer():
+            integers.append(j)
+    return _Matrix(
+        cols=cols,
+        lower=lower,
+        upper=upper,
+        cost=cost,
+        offset=float(obj.constant),
+        integers=integers,
+        start=np.array(start[:-1], dtype=np.int32),
+        index=np.fromiter((col[i] for i in ids), dtype=np.int32, count=len(ids)),
+        value=np.array(vals, dtype=np.float64),
+        row_lower=np.array(lo, dtype=np.float64),
+        row_upper=np.array(hi, dtype=np.float64),
     )
-    tc = res.termination_condition
-    if tc not in (
-        TerminationCondition.convergenceCriteriaSatisfied,
-        TerminationCondition.maxTimeLimit,
-    ) or not res.solution_status.name.lower().startswith(("optimal", "feasible")):
-        raise SolveFailed(f"solver ended with {tc.name} ({res.solution_status.name})")
-    res.solution_loader.load_vars()
-    gap = None
-    if res.incumbent_objective is not None and res.objective_bound is not None:
-        inc, bnd = float(res.incumbent_objective), float(res.objective_bound)
-        gap = abs(inc - bnd) / max(1.0, abs(inc))
-    return res, gap, tc == TerminationCondition.convergenceCriteriaSatisfied
+
+
+def _load(mx: _Matrix) -> Any:
+    h = highspy.Highs()  # type: ignore[no-untyped-call]
+    for k, v in LP_OPTIONS.items():
+        h.setOptionValue(k, v)
+    n, rows = len(mx.cols), len(mx.row_lower)
+    bad = highspy.HighsStatus.kError
+    if n and h.addVars(n, mx.lower, mx.upper) == bad:
+        raise SolveFailed("HiGHS refused the columns")
+    if n and h.changeColsCost(n, np.arange(n, dtype=np.int32), mx.cost) == bad:
+        raise SolveFailed("HiGHS refused the objective")
+    h.changeObjectiveOffset(mx.offset)
+    if (
+        rows
+        and h.addRows(rows, mx.row_lower, mx.row_upper, len(mx.index), mx.start, mx.index, mx.value) == bad
+    ):
+        raise SolveFailed("HiGHS refused the rows")
+    return h
+
+
+def _lp(h: Any, deadline: float) -> Any:
+    """Run the LP as it stands (warm from the basis HiGHS holds) up to the deadline. HiGHS counts
+    its time limit from its first run, not from this one."""
+    h.setOptionValue("time_limit", h.getRunTime() + max(1.0, deadline - time.perf_counter()))
+    h.run()
+    return h.getModelStatus()
+
+
+def _slack(bound: float) -> float:
+    return 1e-7 * max(1.0, abs(bound)) if math.isfinite(bound) else 0.0
+
+
+def _fail(h: Any, status: Any) -> SolveFailed:
+    return SolveFailed(f"solver ended with {h.modelStatusToString(status)}")
+
+
+def _tree(
+    h: Any, mx: _Matrix, deadline: float, mip_gap: float, out: Pass, hold: list[int]
+) -> list[float] | None:
+    """Branch and bound over the integer columns, HiGHS solving each node's LP from its parent's
+    basis. Depth first from each node taken (the child on the side the LP leans to), then the open
+    node with the lowest bound; it stops when the best solution is within `mip_gap` of the lowest
+    bound still open. Returns the best solution's column values (None: none found in time).
+
+    `hold` (storage sizes that may be zero): the same search is first run with those columns held
+    at zero. That is the problem without storage, several times smaller; every solution of it is a
+    solution of the whole problem, so its best one starts the whole search as the solution to beat
+    (often already within the gap of the whole problem's first bound), and its first basis starts
+    the whole problem's first LP (fewer pivots than from nothing on every site measured). Bounds
+    come only from the whole problem."""
+    ints = mx.integers
+    home = {j: (float(mx.lower[j]), float(mx.upper[j])) for j in ints}
+    Bounds = dict[int, tuple[float, float]]
+    t0 = time.perf_counter()
+    # the rows each integer column stands in, for `rounded`
+    ends = np.append(mx.start[1:], len(mx.index))
+    at_int = np.nonzero(np.isin(mx.index, ints))[0]
+    row_of = np.searchsorted(mx.start, at_int, side="right") - 1
+    rows_of: dict[int, list[tuple[int, float]]] = {j: [] for j in ints}
+    for k, r in zip(at_int.tolist(), row_of.tolist(), strict=True):
+        rows_of[int(mx.index[k])].append((r, float(mx.value[k])))
+
+    def rounded(x: list[float]) -> Bounds | None:
+        """Whole values for the integer columns that leave every row they stand in satisfied with
+        the other columns where the LP put them (None: no such values). An LP often leaves a
+        binary fractional that it does not need: a guard relaxed although the row it guards holds."""
+        xs = np.asarray(x)
+        act: dict[int, float] = {}
+        out_: Bounds = {}
+        for j in ints:
+            for r, _ in rows_of[j]:
+                if r not in act:
+                    act[r] = float(mx.value[mx.start[r] : ends[r]] @ xs[mx.index[mx.start[r] : ends[r]]])
+            lo, hi = home[j]
+            near = float(round(x[j]))
+            tries = [near] if abs(x[j] - near) <= INTEGRAL else [near, near + (1.0 if x[j] > near else -1.0)]
+            for v in tries:
+                if lo <= v <= hi and all(
+                    mx.row_lower[r] - _slack(mx.row_lower[r])
+                    <= act[r] + a * (v - x[j])
+                    <= mx.row_upper[r] + _slack(mx.row_upper[r])
+                    for r, a in rows_of[j]
+                ):
+                    for r, a in rows_of[j]:
+                        act[r] += a * (v - x[j])
+                    out_[j] = (v, v)
+                    break
+            else:
+                return None
+        return out_
+
+    first_done: list[float] = []  # when the search under way finished its first LP
+
+    def solve_node(bounds: Bounds, basis: Any, until: float) -> Any:
+        for j in ints:
+            lo, hi = bounds.get(j, home[j])
+            h.changeColBounds(j, lo, hi)
+        if basis is not None:
+            h.setBasis(basis)
+        status = _lp(h, until)
+        out.nodes += 1
+        out.lp_iterations += int(h.getInfo().simplex_iteration_count)
+        return status
+
+    def search(
+        best: float, best_x: list[float] | None, root: Any, until: float
+    ) -> tuple[float, list[float] | None, float, bool, Any]:
+        """→ best value, its columns, the lowest bound left, whether the search ended within the
+        gap, and the first LP's basis."""
+        closed = math.inf  # the lowest LP value among nodes closed as integral
+        heap: list[tuple[float, int, Bounds, Any]] = []  # open: bound, order, bounds, parent's basis
+        seq = 0
+        cur: tuple[float, Bounds, Any] | None = (-math.inf, {}, root)
+        first: Any = None
+
+        def lowest() -> float:
+            return min(best, closed, heap[0][0]) if heap else min(best, closed)
+
+        def within() -> bool:
+            return best < math.inf and best - lowest() <= mip_gap * max(1.0, abs(best))
+
+        while True:
+            if cur is None:
+                if not heap or within() or time.perf_counter() >= until:
+                    break
+                bound, _, bounds, basis = heapq.heappop(heap)
+                cur = (bound, bounds, basis)
+            bound, bounds, basis = cur
+            cur = None
+            status = solve_node(bounds, basis, until)
+            if status == _TIME:
+                seq += 1
+                heapq.heappush(heap, (bound, -seq, bounds, basis))  # still open: its bound stands
+                break
+            if status == _INFEASIBLE:
+                continue
+            if status != _OPTIMAL:
+                raise _fail(h, status)
+            if first is None:
+                first = h.getBasis()
+                first_done.append(time.perf_counter())
+            value = float(h.getInfo().objective_function_value)
+            if value >= best:
+                continue
+            x = h.getSolution().col_value
+            off, at = max((min(abs(x[j] - round(x[j])), 1.0), -j) for j in ints)
+            if off <= INTEGRAL:
+                # integral within the tolerance: the node is closed at its LP value. The solution
+                # kept is the one with every integer column held at its whole value, where that
+                # solves.
+                closed = min(closed, value)
+                whole = {j: (float(round(x[j])), float(round(x[j]))) for j in ints}
+                moved = any(whole[j] != bounds.get(j) for j in ints)
+                if moved and solve_node(whole, None, until) == _OPTIMAL:
+                    value = float(h.getInfo().objective_function_value)
+                    x = h.getSolution().col_value
+                if value < best:
+                    best, best_x = value, x
+                    heap = [node for node in heap if node[0] < best]
+                    heapq.heapify(heap)
+                continue
+            j = -at
+            here = h.getBasis()
+            # whole values the LP's own solution allows: a solution at (or near) this node's bound
+            whole = rounded(x) or {}
+            if whole and solve_node(whole, None, until) == _OPTIMAL:
+                found = float(h.getInfo().objective_function_value)
+                if found < best:
+                    best, best_x = found, h.getSolution().col_value
+                    heap = [node for node in heap if node[0] < best]
+                    heapq.heapify(heap)
+                if found <= value + 1e-9 * max(1.0, abs(value)):
+                    closed = min(closed, value)  # nothing below it in this node
+                    continue
+            lo, hi = bounds.get(j, home[j])
+            down = {**bounds, j: (lo, float(math.floor(x[j])))}
+            up = {**bounds, j: (float(math.ceil(x[j])), hi)}
+            lean, other = (up, down) if x[j] - math.floor(x[j]) >= 0.5 else (down, up)
+            seq += 2
+            heapq.heappush(heap, (value, seq, other, here))
+            if best_x is None:
+                cur = (value, lean, here)  # no solution yet: dive for one
+            else:
+                heapq.heappush(heap, (value, seq - 1, lean, here))
+        return best, best_x, lowest(), (not heap or within()), first
+
+    best, best_x, start = math.inf, None, None
+    if hold:
+        for j in hold:
+            h.changeColBounds(j, 0.0, 0.0)
+        best, best_x, _, _, start = search(best, best_x, None, t0 + HOLD_SHARE * (deadline - t0))
+        for j in hold:
+            h.changeColBounds(j, float(mx.lower[j]), float(mx.upper[j]))
+        out.held_s = time.perf_counter() - t0
+        out.held_nodes = out.nodes
+    # the whole problem, its first LP from the held problem's first basis (a vertex of it too)
+    t1 = time.perf_counter()
+    first_done.clear()
+    best, best_x, low, ended, _ = search(best, best_x, start, deadline)
+    out.root_s = (first_done[0] if first_done else time.perf_counter()) - t1
+    out.tree_s = time.perf_counter() - t1 - out.root_s
+    if best_x is not None:
+        # no bound at all (the whole problem's first LP did not finish): the gap is not known
+        out.gap = abs(best - low) / max(1.0, abs(best)) if math.isfinite(low) else None
+        out.optimal = ended
+    return best_x
+
+
+def _run(m: Any, time_limit_s: float, mip_gap: float, name: str = "", hold: Any = ()) -> Pass:
+    """Solve the model and leave the solution in its variables. `hold`: variables (storage sizes)
+    the tree search first holds at zero (see _tree)."""
+    out = Pass(name=name)
+    t0 = time.perf_counter()
+    deadline = t0 + max(1.0, time_limit_s)
+    mx = compile_model(m)
+    h = _load(mx)
+    out.rows, out.cols, out.integers = len(mx.row_lower), len(mx.cols), len(mx.integers)
+    out.load_s = time.perf_counter() - t0
+    t1 = time.perf_counter()
+    x: list[float] | None
+    if not mx.integers:
+        # a plain LP is solved from nothing: starting it from the LP without storage is quicker
+        # (15 s against 24 s on the third-party five-component site) but lands on another of two
+        # equal-cost vertices there (the battery behind the meter where the one at the plant was)
+        status = _lp(h, deadline)
+        out.lp_iterations = int(h.getInfo().simplex_iteration_count)
+        if status != _OPTIMAL:
+            raise _fail(h, status)
+        x = h.getSolution().col_value
+        out.root_s = time.perf_counter() - t1
+        out.gap = 0.0
+    elif len(mx.integers) <= TREE_MAX_INTEGERS:
+        out.search = "tree"
+        col = {id(v): j for j, v in enumerate(mx.cols)}
+        held = [col[id(v)] for v in hold if id(v) in col and mx.lower[col[id(v)]] <= 0.0]
+        x = _tree(h, mx, deadline, mip_gap, out, held)
+        if x is None:
+            late = time.perf_counter() >= deadline
+            raise SolveFailed(
+                f"solver ended {'on its time limit' if late else 'infeasible'} without a solution"
+            )
+    else:
+        out.search = "highs"
+        x = _mip(h, mx, deadline, mip_gap, out)
+        out.root_s = time.perf_counter() - t1
+    t2 = time.perf_counter()
+    whole = set(mx.integers)
+    for j, v in enumerate(mx.cols):
+        v.set_value(float(round(x[j])) if j in whole else x[j], skip_validation=True)
+    out.read_s = time.perf_counter() - t2
+    return out
+
+
+def _mip(h: Any, mx: _Matrix, deadline: float, mip_gap: float, out: Pass) -> list[float]:
+    """HiGHS's own MIP search (TUNING), for a model with many integer columns."""
+    kind = highspy.HighsVarType.kInteger
+    h.changeColsIntegrality(
+        len(mx.integers), np.array(mx.integers, dtype=np.int32), [kind] * len(mx.integers)
+    )
+    h.setOptionValue("solver", "choose")
+    h.setOptionValue("mip_rel_gap", mip_gap)
+    for k, v in TUNING.items():
+        h.setOptionValue(k, v)
+    status = _lp(h, deadline)
+    info = h.getInfo()
+    feasible = info.primal_solution_status == highspy.SolutionStatus.kSolutionStatusFeasible
+    if status not in (_OPTIMAL, _TIME) or not feasible:
+        raise _fail(h, status)
+    out.nodes, out.lp_iterations = int(info.mip_node_count), int(info.simplex_iteration_count)
+    inc, bnd = float(info.objective_function_value), float(info.mip_dual_bound)
+    out.gap = abs(inc - bnd) / max(1.0, abs(inc))
+    out.optimal = status == _OPTIMAL
+    x: list[float] = h.getSolution().col_value
+    return x
 
 
 def solve(p: Problem, time_limit_s: float = 120.0, mip_gap: float = 0.001) -> Solution:
@@ -118,8 +486,19 @@ def solve(p: Problem, time_limit_s: float = 120.0, mip_gap: float = 0.001) -> So
     t0 = time.perf_counter()
     factor = 4 if p.hours == 0.25 else 1
     ps = coarsen(p, factor)
-    m = build(ps)
-    _, gap, optimal = _run(m, time_limit_s * 0.5, mip_gap)
+    passes: list[Pass] = []
+
+    def run(make: Any, limit_s: float, gap_: float, name: str) -> Any:
+        tb = time.perf_counter()
+        model = make()
+        built = time.perf_counter() - tb
+        done = _run(model, limit_s, gap_, name, storage_sizes(model))
+        done.build_s = built
+        passes.append(done)
+        return model
+
+    m = run(lambda: build(ps), time_limit_s * 0.5, mip_gap, "sizing")
+    gap, optimal = passes[0].gap, passes[0].optimal
     size = read(m, ps)
     objective = float(pyo.value(m.obj))
     binding_names = size.binding
@@ -131,9 +510,9 @@ def solve(p: Problem, time_limit_s: float = 120.0, mip_gap: float = 0.001) -> So
         parts: list[Solution] = []
         for idx in months_of(p):
             cp = chunk(p, idx, start, fixed)
-            mc = build(cp)
             # sizes fixed, a month is (nearly) an LP: a fair floor so a slower month still solves
-            _run(mc, max(30.0, (time_limit_s * 0.8 - (time.perf_counter() - t0)) / 6), mip_gap)
+            limit = max(30.0, (time_limit_s * 0.8 - (time.perf_counter() - t0)) / 6)
+            mc = run(lambda cp=cp: build(cp), limit, mip_gap, f"dispatch {cp.blocks[0].month:%Y-%m}")
             part = read(mc, cp)
             parts.append(part)
             start = Start(
@@ -142,6 +521,9 @@ def solve(p: Problem, time_limit_s: float = 120.0, mip_gap: float = 0.001) -> So
                 on={u: v[-1] > 0 for u, v in part.thermal.items()},
             )
         sol = _merge(size, parts)
+    # proven only if the sizing and every month's dispatch were (the settlement passes are checked
+    # by the judge)
+    optimal = optimal and all(q.optimal for q in passes)
     sol.status = "optimal" if optimal else "time_limit"
     sol.objective = objective
     sol.gap = gap
@@ -150,16 +532,32 @@ def solve(p: Problem, time_limit_s: float = 120.0, mip_gap: float = 0.001) -> So
     start = Start()
     for idx in periods_of(p):
         cp = chunk(p, idx, start, None)
-        ms = build_settlement(
-            cp, [sol.metered[t] for t in idx], {k: [v[t] for t in idx] for k, v in sol.delivered.items()}
+        ms = run(
+            lambda cp=cp, idx=idx: build_settlement(
+                cp,
+                [sol.metered[t] for t in idx],
+                {k: [v[t] for t in idx] for k, v in sol.delivered.items()},
+            ),
+            max(10.0, time_limit_s - (time.perf_counter() - t0)),
+            1e-9,
+            f"settlement {cp.blocks[0].month:%Y-%m}",
         )
-        _run(ms, max(10.0, time_limit_s - (time.perf_counter() - t0)), 1e-9)
         for mo, row in read_settlement(ms, cp).items():
             settled[mo] = row
         start = Start(bank_kwh=_carried(ms))
     sol.settled = settled
+    sol.passes = passes
     sol.seconds = time.perf_counter() - t0
     return sol
+
+
+def storage_sizes(m: Any) -> list[Any]:
+    """The size variables of a model's storage: batteries behind the meter (power) and at the
+    open-access plant (the capacity of the candidate that delivers their output)."""
+    out = [m.bkw[k] for k in m.bkw] if hasattr(m, "bkw") else []
+    if hasattr(m, "okwh"):
+        out += [m.cap[k] for k in m.okwh]
+    return [v for v in out if not v.fixed]
 
 
 def _carried(m: Any) -> dict[str, float]:
