@@ -1,0 +1,5 @@
+# The inbound rules this deployment owns on the VM replan2 (Stage 11). One rule per line:
+#   name                protocol:port,...   source ranges, comma-separated
+# Edit, then rerun tools/dev/vm-firewall.sh. A name must start with "replan2-allow-"; the script
+# touches only rules it created itself (it marks them in their description) and nothing else.
+replan2-allow-web       tcp:80,tcp:443      0.0.0.0/0

@@ -34,6 +34,29 @@ To reach it from outside the office, put a hostname in front (Cloudflare Tunnel,
 forward with `SITE_ADDRESS=<hostname>`, `ERGPLAN_PUBLIC_URL=https://<hostname>` and port 443 published),
 so Caddy serves https.
 
+# The public VM `replan2` (asia-south2-b, from 25 Nov 2026, Stage 11)
+
+Project `replanner-513407`, Debian 13, 4 vCPU, 16 GB, static address `replan2-ip`. The checkout at `/work/ergPLAN-2` is the deployment; Claude Code built it there. SSH is through IAP only. Everything below is run in that folder.
+
+| To | Run |
+| --- | --- |
+| See the services | `tools/dev/vm.sh ps` · `tools/dev/vm.sh logs -f api` |
+| Update to the latest code | `git pull && tools/dev/vm.sh up -d --build` (migrations run when the API starts) |
+| Let a person in (no mail account yet) | `tools/dev/vm.sh exec api python -m ergplan.platform.signin name@company.in` — hand over the link it prints; it works once, for 15 minutes. Emails at `ERGPLAN_ANALYST_DOMAIN` or listed in `ERGPLAN_ANALYST_EMAILS` are analysts |
+| Check the deployment end to end | `python3 tools/dev/vm-check.py` (services, published ports, certificate, sign-in by link, a rule-book figure opening its stored page) |
+| Change a setting or a key | edit `.env` (mode 600; never print it), then `tools/dev/vm.sh up -d` |
+| Change the firewall | edit `tools/dev/vm-firewall.allow`, then `tools/dev/vm-firewall.sh` (`--check` shows what would change) |
+| Reload the rulebooks after a pull | `tools/dev/vm.sh exec api python -m ergplan.rulebook.cli restore` |
+| See which cited PDFs are missing | `tools/dev/vm.sh exec api python -m ergplan.documents.missing` |
+| Add regulation PDFs | copy the Mac mini's library folders into `data/corpus/` (for example from Cloud Shell: `gcloud compute scp --recurse --tunnel-through-iap <folder> replan2:/work/ergPLAN-2/data/corpus/ --zone asia-south2-b`), then `tools/dev/vm.sh exec api python -m ergplan.documents.corpus --root /data/corpus/India_DISCOM_Tariff_Orders_Final_2026`; or upload one in the app under Documents. `python3 tools/dev/fetch-corpus.py` fetches from the regulators the files that match the rulebooks' citations byte for byte |
+| Back up now | `sudo systemctl start ergplan-backup.service` (nightly at 02:30 India time: `systemctl list-timers ergplan-backup.timer`); files in `/data/backups`, 14 days |
+| Rehearse a restore | `sudo tools/dev/restore-rehearsal.sh` |
+| Restore for real | stop `api` and `worker`; `pg_restore --clean --if-exists -U ergplan -d ergplan2` from the chosen `db-*.dump` inside the `postgres` container; unpack `data-*.tar.gz` over the checkout; start them again |
+| Run the watcher | `tools/dev/vm-watch.sh` (tmux window `watch`; its own Postgres on 127.0.0.1, never the deployment's `.env`) |
+| Run the browser journeys | `E2E_TESTS="tests/e2e/test_ergplan2_journey.py tests/e2e/test_statebook_journey.py" tools/dev/e2e-journey.sh` (a scratch stack beside the deployment) |
+
+After a reboot Docker starts the services again by itself (`restart: unless-stopped`); `python3 tools/dev/vm-check.py` confirms it. DNS: an A record for the hostname in `SITE_ADDRESS` to the static address (the zone is on Vercel DNS); Caddy obtains and renews the certificate.
+
 # The Google Cloud VM `replanner` (asia-south2-b, from 1 Nov 2026)
 
 How code reaches it: the builder commits and pushes to GitHub, then updates the VM over SSH from the

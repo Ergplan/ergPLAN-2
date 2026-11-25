@@ -48,6 +48,8 @@ Web http://localhost:3000 · API http://localhost:8000/docs.
 
 Without Docker: Postgres 16 on :5432 with role/db `ergplan`, then `cd apps/api && python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/playwright install chromium && .venv/bin/alembic upgrade head && .venv/bin/uvicorn ergplan.platform.app:app`, the run worker `.venv/bin/python -m ergplan.platform.worker`, and `cd apps/web && pnpm install && pnpm dev`.
 
+The public deployment (the VM `replan2`, Stage 11) and how to run it: `docs/deploy.md`.
+
 Checks: `python3 tools/watch/watch.py` (watch) or `--once`. Review: `tools/review/run.sh N`. 15-minute site solves: `cd apps/api && .venv/bin/pytest -m slow`. Browser end-to-end on real bills: `tools/dev/e2e-journey.sh`.
 
 ## Status

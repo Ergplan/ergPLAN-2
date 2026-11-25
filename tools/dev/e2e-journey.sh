@@ -8,6 +8,8 @@ API="$ROOT/apps/api"
 LOG="${E2E_LOG_DIR:-$(mktemp -d)}"
 DB="postgresql+psycopg://ergplan:ergplan@localhost:5432/ergplan2_e2e"
 export DATABASE_URL="$DB"
+# never the deployment's .env (on a server it holds the production address and keys): environment only
+export ERGPLAN_ENV_FILE=
 pids=()
 killtree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do killtree "$c"; done; kill "$1" 2>/dev/null || true; }
 cleanup() {
