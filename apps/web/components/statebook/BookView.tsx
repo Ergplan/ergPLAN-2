@@ -1,7 +1,7 @@
 import { RefChips } from "@/components/cost/RefChips";
 import { Fig, traceOf } from "./Fig";
 import type { Ref } from "@/lib/intake";
-import { monthLabel, rate, slotLabel, type BookDetail, type BookPoint, type BookRoute, type Sourced } from "@/lib/statebook";
+import { markUnstored, monthLabel, rate, slotLabel, type BookDetail, type BookPoint, type BookRoute, type Sourced } from "@/lib/statebook";
 
 const FAMILY: Record<string, string> = {
   oa_charge: "Open-access charges",
@@ -86,7 +86,7 @@ function Waterfall({ r }: { r: BookRoute }) {
 }
 
 export function BookView({ book }: { book: BookDetail }) {
-  const c = book.content;
+  const c = markUnstored(book.content, book.documents_missing ?? []);
   const changes = c.changes ?? [];
   const gaps = Object.entries(c.gaps);
   const hasGrid = c.grid.length > 0;
@@ -97,7 +97,7 @@ export function BookView({ book }: { book: BookDetail }) {
     ...c.limits.map((l) => l.value),
   ];
   const count = (k: string) => base.filter((v) => traceOf(v.source_refs) === k).length;
-  const traced = { page: count("page"), register: count("register"), assumption: count("assumption") };
+  const traced = { page: count("page"), unstored: count("unstored"), register: count("register"), assumption: count("assumption") };
   return (
     <div className="ep-book">
       {changes.length > 0 && (
@@ -130,6 +130,7 @@ export function BookView({ book }: { book: BookDetail }) {
         <div className="eg-overline" style={{ marginBottom: 8 }}>Where the numbers come from</div>
         <div className="ep-row">
           <span className="eg-chip eg-chip--accent">{traced.page} open a stored order or regulation page</span>
+          {traced.unstored > 0 && <span className="eg-chip eg-chip--warning">{traced.unstored} cite a page whose PDF is not yet on this server</span>}
           <span className="eg-chip">{traced.register} cite an order by name (State Regulation Master)</span>
           <span className="eg-chip eg-chip--warning">{traced.assumption} assumed</span>
         </div>

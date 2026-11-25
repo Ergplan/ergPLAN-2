@@ -19,6 +19,17 @@ export type DocumentOut = {
   url: string;
 };
 
+// An order or regulation approved rules cite whose PDF is not in this server's library (analysts)
+export type MissingDocument = {
+  document_id: string;
+  jurisdictions: string[];
+  families: string[];
+  cited_in: string[];
+  pages: number[];
+  rules: number;
+  quote: string | null;
+};
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);

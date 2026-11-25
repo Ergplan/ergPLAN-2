@@ -91,13 +91,46 @@ def test_reference_book_landed_cost_saving_and_routes(site: dict[str, str]) -> N
     assert "section 42(2)" in group["route_note"] and "rule 3" in group["route_note"]
     assert D(own["saving_avg"]["value"]) > D(third["saving_avg"]["value"]) > 0
     # how far the figures are traced is counted, and a page ref names its order
+    # (the cited MSEDCL orders are not in the test's document store, so their pages count as unstored)
     t = c["trace"]
-    assert t["page"] > 0 and t["assumption"] > 0 and t["other"] == 0
+    assert t["unstored"] > 0 and t["page"] == 0 and t["assumption"] > 0 and t["other"] == 0
+    assert b["documents_missing"] and set(b["documents_missing"]) == {
+        r["document_id"]
+        for x in third["slots"]
+        for ln in x["lines"]
+        for r in ln["source_refs"]
+        if r["kind"] in ("order", "regulation")
+    } | {r["document_id"] for g in c["grid"] for r in g["rate"]["source_refs"] if r.get("document_id")}
     css = next(x for x in third["slots"][0]["lines"] if "CSS" in (x["label"] or ""))
     assert css["source_refs"][0]["kind"] == "order" and css["source_refs"][0]["page"]
     # the benchmark tariff is shown as an assumption until a quote replaces it
     ppa = next(x for x in third["slots"][0]["lines"] if x["label"] == "PPA tariff")
     assert ppa["source_refs"][0]["kind"] == "assumption"
+
+
+def test_a_page_counts_as_opening_only_when_its_pdf_is_stored(
+    site: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stage 11: a server that has not been sent the library says so, in the count, per book and in
+    the file; once the PDFs are there the same figures open their pages."""
+    from ergplan.documents import service as documents
+
+    b = _gen()
+    cited = set(b["documents_missing"])
+    assert cited and b["content"]["trace"]["page"] == 0
+    md = client.get(f"/statebooks/{b['id']}/file", headers=AN).text
+    assert "is not yet in this server's library" in md
+    assert f"{b['content']['trace']['unstored']} cite a page of an order whose PDF is not yet" in md
+    assert all(f"/api/documents/{d}#page=" not in md for d in cited)
+
+    monkeypatch.setattr(documents, "stored_ids", lambda s: set(cited))
+    again = client.get(f"/statebooks/{b['id']}", headers=AN).json()
+    assert again["documents_missing"] == []  # asked each time the book is shown; the issue is frozen
+    md = client.get(f"/statebooks/{b['id']}/file", headers=AN).text
+    assert "is not yet in this server's library" not in md and "0 open a stored" not in md
+    assert any(f"/api/documents/{d}#page=" in md for d in cited)
+    fresh = _gen()["content"]["trace"]
+    assert fresh["page"] == b["content"]["trace"]["unstored"] and fresh["unstored"] == 0
 
 
 def test_settlement_in_words_cites_the_rule(site: dict[str, str]) -> None:

@@ -9,16 +9,28 @@ const KIND: Record<string, string> = {
   measured: "Metered",
 };
 
-// How far a figure is traced: every source opens a stored page; some are cited by name only; or assumed.
-export function traceOf(refs: Ref[]): "page" | "register" | "assumption" | "other" {
+// How far a figure is traced: every source opens a stored page; a cited page's PDF is not in this
+// server's library; some are cited by name only; or assumed.
+export function traceOf(refs: Ref[]): "page" | "unstored" | "register" | "assumption" | "other" {
   const real = refs.filter((r) => r.kind !== "derived");
   if (real.some((r) => r.kind === "assumption")) return "assumption";
   if (real.some((r) => r.kind === "register")) return "register";
-  if (real.length && real.every((r) => (r.kind === "order" || r.kind === "regulation") && r.document_id && r.page)) return "page";
+  if (real.length && real.every((r) => (r.kind === "order" || r.kind === "regulation") && r.document_id && r.page)) {
+    return real.some((r) => r.document_stored === false) ? "unstored" : "page";
+  }
   return "other";
 }
 
 function Source({ r }: { r: Ref }) {
+  if ((r.kind === "order" || r.kind === "regulation") && r.document_stored === false) {
+    return (
+      <li>
+        <b>{r.document_title ?? `The ${r.kind}`}, page {r.page}</b>
+        <em>This PDF is not yet in this server&apos;s library, so the page does not open here.</em>
+        {r.quote && <q>{r.quote.length > 260 ? `${r.quote.slice(0, 260)}…` : r.quote}</q>}
+      </li>
+    );
+  }
   if ((r.kind === "order" || r.kind === "regulation") && r.document_id && r.page) {
     return (
       <li>

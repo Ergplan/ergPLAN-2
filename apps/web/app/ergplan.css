@@ -496,6 +496,7 @@ a.eg-btn { text-decoration: none; }
 .ep-fig > summary::-webkit-details-marker { display: none; }
 .ep-fig--page > summary { border-bottom-style: solid; border-bottom-color: var(--accent, #2fbf71); }
 .ep-fig--assumption > summary { border-bottom-color: var(--warning, #c98a1b); }
+.ep-fig--unstored > summary { border-bottom-color: var(--warning, #c98a1b); }
 .ep-fig > summary:focus-visible { outline: 2px solid var(--accent, #2fbf71); outline-offset: 2px; }
 .ep-fig__pop { position: absolute; z-index: 60; right: 0; top: calc(100% + 6px); width: min(440px, 80vw); max-height: 320px; overflow: auto; padding: var(--space-3); border-radius: 12px;
   background: var(--surface-raised, var(--surface, #fff)); border: 1px solid var(--line, rgba(128, 128, 128, 0.3)); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);

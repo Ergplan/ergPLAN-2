@@ -9,6 +9,8 @@ from collections.abc import Iterator
 
 import pytest
 
+# never the deployment's .env (a server's holds the production address and keys): environment only
+os.environ["ERGPLAN_ENV_FILE"] = ""
 os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://ergplan:ergplan@localhost:5432/ergplan2_test")
 os.environ["ERGPLAN_DATA_DIR"] = tempfile.mkdtemp(prefix="ergplan-test-")
 

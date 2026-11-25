@@ -63,6 +63,7 @@ bill → `intake.bills.ingest()` → `intake.site_intake.build()` → `engine.ta
 | `core` | `settings` (env and `.env`), `units` (the unit enum and the only conversions), `money` (Decimal parsing, floats refused), `sourced` (`SourceRef`, `SourcedValue`, `derive`, `stated`, `assumed`), `ids` | 0 |
 | `db` | `base` (engine; `session_scope(actor, role)` sets `ergplan.actor`/`ergplan.role` for triggers), `models` | 0 |
 | `documents` | `service` (register by SHA-256, page count, render page PNG, page text), `corpus` (register the indexed corpus with regulator URLs and page hints; `python -m ergplan.documents.corpus --root …`) | 0 |
+| `documents` (Stage 11) | `missing` (`cited_missing()`: the orders and regulations approved rules cite whose PDF is not in this machine's store; `python -m ergplan.documents.missing`), `service.stored_ids()` (a row and its file) | 11 |
 | `documents` (Stage 1) | `ocr` (tesseract fallback for scanned pages, stored under `data/ocr/<sha256>/`) | 1 |
 | `rulebook` | `schemas` (JSON Schemas with refs), `scope` (`matches`, `specificity`, `norm_code`), `service` (propose, revise, update_row, delete_row, duplicate, run_golden, approve, reject; jurisdictions and chain), `golden` (files → `rule_tests`, evaluation with `where` filters), `repository` (`approved_rules`, `applicable` — engines' only door), `sandbox` (drafts, analyst only), `yaml_io` (export approved → `packages/rulebooks/states`, import, restore keeping version and origin), `cli` | 1 |
 | `regreader` | `direct` (pages → OpenAI → grounded rows), `grounding` (quote on page, fragments, OCR word order, numbers printed, worded zero and waiver), `tariff_oder` (published facts → rows), `voltage` (band phrases), `locate` (topic pages) | 1 |
@@ -89,8 +90,9 @@ bill → `intake.bills.ingest()` → `intake.site_intake.build()` → `engine.ta
 | --- | --- | --- |
 | GET | `/health` | Database version and migration head |
 | GET | `/documents?jurisdiction=` | Registered documents |
-| POST | `/documents` | Upload a PDF (multipart `file`, `title`, `regulator`, `jurisdiction`, `document_kind`, `url_public`) |
-| GET | `/documents/{id}` | The PDF, `Content-Disposition: inline`, so `#page=N` opens at the page |
+| POST | `/documents` | Upload a PDF (multipart `file`, `title`, `regulator`, `jurisdiction`, `document_kind`, `url_public`); in production an analyst only, recorded under the analyst's own name |
+| GET | `/documents/{id}` | The PDF, `Content-Disposition: inline`, so `#page=N` opens at the page; when the PDF is not stored on this server, a 404 page that says so in words |
+| GET | `/documents/missing` | Analyst: the documents approved rules cite that are not stored here (id, states, families, the versions that cite it, pages, one quote) |
 | GET | `/documents/{id}/meta` | The row |
 | GET | `/documents/{id}/pages/{n}.png` | Page image (pypdfium2) |
 | GET | `/documents/{id}/pages/{n}/text` | Page text (text layer, or OCR for scanned pages) |
@@ -180,6 +182,8 @@ ergOS Harmony vendored at `public/vendor/harmony` (origin in `ORIGIN.txt`, re-co
 
 ## Deployment
 
+**Google Cloud VM `replan2` (25 Nov 2026, the public deployment, Stage 11):** project `replanner-513407`, zone `asia-south2-b`, static address `replan2-ip`; the checkout at `/work/ergPLAN-2` is the deployment (built there by Claude Code, updated with `git pull` and `tools/dev/vm.sh up -d --build`). `docker/compose.prod.yaml` over `compose.yaml`: only Caddy is published (80/443, Let's Encrypt for `SITE_ADDRESS`); every service restarts with Docker after a reboot. `.env` (mode 600) holds the address, the generated database password and billx token, and the keys the person typed. Firewall: `tools/dev/vm-firewall.sh` applies `tools/dev/vm-firewall.allow` (rule `replan2-allow-web`) and touches no rule it did not create. Backups: `tools/dev/vm-backup-install.sh` installs a systemd timer (02:30 India time) that runs `tools/dev/backup.sh` into `/data/backups` (14 days); `tools/dev/restore-rehearsal.sh` restores the newest dump into a scratch database and compares every table's row count. The watcher on the VM is `tools/dev/vm-watch.sh` (its own Postgres on 127.0.0.1, no `.env`). The regulation library: `tools/dev/fetch-corpus.py` fetches from the regulators the files whose SHA-256 the rulebooks cite; `python -m ergplan.documents.missing` lists what is still to come from the Mac mini. Sign-in links are minted with `python -m ergplan.platform.signin` until a mail account is set. The Mac mini's install is separate and private.
+
 **Google Cloud VM `replanner` (1 Nov 2026, the server):** `docker/compose.prod.yaml` over `compose.yaml` (Caddy on 80/443, TLS for `SITE_ADDRESS`); `tools/dev/vm-install.sh` installs and updates from a git bundle over SSH (from the Mac mini); `tools/dev/vm.sh` runs compose with `.env`; `tools/dev/vm-push.sh` does the same from a Mac with the Google Cloud CLI; backups by root's cron.
 
 **Mac mini (1 Nov 2026, LAN alternative):** `docker/compose.mini.yaml` over `compose.yaml` and `compose.prod.yaml` — Caddy on LAN port 80, production mode, worker concurrency 4; `tools/dev/mini.sh` runs compose with `.env`; `tools/dev/mini-install.sh` installs and updates it from a git bundle; backups by launchd into `~/ergplan-backups`. `python -m ergplan.platform.signin EMAIL` issues a sign-in link; `python -m ergplan.intake.iex_loader FILE…` loads prices from disk.
@@ -256,4 +260,13 @@ RJ, HR and TN are registered jurisdictions with no approved rules ("not yet sour
 - `engine/landed_cost.py`: `standby_charge` is no longer a per-unit line.
 - `tools/dev/import-register.py`: captive and group-captive exemptions on every surcharge row; a changed register version is re-issued.
 - Web: `app/statebooks` (list) and `app/statebooks/[id]` (review); `components/statebook/` (new folder: `BookList`, `GeneratePanel`, `BookScreen`, `ReviewBar`, `BookView`, `Fig` — a number that opens its sources); `lib/statebook.ts`; "Monthly rule books" in the analyst navigation.
+
+### What changed in Stage 11 (the public VM)
+
+- `documents/missing.py` (new): `cited_missing()`, `document_refs()`, the `python -m ergplan.documents.missing` listing. `documents/service.stored_ids()`.
+- `platform/routers/documents.py`: `GET /documents/missing` (analyst); `GET /documents/{id}` answers a page in words when the PDF is not stored; `POST /documents` is the analysts' in production.
+- `report/statebook.py`: `trace()` counts a figure as opening a page only when the PDF is stored (`unstored` otherwise); `unstored_documents()`; the file cites an unstored page in words, without a link. `BookDetail.documents_missing` is asked each time a book is shown (the issue is frozen; the library is not).
+- `core/settings.py`: `ERGPLAN_ENV_FILE` (another settings file; empty reads the environment only). The tests set it, so a server's `.env` never reaches them.
+- Web: `components/documents/` (new folder: `MissingDocuments` — the cited documents not yet on the server and a form to add a PDF) on `/documents`; `components/statebook/Fig` and `BookView` say "not yet on this server" for such a figure and count them; `lib/statebook.markUnstored`.
+- `tools/dev/`: `vm-firewall.sh` + `vm-firewall.allow`, `vm-backup-install.sh`, `restore-rehearsal.sh`, `vm-watch.sh`, `fetch-corpus.py`, `vm-check.py`; `e2e-journey.sh` reads no `.env`.
 

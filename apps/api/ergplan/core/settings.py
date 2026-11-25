@@ -1,10 +1,15 @@
 """Where configuration comes from: the environment first, then the repository's git-ignored `.env`.
 
 Rule 11: secrets only by environment variable, read here and nowhere else.
+
+On a server the repository's `.env` is the deployment's (production address, keys). The tests and
+the watcher must not read it: `ERGPLAN_ENV_FILE` names another file, and set empty it reads the
+environment only (tests/conftest.py sets it; tools/dev/vm-watch.sh does for the watcher).
 """
 
 from __future__ import annotations
 
+import os
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -74,6 +79,12 @@ class Settings(BaseSettings):
         return REPO_ROOT / "packages" / "rulebooks"
 
 
+ENV_FILE_VARIABLE = "ERGPLAN_ENV_FILE"
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    env_file = os.environ.get(ENV_FILE_VARIABLE)
+    if env_file is None:
+        return Settings()
+    return Settings(_env_file=env_file or None)

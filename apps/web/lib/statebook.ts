@@ -65,7 +65,32 @@ export type Book = {
   review_note: string | null;
 };
 
-export type BookDetail = Book & { inputs: Record<string, unknown>; content: BookContent; content_sha256: string };
+export type BookDetail = Book & {
+  inputs: Record<string, unknown>;
+  content: BookContent;
+  content_sha256: string;
+  // documents the book cites whose PDF is not in this server's library now
+  documents_missing?: string[];
+};
+
+// A copy of a book's content in which every order or regulation ref to a document that is not in the
+// server's library carries document_stored: false, so its figure says so instead of linking to a page.
+export function markUnstored<T>(node: T, missing: string[]): T {
+  if (missing.length === 0) return node;
+  const gone = new Set(missing);
+  const walk = (n: unknown): unknown => {
+    if (Array.isArray(n)) return n.map(walk);
+    if (n === null || typeof n !== "object") return n;
+    const o = n as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(o)) out[k] = walk(v);
+    if ((o.kind === "order" || o.kind === "regulation") && typeof o.document_id === "string" && gone.has(o.document_id)) {
+      out.document_stored = false;
+    }
+    return out;
+  };
+  return walk(node) as T;
+}
 
 export const STATUS_TONE: Record<string, string> = {
   approved: "eg-chip--accent",

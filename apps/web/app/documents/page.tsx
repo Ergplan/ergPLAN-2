@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { apiOrNull, type DocumentOut } from "@/lib/api";
+import { MissingDocuments } from "@/components/documents/MissingDocuments";
+import { apiOrNull, type DocumentOut, type MissingDocument } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
 export default async function DocumentsPage() {
   const docs = await apiOrNull<DocumentOut[]>("/documents");
+  // analysts only (the API refuses anyone else): what approved rules cite that is not stored here
+  const missing = await apiOrNull<MissingDocument[]>("/documents/missing");
   return (
     <>
       <h1 className="eg-h1">
@@ -52,6 +55,7 @@ export default async function DocumentsPage() {
           </table>
         )}
       </section>
+      {missing !== null && <MissingDocuments missing={missing} />}
     </>
   );
 }

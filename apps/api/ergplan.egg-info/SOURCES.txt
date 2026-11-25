@@ -71,6 +71,7 @@ ergplan/platform/routers/rulebooks.py
 ergplan/platform/routers/runs.py
 ergplan/platform/routers/search.py
 ergplan/platform/routers/settle.py
+ergplan/platform/routers/statebooks.py
 ergplan/platform/routers/voice.py
 ergplan/providers/__init__.py
 ergplan/providers/openai_client.py
@@ -88,6 +89,7 @@ ergplan/report/explain.py
 ergplan/report/pdf.py
 ergplan/report/plan.py
 ergplan/report/share.py
+ergplan/report/statebook.py
 ergplan/report/whatif.py
 ergplan/rulebook/__init__.py
 ergplan/rulebook/cli.py
@@ -102,6 +104,7 @@ ergplan/rulebook/yaml_io.py
 ergplan/search/__init__.py
 ergplan/search/bills.py
 ergplan/settlement/__init__.py
+ergplan/settlement/cycle.py
 ergplan/settlement/simulate.py
 ergplan/voice/__init__.py
 ergplan/voice/tools.py

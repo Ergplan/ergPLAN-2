@@ -14,6 +14,8 @@ export type Ref = {
   url?: string;
   document_title?: string;
   url_public?: string | null;
+  // false when the cited PDF is not in this server's library (set by markUnstored from the API's list)
+  document_stored?: boolean;
 };
 
 export type Fact<T> = { value: T; provenance: "bill" | "client_stated" | "assumption"; ref?: Ref | null };

@@ -15,9 +15,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
+from sqlalchemy.orm import object_session
 
 from ...db.base import session_scope
 from ...db.models import Connection, StateRulebook
+from ...documents import service as documents
 from ...report import statebook
 from ...rulebook.service import UnknownJurisdiction
 from ..auth import Caller, analyst, caller, owned_connection
@@ -71,11 +73,19 @@ class BookDetail(BookOut):
     inputs: dict[str, Any]
     content: dict[str, Any]
     content_sha256: str
+    # the documents the book cites whose PDF is not in this server's library now: their figures say
+    # so instead of linking to a page (the issue is frozen; this is asked each time it is shown)
+    documents_missing: list[str] = []
 
     @classmethod
     def of(cls, b: StateRulebook) -> BookDetail:
+        s = object_session(b)
         return cls(
-            **BookOut.of(b).model_dump(), inputs=b.inputs, content=b.content, content_sha256=b.content_sha256
+            **BookOut.of(b).model_dump(),
+            inputs=b.inputs,
+            content=b.content,
+            content_sha256=b.content_sha256,
+            documents_missing=statebook.unstored_documents(s, b.content) if s is not None else [],
         )
 
 
@@ -186,7 +196,7 @@ def book_file(book_id: str, who: Anyone) -> Response:
         b = _visible(s, who, s.get(StateRulebook, book_id))
         name = f"rule-book-{b.state}-{b.discom_id}-{b.month:%Y-%m}-issue-{b.issue}.md"
         return Response(
-            statebook.to_markdown(b),
+            statebook.to_markdown(b, documents.stored_ids(s)),
             media_type="text/markdown; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )

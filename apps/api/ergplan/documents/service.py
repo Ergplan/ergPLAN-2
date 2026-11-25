@@ -116,6 +116,16 @@ def get(session: Session, document_id: str) -> SourceDocument:
     return doc
 
 
+def stored_ids(session: Session) -> set[str]:
+    """Ids of the documents whose PDF is in the store: a row and its file. A citation to any other
+    id opens nothing on this machine (a server that has not been sent the library yet)."""
+    return {
+        d.id
+        for d in session.scalars(select(SourceDocument))
+        if (get_settings().documents_dir / f"{d.file_sha256}.pdf").exists()
+    }
+
+
 def file_path(doc: SourceDocument) -> Path:
     p = path_for(doc.file_sha256)
     if not p.exists():

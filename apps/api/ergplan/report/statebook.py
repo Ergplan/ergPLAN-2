@@ -39,6 +39,8 @@ from ..db.models import (
     SourceDocument,
     StateRulebook,
 )
+from ..documents import service as documents
+from ..documents.missing import document_refs
 from ..engine import landed_cost
 from ..engine import scope as escope
 from ..intake import defaults, site_intake
@@ -616,37 +618,49 @@ def build(
         "gaps": gaps,
     }
     _name_documents(s, content)
-    content["trace"] = trace(content)
+    content["trace"] = trace(content, documents.stored_ids(s))
     return content
 
 
-def trace(content: dict[str, Any]) -> dict[str, int]:
+def trace(content: dict[str, Any], stored: set[str] | None = None) -> dict[str, int]:
     """How far the book's own figures (the lines, not the totals computed from them) are traced:
-    `page` opens a stored order or regulation page; `register` cites an order by name in the State
-    Regulation Master; `assumption` is ergPLAN's benchmark; `other` is a bill or the client's word."""
-    out = {"page": 0, "register": 0, "assumption": 0, "other": 0}
+    `page` opens a stored order or regulation page; `unstored` cites an order's page whose PDF is not
+    in this server's library (given `stored`, the ids that are); `register` cites an order by name in
+    the State Regulation Master; `assumption` is ergPLAN's benchmark; `other` is a bill or the
+    client's word."""
+    out = {"page": 0, "unstored": 0, "register": 0, "assumption": 0, "other": 0}
     vals = [g["rate"] for g in content["grid"]] + [x["value"] for x in content["limits"]]
     for r in [r for src in content["renewable"] for r in src["routes"]] + content["exchange"]:
         for sl in r["slots"]:
             vals += sl["lines"] + ([sl["banking"]] if sl.get("banking") else [])
     for v in vals:
-        kinds = {r["kind"] for r in v["source_refs"]} - {"derived"}
+        refs = [r for r in v["source_refs"] if r["kind"] != "derived"]
+        kinds = {r["kind"] for r in refs}
         if "assumption" in kinds:
             out["assumption"] += 1
         elif "register" in kinds:
             out["register"] += 1
         elif kinds and kinds <= {"order", "regulation"}:
-            out["page"] += 1
+            here = stored is None or all(r.get("document_id") in stored for r in refs)
+            out["page" if here else "unstored"] += 1
         else:
             out["other"] += 1
     return out
+
+
+def unstored_documents(s: Session, content: dict[str, Any]) -> list[str]:
+    """The documents a book cites whose PDF is not in the store now (asked each time the book is
+    shown: the issue is frozen, the library is not)."""
+    stored = documents.stored_ids(s)
+    return sorted({str(r["document_id"]) for r in document_refs(content)} - stored)
 
 
 def _name_documents(s: Session, node: Any, titles: dict[str, tuple[str, str | None]] | None = None) -> None:
     """Every ref to a stored page gains the document's title and the regulator's own link, so the
     book (on screen and as a file) can say which order a number opens."""
     if titles is None:
-        titles = {d.id: (d.title, d.url_public) for d in s.scalars(select(SourceDocument))}
+        stored = documents.stored_ids(s)
+        titles = {d.id: (d.title, d.url_public) for d in s.scalars(select(SourceDocument)) if d.id in stored}
     if isinstance(node, dict):
         doc = node.get("document_id")
         if doc and node.get("kind") in ("order", "regulation") and doc in titles:
@@ -909,12 +923,20 @@ def _money(v: dict[str, Any] | None) -> str:
     return "—" if v is None else f"{Decimal(v['value']):.2f}"
 
 
-def _cite(refs: list[dict[str, Any]], notes: list[str]) -> str:
-    """Footnote marks for a figure's sources; the notes list collects each distinct source once."""
+def _cite(refs: list[dict[str, Any]], notes: list[str], stored: set[str] | None = None) -> str:
+    """Footnote marks for a figure's sources; the notes list collects each distinct source once.
+    Given `stored` (the documents in this server's library), a page that is not there is cited in
+    words and not linked."""
     marks = []
     for r in refs:
         kind = r.get("kind")
-        if kind in ("regulation", "order"):
+        if kind in ("regulation", "order") and stored is not None and r.get("document_id") not in stored:
+            text = (
+                f"{r.get('document_title') or 'Order'}, page {r.get('page')} "
+                "(its PDF is not yet in this server's library, so no page opens)"
+                + (f": “{str(r.get('quote'))[:160]}”" if r.get("quote") else "")
+            )
+        elif kind in ("regulation", "order"):
             link = f"{get_settings().ergplan_public_url}/api/documents/{r.get('document_id')}#page={r.get('page')}"
             text = f"{r.get('document_title') or 'Order'}, [page {r.get('page')}]({link})" + (
                 f": “{str(r.get('quote'))[:160]}”" if r.get("quote") else ""
@@ -932,9 +954,11 @@ def _cite(refs: list[dict[str, Any]], notes: list[str]) -> str:
     return f" [{','.join(marks)}]" if marks else ""
 
 
-def to_markdown(book: StateRulebook) -> str:
-    """The rule book as a file: Markdown with every figure footnoted to its source."""
+def to_markdown(book: StateRulebook, stored: set[str] | None = None) -> str:
+    """The rule book as a file: Markdown with every figure footnoted to its source. `stored` is the
+    library as it is now (documents.stored_ids): a cited page that is not in it is not linked."""
     c = book.content
+    traced = trace(c, stored) if stored is not None else {"unstored": 0, **(c.get("trace") or {})}
     notes: list[str] = []
     cons = c["consumer"]
     who = (
@@ -963,9 +987,14 @@ def to_markdown(book: StateRulebook) -> str:
         *(
             [
                 "",
-                f"Where the numbers come from: {c['trace']['page']} open a stored order or regulation page, "
-                f"{c['trace']['register']} cite an order by name (State Regulation Master, no stored page yet), "
-                f"{c['trace']['assumption']} are assumed.",
+                f"Where the numbers come from: {traced['page']} open a stored order or regulation page, "
+                + (
+                    f"{traced['unstored']} cite a page of an order whose PDF is not yet in this server's library, "
+                    if traced["unstored"]
+                    else ""
+                )
+                + f"{traced['register']} cite an order by name (State Regulation Master, no stored page yet), "
+                f"{traced['assumption']} are assumed.",
             ]
             if c.get("trace")
             else []
@@ -983,7 +1012,7 @@ def to_markdown(book: StateRulebook) -> str:
         hrs = {x["name"]: f"{x['start']}–{x['end']}" for x in c["slots"]}
         for g in c["grid"]:
             L.append(
-                f"| {g['slot']} | {hrs.get(g['slot'], '')} | {_money(g['rate'])}{_cite(g['rate']['source_refs'], notes)} |"
+                f"| {g['slot']} | {hrs.get(g['slot'], '')} | {_money(g['rate'])}{_cite(g['rate']['source_refs'], notes, stored)} |"
             )
     else:
         L.append(f"_{c['gaps'].get('grid_tariff', 'Not yet sourced.')}_")
@@ -1011,7 +1040,9 @@ def to_markdown(book: StateRulebook) -> str:
                 cells = []
                 for sl in r["slots"]:
                     ln = next((x for x in sl["lines"] if (x.get("label") or "") == lab), None)
-                    cells.append("—" if ln is None else f"{_money(ln)}{_cite(ln['source_refs'], notes)}")
+                    cells.append(
+                        "—" if ln is None else f"{_money(ln)}{_cite(ln['source_refs'], notes, stored)}"
+                    )
                 L.append(f"| {lab} | " + " | ".join(cells) + " |")
             L.append(
                 "| **Landed cost** | " + " | ".join(f"**{_money(sl['landed'])}**" for sl in r["slots"]) + " |"
@@ -1026,7 +1057,7 @@ def to_markdown(book: StateRulebook) -> str:
                     + " | ".join(
                         "—"
                         if not sl.get("banking")
-                        else f"{_money(sl['banking'])}{_cite(sl['banking']['source_refs'], notes)}"
+                        else f"{_money(sl['banking'])}{_cite(sl['banking']['source_refs'], notes, stored)}"
                         for sl in r["slots"]
                     )
                     + " |"
@@ -1049,17 +1080,17 @@ def to_markdown(book: StateRulebook) -> str:
         L.append(f"**{block['rule'] or 'No approved rule'}** (applies to: {'; '.join(block['applies_to'])})")
         L.append("")
         for i, p in enumerate(block["points"], 1):
-            L.append(f"{i}. {p['text']}{_cite([p['ref']] if p.get('ref') else [], notes)}")
+            L.append(f"{i}. {p['text']}{_cite([p['ref']] if p.get('ref') else [], notes, stored)}")
         L.append("")
     L += ["## 4. How an exchange (IEX) purchase is settled", ""]
     for i, p in enumerate(c["iex_settlement"], 1):
-        L.append(f"{i}. {p['text']}{_cite([p['ref']] if p.get('ref') else [], notes)}")
+        L.append(f"{i}. {p['text']}{_cite([p['ref']] if p.get('ref') else [], notes, stored)}")
     if c["limits"]:
         L += ["", "## 5. Limits", ""]
         for lim in c["limits"]:
             v = lim["value"]
             L.append(
-                f"- {lim['label'] or lim['limit']}: {v['value']} {v['unit']}{_cite(v['source_refs'], notes)}"
+                f"- {lim['label'] or lim['limit']}: {v['value']} {v['unit']}{_cite(v['source_refs'], notes, stored)}"
             )
     if c.get("changes"):
         cw = c.get("compared_with") or {}

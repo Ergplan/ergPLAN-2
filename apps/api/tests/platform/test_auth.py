@@ -283,3 +283,26 @@ def test_password_hashes_are_salted_and_checked_in_constant_time() -> None:
     assert a != b and a.startswith("scrypt$")
     assert verify_password("same-password", a) and not verify_password("other", a)
     assert not verify_password("x", None) and not verify_password("x", "garbage")
+
+
+def test_only_an_analyst_adds_to_the_library_in_production(prod: list[tuple[str, str]]) -> None:
+    """Stage 11 (the public server): a signed-in client cannot add a PDF to the regulation library,
+    and an analyst's upload is recorded under the analyst's own name whatever the form says."""
+    from ergplan.db.base import session_scope
+    from ergplan.db.models import SourceDocument
+
+    from ..fixtures.pdfgen import make_pdf
+
+    def post(c: TestClient) -> Any:
+        return c.post(
+            "/documents",
+            files={"file": ("o.pdf", make_pdf([["An order"]]), "application/pdf")},
+            data={"title": "An order", "uploaded_by": "someone-else"},
+        )
+
+    assert post(TestClient(app)).status_code in (401, 403)  # signed out
+    assert post(sign_in("ops@acme.in", prod)).status_code == 403
+    r = post(sign_in("ana@joulewise.in", prod))
+    assert r.status_code == 201
+    with session_scope() as s:
+        assert s.get(SourceDocument, r.json()["id"]).uploaded_by == "ana@joulewise.in"
