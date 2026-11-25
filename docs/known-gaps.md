@@ -119,3 +119,6 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | State rule books: Gujarat's saving is understated (the schedule's energy charge excludes FPPPA); Chhattisgarh's register rows should be re-checked against the order (its standby rate had been read as a per-unit levy) | Next |
 | `standby_charge` rows are held but standby supply (drawal when the open-access source is down) is not modelled anywhere | Next |
 | State rule books: in ten states (AP, BR, CG, GJ, HR, MP, OD, RJ, TN, UK) no figure opens a stored page — they rest on the State Regulation Master's citations (order, table and page by name). Each cited order has to be registered in the document library and each value grounded on its page | Next |
+| The 5 MVA Uttar Pradesh site (captive solar + battery) at 15 minutes solves in about 130 s, over the two-minute target, since the captive exemption of Stage 10; CI's slow step fails on it. About 27 s of the sizing pass is spent at the root with no LP work, and model building is a large share of the later passes | 11 |
+| A stage is called done on the watcher alone; CI (which also runs the slow site solves) is not read. Stage 11 adds the slow step to the stage checklist | 11 |
+

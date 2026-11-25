@@ -29,7 +29,8 @@ from .model import (
 )
 
 _HIGHS = getattr(highspy, "__version__", "1.15.1")
-SOLVER_VERSION = f"highspy {_HIGHS} / pyomo {pyomo.__version__}"
+# "search 2": the TUNING options below (25 Nov 2026); a run made before them names the solver without it
+SOLVER_VERSION = f"highspy {_HIGHS} / pyomo {pyomo.__version__} / search 2"
 
 
 class SolveFailed(RuntimeError):
@@ -62,6 +63,20 @@ class Solution:
     oa_charged: dict[str, list[float]] = field(default_factory=dict)
 
 
+# The models have a handful of binaries (banking and demand guards) over tens of thousands of continuous
+# variables, so each node's LP is the cost. HiGHS's sub-problem heuristics, symmetry detection and strong
+# branching spent more than half of the sizing pass without changing the answer (measured on the
+# 5 MVA Uttar Pradesh site at 15 minutes, 25 Nov 2026: 138 s to 84 s, the same optimum to the paisa).
+TUNING: dict[str, Any] = {
+    "mip_detect_symmetry": False,
+    "mip_heuristic_run_rins": False,
+    "mip_heuristic_run_rens": False,
+    "mip_heuristic_run_root_reduced_cost": False,
+    "mip_pscost_minreliable": 0,
+    "mip_allow_cut_separation_at_nodes": False,
+}
+
+
 def _run(m: Any, time_limit_s: float, mip_gap: float) -> tuple[Any, float | None, bool]:
     opt = SolverFactory("highs")
     res = opt.solve(
@@ -69,7 +84,13 @@ def _run(m: Any, time_limit_s: float, mip_gap: float) -> tuple[Any, float | None
         load_solutions=False,
         raise_exception_on_nonoptimal_result=False,
         time_limit=max(1.0, time_limit_s),
-        solver_options={"threads": 1, "mip_rel_gap": mip_gap, "random_seed": 0, "output_flag": False},
+        solver_options={
+            "threads": 1,
+            "mip_rel_gap": mip_gap,
+            "random_seed": 0,
+            "output_flag": False,
+            **TUNING,
+        },
     )
     tc = res.termination_condition
     if tc not in (
