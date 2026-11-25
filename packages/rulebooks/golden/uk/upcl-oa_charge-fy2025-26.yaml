@@ -1,0 +1,12 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UERC tariff order for UPCL, FY 2025-26: 'Wheeling Charges approved for FY 2025-26', Table 6.19, PDF p. 300, in Rs./MW/day.
+# This is the charge for open-access customers at large; the lower net charges for embedded open-access consumers
+# within their contracted load are printed beside it and are not in the ARR Network's tables.
+# Cross-subsidy surcharge, additional surcharge, transmission charge and losses are not tabulated at the source.
+jurisdiction: upcl
+family: oa_charge
+effective_on: '2025-05-01'
+tests:
+  - {name: "FY 2025-26 · wheeling charge", given: {context: {connection: "intra_state", voltage_kv: 33}, where: {/component: wheeling}, field: /value}, expect: {value: "18025"}}
+  - {name: "FY 2025-26 · the wheeling charge is per MW per day", given: {context: {connection: "intra_state", voltage_kv: 33}, where: {/component: wheeling}, field: /basis}, expect: {value: "inr_per_mw_day"}}
+  - {name: "FY 2025-26 · no cross-subsidy surcharge is tabulated", given: {context: {connection: "intra_state", voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}}, expect: {absent: true}}

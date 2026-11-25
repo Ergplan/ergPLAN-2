@@ -1,0 +1,56 @@
+# Months of a consumer's bill worked by hand from the order pages (rates read from the text layer of the PDFs,
+# independently of the importer), for the versions imported from the ARR Network; evaluated as in
+# golden/cg/tariff-months.yaml (apps/api/tests/regreader/test_arr_states_cg_od_uk_tn.py). Recorded demand equals
+# contract demand in every case. RTS-5 (LT and HT industry) is not imported, so no case is an industrial bill.
+#
+# UERC FY 2025-26 (order 54, Annexure 1 effective 01.04.2025): RTS-1 single point bulk supply p. 386, RTS-7 p. 398.
+# UERC FY 2026-27 (order 55, Annexure 1 effective 01.04.2026): RTS-1 single point bulk supply p. 383, RTS-6 p. 396.
+origin: arr_network
+state: UK
+cases:
+  - name: UPCL RTS-7 Railway traction at 132 kV, 5,000 kVA, December 2025 (FY 2025-26 order)
+    # demand 5,000 kVA x 330 = 1,650,000; energy 2,000,000 kVAh x 7.05 = 14,100,000
+    discom: upcl
+    category: RTS-7
+    voltage_kv: 132
+    month: 2025-12
+    contract_kva: 5000
+    max_kva: 5000
+    units: 2000000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, demand_charge: "1650000.00", energy_charge: "14100000.00", tod_adjustment: "0.00", total: "15750000.00"}
+  - name: UPCL RTS-1 single point bulk supply at 11 kV, 400 kVA, January 2026 (FY 2025-26 order)
+    # demand 400 x 120 = 48,000; energy 100,000 x 7.50 = 750,000
+    discom: upcl
+    category: RTS-1
+    rate_block: single point bulk supply
+    voltage_kv: 11
+    month: 2026-01
+    contract_kva: 400
+    max_kva: 400
+    units: 100000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, demand_charge: "48000.00", energy_charge: "750000.00", tod_adjustment: "0.00", total: "798000.00"}
+  - name: UPCL RTS-6 Mixed load at 11 kV, 500 kVA, June 2026 (FY 2026-27 order)
+    # demand 500 x 150 = 75,000; energy 150,000 x 7.30 = 1,095,000
+    discom: upcl
+    category: RTS-6
+    voltage_kv: 11
+    month: 2026-06
+    contract_kva: 500
+    max_kva: 500
+    units: 150000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, demand_charge: "75000.00", energy_charge: "1095000.00", tod_adjustment: "0.00", total: "1170000.00"}
+  - name: UPCL RTS-1 single point bulk supply at 11 kV, 400 kVA, May 2026 (FY 2026-27 order)
+    # demand 400 x 120 = 48,000; energy 100,000 x 6.25 = 625,000
+    discom: upcl
+    category: RTS-1
+    rate_block: single point bulk supply
+    voltage_kv: 11
+    month: 2026-05
+    contract_kva: 400
+    max_kva: 400
+    units: 100000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, demand_charge: "48000.00", energy_charge: "625000.00", tod_adjustment: "0.00", total: "673000.00"}

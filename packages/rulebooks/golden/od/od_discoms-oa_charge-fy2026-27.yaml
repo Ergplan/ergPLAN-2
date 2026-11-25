@@ -1,0 +1,13 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# OERC retail supply tariff order for FY 2026-27 (ARR Network order 49, sha256 d58d2817…, 246 pages): Table 47 and Table 48, PDF p. 145 (para 320-321), the last column, printed once for
+# the four licensees: 'shall pay Rs.5760/MW-day (Rs.240/MWh) as transmission charges', 'applicable for HT & EHT
+# Consumers'. Cross-subsidy surcharge and wheeling charge are per licensee (tpcodl, tpnodl, tpsodl, tpwodl).
+jurisdiction: od_discoms
+family: oa_charge
+effective_on: '2026-05-01'
+tests:
+  - {name: "FY 2026-27 · transmission charge for an HT open-access consumer", given: {context: {connection: "intra_state", consumer_kind: "ht", voltage_kv: 33}, where: {/component: stu_transmission}, field: /value}, expect: {value: "5760"}}
+  - {name: "FY 2026-27 · transmission charge for an EHT open-access consumer", given: {context: {connection: "intra_state", consumer_kind: "eht", voltage_kv: 132}, where: {/component: stu_transmission}, field: /value}, expect: {value: "5760"}}
+  - {name: "FY 2026-27 · the transmission charge is per MW per day", given: {context: {connection: "intra_state", consumer_kind: "ht", voltage_kv: 33}, where: {/component: stu_transmission}, field: /basis}, expect: {value: "inr_per_mw_day"}}
+  - {name: "FY 2026-27 · no transmission charge is stated for LT", given: {context: {connection: "intra_state", consumer_kind: "lt", voltage_kv: 0.4}, where: {/component: stu_transmission}}, expect: {absent: true}}
+  - {name: "FY 2026-27 · the group holds no surcharge of its own", given: {context: {connection: "intra_state", consumer_kind: "ht", voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}}, expect: {absent: true}}

@@ -1,0 +1,25 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 184,
+  "commission": "TNERC",
+  "title": "TNPDCL Tariff Order, 2025 - TNERC T.O.No.6 of 2025 dt 30-06-2025, Determination of Tariff for Distribution for FY 2025-26 (suo-motu)",
+  "url": "https://www.tnpdcl.org/static/tnpdcl/assets/files/tariff/2025/TO062025/TO62025.pdf",
+  "sha256": "efc5a4600d4319bc81565a0001540fd2f5f5301461f9e61d5ec0f345acdf31c4",
+  "pages": 53,
+  "pages_without_text": 0,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2025-26"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "session discovery agent 2026-11-14: fetched from the licensee's or commission's own site (https://www.tnpdcl.org/en/tnpdcl/billing-services/schedules-tariff/); %PDF and SHA-256 checked, text layer checked",
+  "fetched_on": "2026-11-14T00:00:00.000Z",
+  "read_status": "downloaded",
+  "utilities": [
+   "TNPDCL"
+  ]
+ }
+}

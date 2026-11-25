@@ -1,0 +1,59 @@
+# Months of a consumer's bill worked by hand from the order pages (rates read from the text layer of the PDFs,
+# independently of the importer), for the versions imported from the ARR Network. Each case is evaluated through
+# rulebook.sandbox on the draft in force at the end of the month and engine.tariff_eval
+# (apps/api/tests/regreader/test_arr_states_cg_od_uk_tn.py). Recorded demand equals contract demand in every case, so
+# the billable-demand rule (which the order states in words, in no table) does not enter. The order's time-of-day
+# table (solar hours at 80% and peak hours at 120% of the energy charge) is not imported, so no case splits its
+# units by slot: the amounts are the demand and the energy charge alone.
+#
+# CSERC FY 2025-26 schedule (order 76, in force 1 July 2025 to 30 June 2026): HV-2 p. 15, HV-3 p. 16.
+# CSERC FY 2026-27 order (order 73, in force from 1 July 2026): HV-3 and HV-4 p. 205.
+origin: arr_network
+state: CG
+cases:
+  - name: CSPDCL HV-3 at 33 kV, load factor above 15%, 2,000 kVA, September 2025 (FY 2025-26 schedule)
+    # demand 2,000 kVA x 375 = 750,000; energy 900,000 kVAh x 7.20 = 6,480,000
+    discom: cspdcl
+    category: HV-3
+    rate_block: load factor above 15%
+    voltage_kv: 33
+    month: 2025-09
+    contract_kva: 2000
+    max_kva: 2000
+    units: 900000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, demand_charge: "750000.00", energy_charge: "6480000.00", tod_adjustment: "0.00", total: "7230000.00"}
+  - name: CSPDCL HV-2 Mines at 132 kV, 5,000 kVA, June 2026 (still the FY 2025-26 schedule)
+    # demand 5,000 x 500 = 2,500,000; energy 2,400,000 x 7.10 = 17,040,000
+    discom: cspdcl
+    category: HV-2
+    voltage_kv: 132
+    month: 2026-06
+    contract_kva: 5000
+    max_kva: 5000
+    units: 2400000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, demand_charge: "2500000.00", energy_charge: "17040000.00", tod_adjustment: "0.00", total: "19540000.00"}
+  - name: CSPDCL HV-4 Steel at 132 kV, 10,000 kVA, August 2026 (FY 2026-27 order)
+    # demand 10,000 x 400 = 4,000,000; energy 5,000,000 x 6.55 = 32,750,000
+    discom: cspdcl
+    category: HV-4
+    voltage_kv: 132
+    month: 2026-08
+    contract_kva: 10000
+    max_kva: 10000
+    units: 5000000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, demand_charge: "4000000.00", energy_charge: "32750000.00", tod_adjustment: "0.00", total: "36750000.00"}
+  - name: CSPDCL HV-3 at 11 kV, load factor up to 15%, 1,000 kVA, July 2026 (FY 2026-27 order)
+    # demand 1,000 x 200 = 200,000; energy 90,000 x 8.15 = 733,500
+    discom: cspdcl
+    category: HV-3
+    rate_block: load factor up to 15%
+    voltage_kv: 11
+    month: 2026-07
+    contract_kva: 1000
+    max_kva: 1000
+    units: 90000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, demand_charge: "200000.00", energy_charge: "733500.00", tod_adjustment: "0.00", total: "933500.00"}

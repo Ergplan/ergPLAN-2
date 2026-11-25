@@ -183,6 +183,212 @@ def _one_column(columns: tuple[str, ...], pattern: re.Pattern[str], what: str) -
     return hits[0] if hits else None
 
 
+# ------------------------------------------------------------------ shapes of other orders
+
+# a row meant for one licensee of a several-licensee order carries that licensee here; the import
+# proposes it under that jurisdiction and removes the key (it is not part of a rule row)
+JURISDICTION_KEY = "_jurisdiction"
+_CODED_CATEGORY = re.compile(r"^\s*([A-Z]{1,5})\s?[-–]?\s?(\d{1,2}[A-Z]?)\s*:")
+# a heading that only announces the rates: 'Tariff', '2. Rate of Charge', 'For FY 2025-26',
+# 'The following rates shall apply to consumers of this category'
+_LEAD_IN_TITLE = re.compile(
+    r"^(tariff(\s+tariff)?|(\d+\.\s*)?rate\s+of\s+charges?|for\s+fy\s*\d{4}\s*-\s*\d{2,4}\s*-?|"
+    r"the\s+following\s+rates?\b.*\bshall\s+apply\b.*)$",
+    re.I,
+)
+_TIME_SLOT = re.compile(r"\btime\s+slots?\b", re.I)
+_CONSUMPTION_RANGE = re.compile(
+    r"\bunits?\b.*\b(per\s+month|monthly|bi-?monthly|for\s+two\s+months)\b|\d\s*(to|-|–)\s*\d+\s*units?\b",
+    re.I,
+)
+_BRACKETED = re.compile(r"\(([^()]*)\)")
+_COMPARISONS = (
+    ("<=", "up to"),
+    ("≤", "up to"),
+    (">=", "at or above"),
+    ("≥", "at or above"),
+    (">", "above"),
+    ("<", "below"),
+)
+_PAYABLE = re.compile(r"\b(leviable|applicable|payable|approved|determined)\b", re.I)
+_LICENSEE_HEAD = re.compile(r"^\s*(name\s+of\s+(the\s+)?)?(licensees?|discoms?|utilit(y|ies))\s*$", re.I)
+_LEVELS = {"eht": "eht", "ehv": "eht", "ht": "ht", "hv": "ht", "lt": "lt", "lv": "lt"}
+
+
+def _category_names(category: str) -> list[str]:
+    """The names a category answers to: as printed, and its code alone where the order prints the
+    code before the name ('HV-3: Other Industrial and General Purpose Non-Industrial' → also 'HV-3',
+    'LV- 4: …' → 'LV-4', 'RTS 6: Mixed Load' → 'RTS-6'), which is what a bill prints."""
+    m = _CODED_CATEGORY.match(category)
+    code = f"{m.group(1)}-{m.group(2)}" if m else category
+    return [category] if code == category else [category, code]
+
+
+def _words_of(text: str) -> set[str]:
+    return set(re.findall(r"[a-z]{2,}", text.lower())) - {"and", "of", "the", "for", "or"}
+
+
+def _restates(descriptor: str, category: str) -> bool:
+    """A row heading that only repeats the name of the category it is printed under ('Residential'
+    under 'HV-6: Residential') tells one rate from another no further."""
+    d, c = _words_of(_CODED_CATEGORY.sub(" ", descriptor)), _words_of(_CODED_CATEGORY.sub(" ", category))
+    return bool(d) and (d <= c or (len(c) > 1 and c <= d))
+
+
+def _category_column(columns: tuple[str, ...]) -> int | None:
+    """The first column when it is headed 'Tariff category' (or 'Tariff'): each row then names its
+    own category ('High Tension Tariff I') under a heading that covers several, and a cell left
+    empty continues the category above it."""
+    return 0 if columns and re.fullmatch(r"\s*tariff(\s+category)?\s*", columns[0], re.I) else None
+
+
+def _slab_guard(descriptor: str) -> None:
+    if _CONSUMPTION_RANGE.search(descriptor):
+        raise _Skip("a rate for one consumption slab: the tariff_schedule family holds one rate per row")
+
+
+def _in_words(condition: str) -> str:
+    """'Load factor >15%' → 'Load factor above 15%': rulebook.scope matches a rate block on its
+    words, so a comparison printed as a sign is written as the words it stands for."""
+    out = condition
+    for sign, words in _COMPARISONS:
+        out = out.replace(sign, f" {words} ")
+    return _plain(out)
+
+
+def _band_and_qualifier(descriptor: str) -> tuple[dict[str, Any] | None, str | None]:
+    """The voltage of a row and, where the row prints one condition in brackets beside it
+    ('33 kV supply (Load factor >15%)'), that condition in words. A row whose voltage is still not
+    read whole is refused as before."""
+    try:
+        return _band(descriptor), None
+    except _Skip:
+        inside = _BRACKETED.findall(descriptor)
+        if len(inside) != 1 or _KV_NUMBER.search(inside[0]) or not re.search(r"[a-z]{3,}", inside[0], re.I):
+            raise
+        band = _band(_BRACKETED.sub(" ", descriptor))
+        if band is None:
+            raise
+        return band, _in_words(inside[0])
+
+
+def _supply_level(text: str) -> list[str] | None:
+    """['lt'] for a row or heading that names a supply level and nothing else ('LT', 'HT & EHT')."""
+    words = re.findall(r"[a-z]+", re.sub(r"[()]", " ", text).lower())
+    kinds = [_LEVELS[w] for w in words if w in _LEVELS]
+    rest = [w for w in words if w not in _LEVELS and w not in ("and", "consumers", "consumer", "only")]
+    return sorted(set(kinds)) if kinds and not rest else None
+
+
+def _levels_named(heading: str) -> list[str]:
+    """The supply levels a column heading names anywhere in it ('… applicable to HT & LT Consumers')."""
+    return sorted({_LEVELS[w] for w in re.findall(r"[a-z]+", heading.lower()) if w in _LEVELS})
+
+
+def _is_licensee_table(t: SectionTable, order: Order) -> bool:
+    """A table of charges with one row per licensee of the order ('Name of the licensee | Cross
+    Subsidy Surcharge (P/U) EHT | … | Wheeling Charge P/U applicable to HT Consumers only')."""
+    if not t.columns or not _LICENSEE_HEAD.match(t.columns[0]) or len(order.utilities) < 2:
+        return False
+    if not any(arr_rates.unit_of(c) for c in (*t.columns[1:], t.title)):
+        return False  # no heading states a per-unit rate: a table of amounts (Rs. crore), not charges
+    names = {u.upper() for u in order.utilities}
+    return sum(1 for r in t.rows if r.cells and r.cells[0].strip().upper() in names) >= 2
+
+
+def _licensee_component(heading: str) -> tuple[str, str] | None:
+    if re.search(r"cross[- ]?subsidy\s+surcharge|\bCSS\b", heading, re.I):
+        return "cross_subsidy_surcharge", "CSS"
+    if re.search(r"additional\s+surcharge", heading, re.I):
+        return "additional_surcharge", "Additional surcharge"
+    if re.search(r"wheeling\s+charges?", heading, re.I):
+        return "wheeling", "Wheeling charge"
+    if re.search(r"transmission\s+charges?", heading, re.I):
+        return "stu_transmission", "Intra-state transmission charge"
+    return None
+
+
+def _by_licensee_rows(
+    src: Source, t: SectionTable, so_far: list[tuple[Any, dict[str, Any]]], out: Mapped
+) -> list[dict[str, Any]]:
+    """Charges tabulated per licensee: each row goes to its licensee's own jurisdiction. A charge
+    printed once in words for all of them (a cell that spans the rows: 'shall pay Rs.5760/MW-day
+    (Rs.240/MWh) as transmission charges') goes to the order's jurisdiction. A value a table before
+    this one already gave for the same licensee, charge and supply levels is not repeated; where
+    this table gives it for more supply levels, the wider row replaces the narrower."""
+    if _NOT_APPROVED.search(t.title) or _COMPUTATION.search(t.title):
+        raise _Skip("claimed, proposed or computed figures, not the charges payable")
+    if not (_PAYABLE.search(t.title) or any(_PAYABLE.search(c) for c in t.columns)):
+        raise _Skip("neither the title nor a column says the charges are applicable or approved")
+    names = {u.upper() for u in src.order.utilities}
+    rows: list[dict[str, Any]] = []
+    for j in range(1, len(t.columns)):
+        head = t.columns[j]
+        column = f"{t.name()} · column '{head[:60]}'"
+        what = _licensee_component(head)
+        if what is None:
+            out.unmapped.append(Unmapped(column, "oa_charge", "no ergPLAN family for this column"))
+            continue
+        component, short = what
+        kinds = _levels_named(head)
+        scope: dict[str, Any] = {"connection": list(OA_CONNECTIONS)}
+        if kinds:
+            scope["consumer_kind"] = kinds
+        printed = [r for r in t.rows if j < len(r.cells) and not arr_rates.is_blank(r.cells[j])]
+        spanning = [r for r in printed if re.search(r"[a-z]{4,}", r.cells[j], re.I)]
+        if spanning:
+            # words, not a figure per licensee: read only when printed once, for all the rows
+            if len(printed) != 1:
+                out.unmapped.append(Unmapped(column, "oa_charge", "charges in words in more than one row"))
+                continue
+            r = printed[0]
+            # the second expression of the same charge, in brackets, is left to the quote; 'Rs.5760'
+            # is printed without a space
+            got = arr_rates.rate(re.sub(r"\bRs\.(?=\d)", "Rs. ", _BRACKETED.sub(" ", r.cells[j])))
+            if got is None:
+                out.unmapped.append(Unmapped(column, "oa_charge", f"rate not read: '{r.cells[j][:60]}'"))
+                continue
+            row = _oa_row(src, t, r, component, got, f"{short} · all licensees of the order", dict(scope))
+            row["source_ref"] = _ref(src, t, r.page, [head, r.cells[j]], [f"{t.label} {t.title}".strip()])
+            rows.append(row)
+            continue
+        for r in printed:
+            who = r.cells[0].strip().upper()
+            if who not in names:
+                continue
+            got = arr_rates.rate(r.cells[j], heading=head) or arr_rates.rate(r.cells[j], heading=t.title)
+            if got is None:
+                why = f"rate not read: '{r.cells[j][:60]}' (no unit in the heading or the title)"
+                out.unmapped.append(Unmapped(f"{column} · {who}", "oa_charge", why))
+                continue
+            label = " · ".join(x for x in (short, who, " & ".join(k.upper() for k in kinds)) if x)
+            row = _oa_row(src, t, r, component, got, label, dict(scope))
+            row["source_ref"] = _ref(
+                src, t, r.page, [who, head, r.cells[j]], [f"{t.label} {t.title}".strip()]
+            )
+            row[JURISDICTION_KEY] = who.lower()
+            rows.append(row)
+    fresh: list[dict[str, Any]] = []
+    narrower: set[int] = set()
+    for row in rows:
+        mine = set(row["scope"].get("consumer_kind") or [])
+        same = [
+            (i, set(old["scope"].get("consumer_kind") or []))
+            for i, (_, old) in enumerate(so_far)
+            if old.get(JURISDICTION_KEY) == row.get(JURISDICTION_KEY)
+            and old["body"] == row["body"]
+            and {**old["scope"], "consumer_kind": None} == {**row["scope"], "consumer_kind": None}
+        ]
+        if any(mine <= theirs for _, theirs in same):
+            continue
+        narrower |= {i for i, theirs in same if theirs < mine}
+        fresh.append(row)
+    so_far[:] = [x for i, x in enumerate(so_far) if i not in narrower]
+    if not rows:
+        raise _Skip("no row states a value")
+    return fresh
+
+
 # ------------------------------------------------------------------ tariff schedule
 
 
@@ -196,6 +402,7 @@ class _Entry:
     fixed: tuple[arr_rates.Rate, dict[str, Any]] | None = None
     energy: tuple[arr_rates.Rate, dict[str, Any]] | None = None
     band: dict[str, Any] | None = None
+    qualifier: str | None = None  # a condition printed in brackets beside the voltage, in words
 
 
 def _component_rows(t: SectionTable) -> tuple[Row, Row] | None:
@@ -215,6 +422,8 @@ def _schedule_entries(src: Source, t: SectionTable, out: Mapped) -> list[_Entry]
         raise _Skip("the tariff is printed with subsidy columns: several fixed and energy charges per row")
     if any(_SLABBED.search(c) for c in t.columns):
         raise _Skip("energy charge in consumption slabs: the tariff_schedule family holds one rate per row")
+    if any(_TIME_SLOT.search(c) for c in t.columns):
+        raise _Skip("energy charge by time slot: the tariff_schedule family holds one rate per row")
     sides = _component_rows(t)
     f_col = _one_column(t.columns, _FIXED, "fixed-charge")
     e_col = _one_column(t.columns, _ENERGY, "energy-charge")
@@ -241,14 +450,19 @@ def _schedule_entries(src: Source, t: SectionTable, out: Mapped) -> list[_Entry]
     if f_col is not None and e_col is not None:
         # one row per voltage or sub-category, a fixed and an energy column
         charges = {i for i, c in enumerate(t.columns) if _FIXED.search(c) or _ENERGY.search(c)}
+        own = _category_column(t.columns)
+        named = ""
         for r in t.rows:
-            others = [c for i, c in enumerate(r.cells) if i not in charges]
+            others = [c for i, c in enumerate(r.cells) if i not in charges and i != own]
             descriptor = " ".join(c for c in others if c.strip())
+            if own is not None and own < len(r.cells) and r.cells[own].strip():
+                named = _plain(r.cells[own])
             try:
                 if max(f_col, e_col) >= len(r.cells):
                     raise _Skip("the row has fewer cells than the table has columns")
-                e = _Entry(t, cat, descriptor)
-                e.band = _band(descriptor)
+                _slab_guard(descriptor)
+                e = _Entry(t, named or cat, descriptor)
+                e.band, e.qualifier = _band_and_qualifier(descriptor)
                 e.fixed = _rate_and_ref(src, t, r, f_col, list(r.cells))
                 e.energy = _rate_and_ref(src, t, r, e_col, list(r.cells))
                 entries.append(e)
@@ -303,9 +517,13 @@ def _rate_and_ref(
 
 def _rate_block(t: SectionTable, descriptor: str, band: dict[str, Any] | None) -> str | None:
     parts = []
-    if not _GENERIC_TITLE.search(t.title) and _plain(t.title).lower() != (t.category or "").lower():
+    if (
+        not _GENERIC_TITLE.search(t.title)
+        and not _LEAD_IN_TITLE.search(_plain(t.title))
+        and _plain(t.title).lower() != (t.category or "").lower()
+    ):
         parts.append(_plain(t.title))
-    if band is None and not _is_generic(descriptor):
+    if band is None and not _is_generic(descriptor) and not _restates(descriptor, t.category or ""):
         parts.append(_plain(descriptor))
     return " · ".join(parts)[:200] or None
 
@@ -367,7 +585,9 @@ def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None
             )
             continue
         block = _rate_block(e.table, e.descriptor, e.band)
-        scope: dict[str, Any] = {"category": [e.category]}
+        if e.qualifier:
+            block = " · ".join(x for x in (block, e.qualifier) if x)[:200]
+        scope: dict[str, Any] = {"category": _category_names(e.category)}
         if block:
             scope["rate_block"] = block
         if e.band:
@@ -399,7 +619,8 @@ def _keep_unambiguous(rows: list[tuple[Any, dict[str, Any]]], family: str, out: 
     """Rows whose scope is the same as another's cannot both apply: none of them is kept."""
     seen: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for _, row in rows:
-        seen[json.dumps([row["scope"], row["body"].get("component")], sort_keys=True)].append(row)
+        key = [row["scope"], row["body"].get("component"), row.get(JURISDICTION_KEY)]
+        seen[json.dumps(key, sort_keys=True)].append(row)
     for group in seen.values():
         if len(group) == 1:
             out.by_family[family].append(group[0])
@@ -626,6 +847,8 @@ def _by_category_rows(src: Source, t: SectionTable, component: str, short: str) 
             scope["category"] = [code]
         if bands[i]:
             scope["voltage_kv"] = bands[i]
+        elif _supply_level(rest):
+            scope["consumer_kind"] = _supply_level(rest)
         else:
             block = _plain(re.sub(r"[()]", " ", rest))
             if block:
@@ -690,6 +913,8 @@ def _oa_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None:
                 ]
             elif t.section != "wheeling":
                 raise _Skip("no ergPLAN family for this table")
+            elif _is_licensee_table(t, src.order):
+                got = _by_licensee_rows(src, t, rows, out)
             elif not approved:
                 raise _Skip("not headed as approved by the commission (computed, or an input)")
             elif re.search(r"cross[- ]?subsidy\s+surcharge|\bCSS\b", title, re.I) and not _COMPUTATION.search(

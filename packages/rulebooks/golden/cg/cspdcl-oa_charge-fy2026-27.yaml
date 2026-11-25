@@ -1,0 +1,17 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# CSERC Tariff Order for CSPDCL, FY 2026-27 (ARR Network order 73, sha256 7c77f6d6…): Table 6-5 'Approved CSS for
+# FY 2026-27 (Rs./kWh)', PDF p. 187, and the list under it ('for conventional and RE Open Access').
+# The order states no table of wheeling charge, transmission charge or losses for open access that the ARR Network
+# read; those stay on the State Regulation Master.
+jurisdiction: cspdcl
+family: oa_charge
+effective_on: '2026-08-01'
+tests:
+  - {name: "FY 2026-27 · CSS at 220 kV", given: {context: {connection: "intra_state", voltage_kv: 220}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.23"}}
+  - {name: "FY 2026-27 · CSS at 400 kV ('220 kV & above')", given: {context: {connection: "intra_state", voltage_kv: 400}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.23"}}
+  - {name: "FY 2026-27 · CSS at 132 kV", given: {context: {connection: "intra_state", voltage_kv: 132}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.22"}}
+  - {name: "FY 2026-27 · CSS at 33 kV", given: {context: {connection: "intra_state", voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.43"}}
+  - {name: "FY 2026-27 · CSS at 11 kV", given: {context: {connection: "intra_state", voltage_kv: 11}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.43"}}
+  - {name: "FY 2026-27 · CSS for an LT consumer", given: {context: {connection: "intra_state", voltage_kv: 0.4, consumer_kind: "lt"}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.43"}}
+  - {name: "FY 2026-27 · CSS at 66 kV is not printed", given: {context: {connection: "intra_state", voltage_kv: 66}, where: {/component: cross_subsidy_surcharge}}, expect: {absent: true}}
+  - {name: "FY 2026-27 · no wheeling charge is tabulated", given: {context: {connection: "intra_state", voltage_kv: 33}, where: {/component: wheeling}}, expect: {absent: true}}
