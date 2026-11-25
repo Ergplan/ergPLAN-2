@@ -1,0 +1,29 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 104,
+  "commission": "MERC",
+  "title": "Case of Adani Electricity Mumbai Limited (Distribution Business) for Approval of Truing-up of FY 2022-23 and FY 2023-24, Provisional Truing-up for FY 2024-25, and ARR and Tariff for 5th Control Period from FY 2025-26 to FY 2029-30",
+  "url": "https://merc.gov.in/wp-content/uploads/2025/03/AEML-D-Complete-Final-MYT-Order-28.03.2025-SD.pdf",
+  "sha256": "2a404108b2b676a474c053e240008fb963b371f8ec72cd9ba4880b1315a77d55",
+  "pages": 485,
+  "pages_without_text": 0,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2022-23",
+   "FY2023-24",
+   "FY2024-25",
+   "FY2025-26",
+   "FY2029-30"
+  ],
+  "kind": "MYT",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "listing page read on 2026-11-11 (no discovery profile yet)",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "AEML-D"
+  ]
+ }
+}

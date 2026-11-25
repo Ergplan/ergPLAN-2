@@ -1,0 +1,137 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MERC AEML-D MYT Order, Case No. 211 of 2024, dated 28 March 2025 (sha256 2a404108…, 485 pages).
+# The time-of-day table printed after each category's rate tables in the tariff schedule annexure: a column
+# per tariff year; 09:00-17:00 has one rebate for April to September and another for October to March.
+# PDF pages: LT II 456, LT III (B) 459-460, LT IV 462-463, LT VI 466-467, HT I 469-470, HT II 472, HT V 477-478, HT VI 479.
+jurisdiction: aeml
+family: tod_slots
+effective_on: '2026-10-01'
+tests:
+  - {name: "FY 2026-27 · LT II · June · one row", given: {context: {category: LT II, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT II · June · 00:00–06:00 rebate", given: {context: {category: LT II, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT II · June · second slot starts 06:00", given: {context: {category: LT II, month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT II · June · solar hours start 09:00", given: {context: {category: LT II, month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT II · June · solar hours end 17:00", given: {context: {category: LT II, month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT II · June · solar-hours rebate", given: {context: {category: LT II, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT II · June · peak 17:00–24:00 surcharge", given: {context: {category: LT II, month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT II · June · peak ends 24:00", given: {context: {category: LT II, month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · LT II · December · one row", given: {context: {category: LT II, month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT II · December · 00:00–06:00 rebate", given: {context: {category: LT II, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT II · December · second slot starts 06:00", given: {context: {category: LT II, month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT II · December · solar hours start 09:00", given: {context: {category: LT II, month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT II · December · solar hours end 17:00", given: {context: {category: LT II, month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT II · December · solar-hours rebate", given: {context: {category: LT II, month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · LT II · December · peak 17:00–24:00 surcharge", given: {context: {category: LT II, month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT II · December · peak ends 24:00", given: {context: {category: LT II, month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · LT III (B) · June · one row", given: {context: {category: LT III (B), month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT III (B) · June · 00:00–06:00 rebate", given: {context: {category: LT III (B), month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT III (B) · June · second slot starts 06:00", given: {context: {category: LT III (B), month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT III (B) · June · solar hours start 09:00", given: {context: {category: LT III (B), month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT III (B) · June · solar hours end 17:00", given: {context: {category: LT III (B), month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT III (B) · June · solar-hours rebate", given: {context: {category: LT III (B), month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT III (B) · June · peak 17:00–24:00 surcharge", given: {context: {category: LT III (B), month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT III (B) · June · peak ends 24:00", given: {context: {category: LT III (B), month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · LT III (B) · December · one row", given: {context: {category: LT III (B), month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT III (B) · December · 00:00–06:00 rebate", given: {context: {category: LT III (B), month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT III (B) · December · second slot starts 06:00", given: {context: {category: LT III (B), month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT III (B) · December · solar hours start 09:00", given: {context: {category: LT III (B), month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT III (B) · December · solar hours end 17:00", given: {context: {category: LT III (B), month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT III (B) · December · solar-hours rebate", given: {context: {category: LT III (B), month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · LT III (B) · December · peak 17:00–24:00 surcharge", given: {context: {category: LT III (B), month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT III (B) · December · peak ends 24:00", given: {context: {category: LT III (B), month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · LT IV · June · one row", given: {context: {category: LT IV, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT IV · June · 00:00–06:00 rebate", given: {context: {category: LT IV, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT IV · June · second slot starts 06:00", given: {context: {category: LT IV, month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT IV · June · solar hours start 09:00", given: {context: {category: LT IV, month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT IV · June · solar hours end 17:00", given: {context: {category: LT IV, month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT IV · June · solar-hours rebate", given: {context: {category: LT IV, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT IV · June · peak 17:00–24:00 surcharge", given: {context: {category: LT IV, month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT IV · June · peak ends 24:00", given: {context: {category: LT IV, month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · LT IV · December · one row", given: {context: {category: LT IV, month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT IV · December · 00:00–06:00 rebate", given: {context: {category: LT IV, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT IV · December · second slot starts 06:00", given: {context: {category: LT IV, month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT IV · December · solar hours start 09:00", given: {context: {category: LT IV, month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT IV · December · solar hours end 17:00", given: {context: {category: LT IV, month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT IV · December · solar-hours rebate", given: {context: {category: LT IV, month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · LT IV · December · peak 17:00–24:00 surcharge", given: {context: {category: LT IV, month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT IV · December · peak ends 24:00", given: {context: {category: LT IV, month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · LT VI · June · one row", given: {context: {category: LT VI, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT VI · June · 00:00–06:00 rebate", given: {context: {category: LT VI, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT VI · June · second slot starts 06:00", given: {context: {category: LT VI, month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT VI · June · solar hours start 09:00", given: {context: {category: LT VI, month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT VI · June · solar hours end 17:00", given: {context: {category: LT VI, month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT VI · June · solar-hours rebate", given: {context: {category: LT VI, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT VI · June · peak 17:00–24:00 surcharge", given: {context: {category: LT VI, month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT VI · June · peak ends 24:00", given: {context: {category: LT VI, month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · LT VI · December · one row", given: {context: {category: LT VI, month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LT VI · December · 00:00–06:00 rebate", given: {context: {category: LT VI, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LT VI · December · second slot starts 06:00", given: {context: {category: LT VI, month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · LT VI · December · solar hours start 09:00", given: {context: {category: LT VI, month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · LT VI · December · solar hours end 17:00", given: {context: {category: LT VI, month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LT VI · December · solar-hours rebate", given: {context: {category: LT VI, month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · LT VI · December · peak 17:00–24:00 surcharge", given: {context: {category: LT VI, month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · LT VI · December · peak ends 24:00", given: {context: {category: LT VI, month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT I · June · one row", given: {context: {category: HT I, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT I · June · 00:00–06:00 rebate", given: {context: {category: HT I, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT I · June · second slot starts 06:00", given: {context: {category: HT I, month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT I · June · solar hours start 09:00", given: {context: {category: HT I, month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT I · June · solar hours end 17:00", given: {context: {category: HT I, month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT I · June · solar-hours rebate", given: {context: {category: HT I, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT I · June · peak 17:00–24:00 surcharge", given: {context: {category: HT I, month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT I · June · peak ends 24:00", given: {context: {category: HT I, month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT I · December · one row", given: {context: {category: HT I, month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT I · December · 00:00–06:00 rebate", given: {context: {category: HT I, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT I · December · second slot starts 06:00", given: {context: {category: HT I, month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT I · December · solar hours start 09:00", given: {context: {category: HT I, month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT I · December · solar hours end 17:00", given: {context: {category: HT I, month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT I · December · solar-hours rebate", given: {context: {category: HT I, month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · HT I · December · peak 17:00–24:00 surcharge", given: {context: {category: HT I, month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT I · December · peak ends 24:00", given: {context: {category: HT I, month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT II · June · one row", given: {context: {category: HT II, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT II · June · 00:00–06:00 rebate", given: {context: {category: HT II, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT II · June · second slot starts 06:00", given: {context: {category: HT II, month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT II · June · solar hours start 09:00", given: {context: {category: HT II, month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT II · June · solar hours end 17:00", given: {context: {category: HT II, month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT II · June · solar-hours rebate", given: {context: {category: HT II, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT II · June · peak 17:00–24:00 surcharge", given: {context: {category: HT II, month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT II · June · peak ends 24:00", given: {context: {category: HT II, month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT II · December · one row", given: {context: {category: HT II, month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT II · December · 00:00–06:00 rebate", given: {context: {category: HT II, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT II · December · second slot starts 06:00", given: {context: {category: HT II, month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT II · December · solar hours start 09:00", given: {context: {category: HT II, month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT II · December · solar hours end 17:00", given: {context: {category: HT II, month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT II · December · solar-hours rebate", given: {context: {category: HT II, month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · HT II · December · peak 17:00–24:00 surcharge", given: {context: {category: HT II, month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT II · December · peak ends 24:00", given: {context: {category: HT II, month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT V · June · one row", given: {context: {category: HT V, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT V · June · 00:00–06:00 rebate", given: {context: {category: HT V, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT V · June · second slot starts 06:00", given: {context: {category: HT V, month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT V · June · solar hours start 09:00", given: {context: {category: HT V, month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT V · June · solar hours end 17:00", given: {context: {category: HT V, month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT V · June · solar-hours rebate", given: {context: {category: HT V, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT V · June · peak 17:00–24:00 surcharge", given: {context: {category: HT V, month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT V · June · peak ends 24:00", given: {context: {category: HT V, month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT V · December · one row", given: {context: {category: HT V, month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT V · December · 00:00–06:00 rebate", given: {context: {category: HT V, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT V · December · second slot starts 06:00", given: {context: {category: HT V, month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT V · December · solar hours start 09:00", given: {context: {category: HT V, month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT V · December · solar hours end 17:00", given: {context: {category: HT V, month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT V · December · solar-hours rebate", given: {context: {category: HT V, month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · HT V · December · peak 17:00–24:00 surcharge", given: {context: {category: HT V, month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT V · December · peak ends 24:00", given: {context: {category: HT V, month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT VI · June · one row", given: {context: {category: HT VI, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT VI · June · 00:00–06:00 rebate", given: {context: {category: HT VI, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT VI · June · second slot starts 06:00", given: {context: {category: HT VI, month: 6}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT VI · June · solar hours start 09:00", given: {context: {category: HT VI, month: 6}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT VI · June · solar hours end 17:00", given: {context: {category: HT VI, month: 6}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT VI · June · solar-hours rebate", given: {context: {category: HT VI, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT VI · June · peak 17:00–24:00 surcharge", given: {context: {category: HT VI, month: 6}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT VI · June · peak ends 24:00", given: {context: {category: HT VI, month: 6}, field: /slots/3/end}, expect: {value: "24:00"}}
+  - {name: "FY 2026-27 · HT VI · December · one row", given: {context: {category: HT VI, month: 12}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT VI · December · 00:00–06:00 rebate", given: {context: {category: HT VI, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · HT VI · December · second slot starts 06:00", given: {context: {category: HT VI, month: 12}, field: /slots/1/start}, expect: {value: "06:00"}}
+  - {name: "FY 2026-27 · HT VI · December · solar hours start 09:00", given: {context: {category: HT VI, month: 12}, field: /slots/2/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT VI · December · solar hours end 17:00", given: {context: {category: HT VI, month: 12}, field: /slots/2/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT VI · December · solar-hours rebate", given: {context: {category: HT VI, month: 12}, field: /slots/2/rebate_pct}, expect: {value: "25"}}
+  - {name: "FY 2026-27 · HT VI · December · peak 17:00–24:00 surcharge", given: {context: {category: HT VI, month: 12}, field: /slots/3/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT VI · December · peak ends 24:00", given: {context: {category: HT VI, month: 12}, field: /slots/3/end}, expect: {value: "24:00"}}

@@ -1,0 +1,43 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MERC AEML-D MYT Order, Case No. 211 of 2024, dated 28 March 2025 (sha256 2a404108…, 485 pages).
+# Tariff schedule annexure ('Tariff w.e.f. 1 April, 2026 to 31 March, 2027'), checked against the order's
+# summary of approved tariffs (Table 6-53, PDF pages 423-424). The tariffs apply from 1 April 2025 (PDF page 442).
+# Supply levels are kept as the tables print them (rate_block EHV / HT): the voltages each covers are in the
+# order's text, not in the tables.
+jurisdiction: aeml
+family: tariff_schedule
+effective_on: '2026-10-01'
+tests:
+  # HT I Industry, PDF page 469.
+  - {name: "FY 2026-27 · HT I at EHV · demand", given: {context: {category: HT I, voltage_kv: 110, rate_block: EHV}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT I at EHV · energy", given: {context: {category: HT I, voltage_kv: 110, rate_block: EHV}, field: /energy_charge/base}, expect: {value: "5.73"}}
+  - {name: "FY 2026-27 · HT I at HT · demand", given: {context: {category: HT I, voltage_kv: 22, rate_block: HT}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT I at HT · energy", given: {context: {category: HT I, voltage_kv: 22, rate_block: HT}, field: /energy_charge/base}, expect: {value: "5.73"}}
+  - {name: "FY 2026-27 · HT I at HT · wheeling", given: {context: {category: HT I, voltage_kv: 22, rate_block: HT}, field: /retail_wheeling_charge}, expect: {value: "0.57"}}
+  # HT II Commercial, PDF page 472.
+  - {name: "FY 2026-27 · HT II at EHV · demand", given: {context: {category: HT II, voltage_kv: 110, rate_block: EHV}, field: /demand_charge/value}, expect: {value: "300"}}
+  - {name: "FY 2026-27 · HT II at EHV · energy", given: {context: {category: HT II, voltage_kv: 110, rate_block: EHV}, field: /energy_charge/base}, expect: {value: "5.97"}}
+  - {name: "FY 2026-27 · HT II at HT · demand", given: {context: {category: HT II, voltage_kv: 22, rate_block: HT}, field: /demand_charge/value}, expect: {value: "300"}}
+  - {name: "FY 2026-27 · HT II at HT · energy", given: {context: {category: HT II, voltage_kv: 22, rate_block: HT}, field: /energy_charge/base}, expect: {value: "5.97"}}
+  - {name: "FY 2026-27 · HT II at HT · wheeling", given: {context: {category: HT II, voltage_kv: 22, rate_block: HT}, field: /retail_wheeling_charge}, expect: {value: "0.57"}}
+  # HT III Group Housing Society, PDF page 473.
+  - {name: "FY 2026-27 · HT III at EHV · demand", given: {context: {category: HT III, voltage_kv: 110, rate_block: EHV}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT III at EHV · energy", given: {context: {category: HT III, voltage_kv: 110, rate_block: EHV}, field: /energy_charge/base}, expect: {value: "5.10"}}
+  - {name: "FY 2026-27 · HT III at HT · demand", given: {context: {category: HT III, voltage_kv: 22, rate_block: HT}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT III at HT · energy", given: {context: {category: HT III, voltage_kv: 22, rate_block: HT}, field: /energy_charge/base}, expect: {value: "5.10"}}
+  - {name: "FY 2026-27 · HT III at HT · wheeling", given: {context: {category: HT III, voltage_kv: 22, rate_block: HT}, field: /retail_wheeling_charge}, expect: {value: "0.57"}}
+  # HT IV Railways/Metro/Monorail, PDF page 475.
+  - {name: "FY 2026-27 · HT IV at EHV · demand", given: {context: {category: HT IV, voltage_kv: 110, rate_block: EHV}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HT IV at EHV · energy", given: {context: {category: HT IV, voltage_kv: 110, rate_block: EHV}, field: /energy_charge/base}, expect: {value: "5.01"}}
+  - {name: "FY 2026-27 · HT IV at HT · demand", given: {context: {category: HT IV, voltage_kv: 22, rate_block: HT}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "FY 2026-27 · HT IV at HT · energy", given: {context: {category: HT IV, voltage_kv: 22, rate_block: HT}, field: /energy_charge/base}, expect: {value: "5.01"}}
+  - {name: "FY 2026-27 · HT IV at HT · wheeling", given: {context: {category: HT IV, voltage_kv: 22, rate_block: HT}, field: /retail_wheeling_charge}, expect: {value: "0.57"}}
+  # HT V Public Services, PDF page 477.
+  - {name: "FY 2026-27 · HT V at EHV · demand", given: {context: {category: HT V, voltage_kv: 110, rate_block: EHV}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT V at EHV · energy", given: {context: {category: HT V, voltage_kv: 110, rate_block: EHV}, field: /energy_charge/base}, expect: {value: "5.85"}}
+  - {name: "FY 2026-27 · HT V at HT · demand", given: {context: {category: HT V, voltage_kv: 22, rate_block: HT}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "FY 2026-27 · HT V at HT · energy", given: {context: {category: HT V, voltage_kv: 22, rate_block: HT}, field: /energy_charge/base}, expect: {value: "5.85"}}
+  - {name: "FY 2026-27 · HT V at HT · wheeling", given: {context: {category: HT V, voltage_kv: 22, rate_block: HT}, field: /retail_wheeling_charge}, expect: {value: "0.57"}}
+  # Units of the HT tables: Rs./kVA/Month and Rs./kVAh.
+  - {name: "FY 2026-27 · HT I billed in kVAh", given: {context: {category: HT I, voltage_kv: 22, rate_block: HT}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "FY 2026-27 · HT I demand charge is per kVA", given: {context: {category: HT I, voltage_kv: 22, rate_block: HT}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}

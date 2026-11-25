@@ -1,0 +1,12 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MERC TPC-D MYT Order, Case No. 210 of 2024, dated 28 March 2025 (sha256 10571990…, 336 pages).
+# Wheeling losses approved for each year of the control period: Table 6-35, PDF page 238. The table names supply levels
+# (HT, LT), kept as printed in rate_block.
+jurisdiction: tpcd
+family: oa_charge
+effective_on: '2025-10-01'
+tests:
+  - {name: "FY 2025-26 · wheeling loss at HT", given: {context: {connection: intra_state, rate_block: HT}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "0.37"}}
+  - {name: "FY 2025-26 · wheeling loss at HT is a percentage in kind", given: {context: {connection: intra_state, rate_block: HT}, where: {/component: wheeling_losses}, field: /basis}, expect: {value: percent_in_kind}}
+  - {name: "FY 2025-26 · wheeling loss at LT", given: {context: {connection: intra_state, rate_block: LT}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "2.29"}}
+  - {name: "FY 2025-26 · wheeling loss at LT is a percentage in kind", given: {context: {connection: intra_state, rate_block: LT}, where: {/component: wheeling_losses}, field: /basis}, expect: {value: percent_in_kind}}

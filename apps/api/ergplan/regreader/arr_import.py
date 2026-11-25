@@ -3,6 +3,10 @@
     python -m ergplan.regreader.arr_network import --state up --orders 67,66,65,64 [--dry-run]
         [--effective-from 65=2025-11-22] [--jurisdiction 67=uppcl] [--no-pdf] [--refresh] [--verbose]
 
+An order that sets the tariff of several years (a multi-year tariff order) is imported one year at
+a time, each year its own versions: `--orders 104@FY2025-26,104@FY2026-27` (the same form keys
+`--effective-from` and `--jurisdiction`); only the tables of that year are read.
+
 For each order: its metadata and section tables are read (`arr_network`), the order PDF is fetched
 from the regulator's link and stored when its SHA-256 is the one the ARR Network read (otherwise a
 reference row keeps the link and the pages, and every citation says the page is not stored), the
@@ -20,7 +24,8 @@ import json
 import re
 import sys
 from collections import Counter
-from dataclasses import dataclass, field
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import PurePosixPath
 from typing import Any
@@ -320,28 +325,49 @@ def propose_draft(
 # ------------------------------------------------------------------ the run
 
 
-def _read(client: ArrNetworkClient, order_id: int) -> tuple[Order, dict[str, list[SectionTable]]]:
+_SPEC = re.compile(r"\s*(\d+)\s*(?:@\s*(FY\d{4}-\d{2}))?\s*")
+
+
+def order_spec(spec: int | str) -> tuple[int, str | None]:
+    """'104' → (104, None); '104@FY2026-27' → (104, 'FY2026-27'): one tariff year of an order that
+    sets the tariff of several years (a multi-year tariff order), imported as its own versions."""
+    m = _SPEC.fullmatch(str(spec))
+    if not m:
+        raise ImportRefused(f"'{spec}' is not an order id or ORDER@FYyyyy-yy")
+    return int(m.group(1)), m.group(2)
+
+
+def _keyed(values: Mapping[int | str, Any] | Mapping[int, Any] | None, spec: int | str) -> Any:
+    """What was given for an order: under its spec ('104@FY2026-27') or under its id."""
+    given: dict[str, Any] = {str(k).replace(" ", ""): v for k, v in (values or {}).items()}
+    return given.get(str(spec).replace(" ", ""), given.get(str(order_spec(spec)[0])))
+
+
+def _read(client: ArrNetworkClient, spec: int | str) -> tuple[Order, dict[str, list[SectionTable]]]:
+    order_id, year = order_spec(spec)
     order = client.order(order_id)
+    if year:
+        order = replace(order, arr_year=year)
     return order, {s: client.sections(order_id, s) for s in arr_map.MAPPED_SECTIONS}
 
 
 def run(
     client: ArrNetworkClient,
     state: str,
-    order_ids: list[int],
+    order_ids: Sequence[int | str],
     *,
     actor: str = ACTOR,
     dry_run: bool = False,
     fetch_pdf: bool = True,
-    effective: dict[int, date] | None = None,
-    jurisdictions: dict[int, str] | None = None,
+    effective: Mapping[int | str, date] | Mapping[int, date] | None = None,
+    jurisdictions: Mapping[int | str, str] | Mapping[int, str] | None = None,
 ) -> list[OrderOutcome]:
     read = [_read(client, i) for i in order_ids]
     outcomes: list[OrderOutcome] = []
     with session_scope() as s:
-        for order, _ in read:
-            eff, basis = effective_from_for(order, (effective or {}).get(order.order_id))
-            jid = jurisdiction_for(s, order, state, (jurisdictions or {}).get(order.order_id))
+        for spec, (order, _) in zip(order_ids, read, strict=True):
+            eff, basis = effective_from_for(order, _keyed(effective, spec))
+            jid = jurisdiction_for(s, order, state, _keyed(jurisdictions, spec))
             outcomes.append(OrderOutcome(order, jid, eff, None, basis, document_id(order.sha256)))
     # an order's tariff runs until the next imported order of the same jurisdiction takes effect
     for o in outcomes:
@@ -456,13 +482,13 @@ def as_json(outcomes: list[OrderOutcome]) -> list[dict[str, Any]]:
     ]
 
 
-def _pairs(values: list[str], what: str) -> dict[int, str]:
-    out = {}
+def _pairs(values: list[str], what: str) -> dict[int | str, str]:
+    out: dict[int | str, str] = {}
     for v in values:
         k, sep, val = v.partition("=")
-        if not sep or not k.strip().isdigit() or not val.strip():
-            raise SystemExit(f"--{what} takes ORDER=VALUE, not '{v}'")
-        out[int(k)] = val.strip()
+        if not sep or not _SPEC.fullmatch(k) or not val.strip():
+            raise SystemExit(f"--{what} takes ORDER=VALUE (or ORDER@FYyyyy-yy=VALUE), not '{v}'")
+        out[int(k) if k.strip().isdigit() else k.strip()] = val.strip()
     return out
 
 
@@ -470,7 +496,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="ergplan.regreader.arr_network")
     ap.add_argument("command", choices=["import"])
     ap.add_argument("--state", required=True, help="state code of the jurisdictions file, e.g. up")
-    ap.add_argument("--orders", required=True, help="ARR Network order ids, comma-separated")
+    ap.add_argument(
+        "--orders",
+        required=True,
+        help="ARR Network order ids, comma-separated; ID@FYyyyy-yy for one year of a multi-year order",
+    )
     ap.add_argument("--dry-run", action="store_true", help="map and report; write nothing, fetch no PDF")
     ap.add_argument("--effective-from", action="append", default=[], metavar="ORDER=YYYY-MM-DD")
     ap.add_argument("--jurisdiction", action="append", default=[], metavar="ORDER=ID")
@@ -481,9 +511,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", metavar="PATH", help="also write the full result as JSON")
     a = ap.parse_args(argv)
     try:
-        ids = [int(x) for x in a.orders.split(",") if x.strip()]
+        ids: list[int | str] = [
+            int(x) if x.strip().isdigit() else x.strip() for x in a.orders.split(",") if x.strip()
+        ]
+        for x in ids:
+            order_spec(x)
         effective = {k: date.fromisoformat(v) for k, v in _pairs(a.effective_from, "effective-from").items()}
-    except ValueError as e:
+    except (ValueError, ImportRefused) as e:
         raise SystemExit(f"bad argument: {e}") from e
     try:
         outcomes = run(
