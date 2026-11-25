@@ -139,10 +139,11 @@ def _review(src: Source, t: SectionTable) -> dict[str, Any]:
     }
 
 
-def _band(text: str) -> dict[str, Any] | None:
+def _band(text: str, listed_voltages: bool = False) -> dict[str, Any] | None:
     """The voltage band a descriptor names, or None when it names none. Raises when the text names
     a voltage this module cannot read whole (a number left over beside the kV figures: a heading the
-    text layer broke, such as 'above 66 V kV and up to 132 k')."""
+    text layer broke, such as 'above 66 V kV and up to 132 k'). Two voltages listed with a stroke
+    ('132 kV / 220 kV') are read as the band between them only where the caller asks for it."""
     bare = _CATEGORY.sub(" ", text)
     if not re.search(r"k\s*v(?![a-z])|\d\s*k\b|\bvolt", bare, re.I):
         return None
@@ -155,6 +156,9 @@ def _band(text: str) -> dict[str, Any] | None:
         and re.search(r"\b(below|up\s*to|upto|less than|not exceeding)\b", bare, re.I)
     )
     if band is None or stray or both_ways:
+        listed = _listed_band(bare) if listed_voltages else None
+        if listed is not None:
+            return listed
         raise _Skip(f"voltage not read with confidence: '{text.strip()}'")
     return band
 
@@ -237,8 +241,8 @@ def _restates(descriptor: str, category: str) -> bool:
     """A row heading that only repeats the name of the category it is printed under ('Residential'
     under 'HV-6: Residential') tells one rate from another no further. A supply level does ('HT'
     beside 'EHV' under 'EHT I and HT I: HT – Industry'), though the heading holds the word."""
-    if _supply_level(descriptor):
-        return False
+    if _supply_level(descriptor) or re.search(r"\d", _CODED_CATEGORY.sub(" ", descriptor)):
+        return False  # … and so does a heading with a number of its own ('1 Metered', a load, a serial)
     d, c = _words_of(_CODED_CATEGORY.sub(" ", descriptor)), _words_of(_CODED_CATEGORY.sub(" ", category))
     return bool(d) and (d <= c or (len(c) > 1 and c <= d))
 
@@ -264,12 +268,14 @@ def _in_words(condition: str) -> str:
     return _plain(out)
 
 
-def _band_and_qualifier(descriptor: str) -> tuple[dict[str, Any] | None, str | None]:
+def _band_and_qualifier(
+    descriptor: str, listed_voltages: bool = False
+) -> tuple[dict[str, Any] | None, str | None]:
     """The voltage of a row and, where the row prints one condition in brackets beside it
     ('33 kV supply (Load factor >15%)'), that condition in words. A row whose voltage is still not
     read whole is refused as before."""
     try:
-        return _band(descriptor), None
+        return _band(descriptor, listed_voltages), None
     except _Skip:
         inside = _BRACKETED.findall(descriptor)
         if len(inside) != 1 or _KV_NUMBER.search(inside[0]) or not re.search(r"[a-z]{3,}", inside[0], re.I):
@@ -414,6 +420,7 @@ class _Entry:
     block: str | None = None  # the rate block where the table's group heading gives it ('' = none)
     scope_extra: dict[str, Any] | None = None  # a band of contract demand or load the row is printed for
     qualifier: str | None = None  # a condition printed in brackets beside the voltage, in words
+    extra: dict[str, Any] | None = None  # demand slabs, the rate above contract, energy bands (_clause_entry)
 
 
 def _component_rows(t: SectionTable) -> tuple[Row, Row] | None:
@@ -426,9 +433,12 @@ def _component_rows(t: SectionTable) -> tuple[Row, Row] | None:
 
 
 def _schedule_entries(src: Source, t: SectionTable, out: Mapped) -> list[_Entry]:
-    cat = t.category or ""
+    cat = _category_name(t.category or "")
     entries: list[_Entry] = []
     skipped: list[Unmapped] = []
+    clauses = _clause_entry(src, t, cat)
+    if clauses is not None:
+        return [clauses]
     if any(_SUBSIDY.search(c) for c in t.columns):
         raise _Skip("the tariff is printed with subsidy columns: several fixed and energy charges per row")
     if any(_SLABBED.search(c) for c in t.columns) and _unit_slabs(t):
@@ -484,7 +494,14 @@ def _schedule_entries(src: Source, t: SectionTable, out: Mapped) -> list[_Entry]
                 _slab_guard(descriptor)
                 category = named or cat
                 e = _Entry(t, category, _own_descriptor(t, category, descriptor))
-                e.band, e.qualifier = _band_and_qualifier(descriptor)
+                # two listed voltages ('132 kV / 220 kV') are a band in a numbered row (a table with a
+                # serial-number column, as MPERC prints its schedules); the same words in a table
+                # without one stay unread (CSERC's HV-1), as each order's golden cases record
+                numbered = _has_serial(t)
+                e.band, e.qualifier = _band_and_qualifier(
+                    _without_serial(t, r, charges | ({own} if own is not None else set()), descriptor),
+                    listed_voltages=numbered,
+                )
                 e.fixed = _rate_and_ref(src, t, r, f_col, list(r.cells), lead)
                 e.energy = _rate_and_ref(src, t, r, e_col, list(r.cells), lead)
                 e.wheeling = _wheeling_of(t, r, w_col, e.energy[0])
@@ -546,6 +563,9 @@ _NOT_A_CATEGORY = re.compile(
     r"\bterms\s+and\s+conditions\b|\bother\s+charges\b|\bto\s?d\b|\bpeak\b|[A-Za-z]{20,}|[.,;]\s*$", re.I
 )
 _NAMES_CATEGORY = re.compile(r"\b[A-Z]{1,5}\s?-\s?[IVX\d]+\b|(?i:\b(schedule|category)\b)")
+# a heading that starts with a category's short name in capitals, which is not a bare supply level
+# ('LT', 'HT consumers …') and not a numeral ('III INDUSTRY')
+_SHORT_NAME = re.compile(r"^\s*([A-Z]{2,5})(?=\s|\(|$)")
 _YEAR_HEAD = re.compile(r"\btariff\s+for\s+(?:FY\s*)?(\d{4})\s*-\s*(\d{2})\b", re.I)
 _PART_OF_YEAR = "a rate for part of the year (a season): the row is not a tariff for every month"
 _SLAB_ROW = "a consumption slab: the tariff_schedule family holds one energy rate per row"
@@ -565,6 +585,9 @@ def _heading_guard(t: SectionTable) -> None:
         )
     if _NAMES_CATEGORY.search(cat) or _CODED_CATEGORY.match(cat):
         return  # also 'RTS 6: Mixed Load', 'RTS-4A: …': a code without a hyphen, or with a letter
+    short = _SHORT_NAME.match(cat)
+    if short and short.group(1).lower() not in _LEVELS and not re.fullmatch(r"[IVX]+", short.group(1)):
+        return  # 'HTSS – (33 kV/11 kV)', 'LTIS – I (Demand based)', 'PWW (Demand Based)'
     if not t.label and t.title == cat:
         raise _Skip(
             f"no caption of its own and the heading above it ('{cat[:60]}') carries no category code: "
@@ -794,9 +817,10 @@ def _rate_and_ref(
     cell = row.cells[col]
     if arr_rates.is_blank(cell):
         raise _Skip("no fixed or no energy charge is printed for the row")
-    r = arr_rates.rate(cell, heading=t.columns[col] if col < len(t.columns) else None)
-    if r is None and col < len(t.columns):
-        r = arr_rates.rate_under(cell, t.columns[col])
+    heading = t.columns[col] if col < len(t.columns) else None
+    r = arr_rates.rate(cell, heading=heading) or arr_rates.flat_rate(cell, heading)
+    if r is None and heading is not None:
+        r = arr_rates.rate_under(cell, heading)
     if r is None:
         raise _Skip(f"rate not read: '{cell[:60]}'")
     return r.in_rupees(), _ref(src, t, row.page, quote, lead)
@@ -804,7 +828,12 @@ def _rate_and_ref(
 
 def _rate_block(t: SectionTable, descriptor: str, band: dict[str, Any] | None) -> str | None:
     parts = []
-    generic = _GENERIC_TITLE.search(t.title) or _title_year(t.title) or _LEAD_IN_TITLE.search(_plain(t.title))
+    generic = (
+        _GENERIC_TITLE.search(t.title)
+        or _title_year(t.title)
+        or _LEAD_IN_TITLE.search(_plain(t.title))
+        or _NO_BLOCK_TITLE.search(t.title)
+    )
     if not generic and _plain(t.title).lower() != (t.category or "").lower():
         parts.append(_plain(t.title))
     if band is None and not _is_generic(descriptor) and not _restates(descriptor, t.category or ""):
@@ -815,6 +844,7 @@ def _rate_block(t: SectionTable, descriptor: str, band: dict[str, Any] | None) -
 def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None:
     entries: list[_Entry] = []
     tables, undated, _ = _year_runs(tables)
+    misfiled = _misfiled(tables)
     for t in tables:
         try:
             by_year = None if t.as_text else _year_entries(src, t)
@@ -828,6 +858,7 @@ def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None
             if t.as_text:
                 raise _Skip("rate lines read from running text, not from a ruled table")
             _heading_guard(t)
+            _filing_guard(t, misfiled)
             _table_guard(t, src.order, _NOT_APPROVED_SCHEDULE)
             entries += _schedule_entries(src, t, out)
         except _Skip as why:
@@ -845,6 +876,7 @@ def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None
             halves[key] = e
         elif (other.fixed is None) != (e.fixed is None) and abs(other.table.page - e.table.page) <= 1:
             other.fixed, other.energy = other.fixed or e.fixed, other.energy or e.energy
+            other.extra = {**(other.extra or {}), **(e.extra or {})} or None
             whole.append(halves.pop(key))
         else:
             out.unmapped.append(Unmapped(e.table.name(), "tariff_schedule", "two tables of the same charge"))
@@ -909,6 +941,8 @@ def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None
             row["field_refs"] = {"/demand_charge/value": fixed_ref, "/energy_charge/base": energy_ref}
         if e.wheeling is not None:
             row["body"]["retail_wheeling_charge"] = e.wheeling.text()
+        if e.extra:
+            _apply_clauses(row, e.extra)
         rows.append((e, row))
     _keep_unambiguous(rows, "tariff_schedule", out)
 
@@ -955,7 +989,9 @@ def _tod_slots(t: SectionTable) -> list[dict[str, Any]]:
     h_col = next(
         (i for i, c in enumerate(t.columns) if re.search(r"\b(hours?|time|period|slot)", c, re.I)), 0
     )
-    v_cols = [i for i in range(len(t.columns)) if i != h_col]
+    if any(_NOT_APPROVED.search(c) and not _APPROVED.search(c) for c in t.columns):
+        raise _Skip("claimed, existing or proposed figures, not the commission's approved rate")
+    v_cols = _adjustment_columns(t, [i for i in range(len(t.columns)) if i != h_col])
     if len(v_cols) != 1:
         raise _Skip(f"table shape not recognised (columns: {', '.join(t.columns)[:120]})")
     slots = []
@@ -968,6 +1004,8 @@ def _tod_slots(t: SectionTable) -> list[dict[str, Any]]:
         cell = r.cells[v_cols[0]]
         slot: dict[str, Any] = {"name": r.cells[h_col].strip(), "start": band[0], "end": band[1]}
         pct = arr_rates.adjustment_pct(cell)
+        if pct is None:
+            pct = arr_rates.of_normal_pct(cell)
         if pct is None:
             raise _Skip(f"adjustment not read (no sign, or not a percentage): '{cell[:60]}'")
         if pct > 0:
@@ -1024,7 +1062,7 @@ def _tod_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None:
             )
             continue
         months = sorted(_months(t.title) or [])  # calendar order, as the approved rulebooks hold them
-        scope: dict[str, Any] = {"category": [t.category]}
+        scope: dict[str, Any] = _tod_scope(str(t.category))
         if months:
             scope["months"] = months
         body: dict[str, Any] = {"slots": slots}
@@ -1067,6 +1105,9 @@ def _approved_value_column(t: SectionTable) -> int:
         return named[0]
     if len(t.columns) == 2:
         return 1
+    figures = [i for i, c in enumerate(t.columns) if not _LABEL_HEAD.match(c.strip())]
+    if len(figures) == 1:
+        return figures[0]  # serial, particulars, reference and unit columns beside one column of figures
     raise _Skip("cannot tell which column is the commission's approved figure")
 
 
@@ -1102,7 +1143,9 @@ def _oa_row(
 def _single_rate(src: Source, t: SectionTable, pattern: str, component: str, label: str) -> dict[str, Any]:
     """A table that works one average charge out ('Average Wheeling charge | Rs. /kWh | 0.9318')."""
     col, unit_col = _approved_value_column(t), _unit_cell_column(t)
-    hits = [r for r in t.rows if r.cells and re.search(pattern, r.cells[0], re.I) and len(r.cells) > col]
+    hits = [
+        r for r in t.rows if r.cells and re.search(pattern, _particulars(t, r), re.I) and len(r.cells) > col
+    ]
     rated = []
     for r in hits:
         heading = r.cells[unit_col] if unit_col is not None and unit_col < len(r.cells) else t.columns[col]
@@ -1192,8 +1235,14 @@ def _oa_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None:
         try:
             _table_guard(t, src.order)
             got: list[dict[str, Any]]
-            approved = bool(_APPROVED.search(title)) or any(_APPROVED.search(c) for c in t.columns)
-            if re.search(r"green\s+(energy\s+)?tariff", title, re.I):
+            approved = (
+                bool(_APPROVED.search(title))
+                or any(_APPROVED.search(c) for c in t.columns)
+                or bool(_DETERMINATION.match(title))
+            )
+            if re.search(r"green\s+energy\s+charges?", title, re.I) and approved:
+                got = [_headed_rate(src, t, r"green\s+energy\s+charges?", "green_tariff_premium")]
+            elif re.search(r"green\s+(energy\s+)?tariff", title, re.I):
                 if not approved:
                     # a tariff the order computes and then caps or changes in its text is not the
                     # tariff payable (UPERC FY 2026-27: 0.48 computed, 0.34 approved in para 8.3.11)
@@ -1634,6 +1683,297 @@ def _tod_by_year_rows(
     out.unmapped[:] = [u for u in out.unmapped if not (u.family == "tariff_schedule" and u.fact_id in names)]
     _keep_unambiguous(rows, "tod_slots", out)
     return rest
+
+
+# ------------------------------------------------------------------ what other schedules print
+# (shapes met in the Gujarat, Madhya Pradesh and Bihar orders; nothing here names a state)
+
+_RATE_PREFIX = re.compile(r"^\s*rate\s*:\s*", re.I)
+_ITEM = re.compile(r"^\(?([a-z]|\d{1,2}|[ivx]{1,4})\)$", re.I)
+_ITEM_LEAD = re.compile(r"^\(?([a-z]|\d{1,2}|[ivx]{1,4})\)\s+", re.I)
+_SERIAL_HEAD = re.compile(r"^s[lr]?\.?\s*no\.?$", re.I)
+_LABEL_HEAD = re.compile(r"^(s[lr]?\.?\s*no\.?|particulars?|description|reference|units?)$", re.I)
+_DETERMINATION = re.compile(r"^\s*determination\s+of\b", re.I)
+_SECTION_NO = re.compile(r"^\s*(\d{1,2})\.\d{1,2}\.?\s")
+_GENERAL_TERMS = re.compile(
+    r"^\s*(general\s+)?terms\s+and\s+conditions\s+of\s+(high|low)[- ]tension\s+supply", re.I
+)
+# a table heading that is not the name of a rate block: the order's running head, a clause number,
+# a connective, or a sentence of the schedule's text that happens to stand above the table
+_NO_BLOCK_TITLE = re.compile(
+    r"^\s*(plus|(applicable\s+)?tariff(\s+rates?)?)\s*$|"
+    r"^\s*\d{1,2}(\.\d{1,2})+\.?\s*(demand|energy|fixed)\s+charges?\s*:?\s*$|"
+    r"\b(shall|will)\b|\bis\s+applicable\b|\bapplicable\s+(to|for)\b|^\s*character\s+of\s+service\b|"
+    r"\btariff\s+order\s+for\s+FY\b|\bARR\s+for\s+FY\b|\btruing\s+up\s+for\s+FY\b",
+    re.I,
+)
+_SLAB_FIRST = re.compile(r"^(?:for\s+)?(?:the\s+)?first\s+(\d+)\s*(kva|kw)\b")
+_SLAB_NEXT = re.compile(r"^(?:for\s+)?(?:the\s+)?next\s+(\d+)\s*(kva|kw)\b")
+_SLAB_REST = re.compile(r"^(?:for\s+billing\s+demand\s+)?(?:in\s+excess\s+of|above)\s+(\d+)\s*(kva|kw)\b")
+_WITHIN_CONTRACT = re.compile(r"^for\s+billing\s+demand\s+up\s*to\s+(?:the\s+)?contract\s+demand$")
+_OVER_CONTRACT = re.compile(
+    r"^for\s+billing\s+demand\s+in\s+excess\s+(?:of|over)\s+(?:the\s+)?contract\s+demand$"
+)
+_BAND_BASE = re.compile(r"^up\s*to\s+(\d+)\s*kva\s+of\s+billing\s+demand$")
+_BAND_ABOVE = re.compile(r"^for\s+billing\s+demand\s+above\s+(\d+)\s*kva(?:\s+and\s+up\s*to\s+(\d+)\s*kva)?$")
+_CLOCK_HEAD = re.compile(r"\bpeak\s+periods?\b|\b\d{4}\s*hrs\b", re.I)
+
+
+def _category_name(category: str) -> str:
+    """The category as the order names it, without the word that introduces it ('RATE: HTP-II')."""
+    return _RATE_PREFIX.sub("", category).strip()
+
+
+def _listed_band(text: str) -> dict[str, Any] | None:
+    """A descriptor that lists two supply voltages and no other number ('132 kV / 220 kV',
+    '132kV/220kV'): the band from the lower to the higher of them."""
+    m = re.search(r"(\d+(?:\.\d+)?)\s*kv\s*/\s*(\d+(?:\.\d+)?)\s*kv(?![a-z])", text, re.I)
+    if not m or re.findall(r"\d+(?:\.\d+)?", text) != [m.group(1), m.group(2)]:
+        return None
+    if re.search(r"\b(above|below|up\s*to|upto|exceeding|less than|more than)\b", text, re.I):
+        return None
+    lo, hi = sorted((Decimal(m.group(1)), Decimal(m.group(2))))
+    return {"min": float(lo) if lo % 1 else int(lo), "max": float(hi) if hi % 1 else int(hi)}
+
+
+def _has_serial(t: SectionTable) -> bool:
+    return any(_SERIAL_HEAD.match(c.strip()) for c in t.columns)
+
+
+def _without_serial(t: SectionTable, r: Row, skip: set[int], descriptor: str) -> str:
+    """What a row names for its voltage band: a serial-number column is not part of it."""
+    serial = {i for i, c in enumerate(t.columns) if _SERIAL_HEAD.match(c.strip())}
+    if not serial:
+        return descriptor
+    return " ".join(c for i, c in enumerate(r.cells) if i not in skip | serial and c.strip())
+
+
+def _particulars(t: SectionTable, r: Row) -> str:
+    """What a row is about: its first cell, or the next one when the first column is a serial number."""
+    if len(r.cells) > 1 and t.columns and _SERIAL_HEAD.match(t.columns[0].strip()):
+        return r.cells[1]
+    return r.cells[0]
+
+
+def _misfiled(tables: list[SectionTable]) -> set[str]:
+    """Tables whose numbered headings ('16.1. DEMAND CHARGES', '17.1. DEMAND CHARGES') belong to more
+    than one numbered section although they are filed under one category: the category printed above
+    each of them is then not certain."""
+    numbers: dict[str, dict[str, str]] = defaultdict(dict)
+    for t in tables:
+        m = _SECTION_NO.match(t.title)
+        if t.category and m:
+            numbers[t.category][t.table_id] = m.group(1)
+    return {tid for ids in numbers.values() if len(set(ids.values())) > 1 for tid in ids}
+
+
+def _filing_guard(t: SectionTable, misfiled: set[str]) -> None:
+    if t.table_id in misfiled:
+        raise _Skip(
+            "filed under a category together with a table of another numbered section: "
+            "the category of the table is not certain"
+        )
+    named = set(_KV_NUMBER.findall(t.category or ""))
+    titled = set(_KV_NUMBER.findall(t.title))
+    if named and titled and not named & titled:
+        raise _Skip(
+            f"the heading names {', '.join(sorted(titled, key=float))} kV but the table is filed under "
+            f"'{t.category}': the category of the table is not certain"
+        )
+
+
+def _printed_rows(t: SectionTable) -> list[Row]:
+    """The rows of a table, with the heading row when it is itself a clause ('(a) | For billing demand
+    up to the contract demand | Rs. 180 per kVA per month')."""
+    if t.columns and _ITEM.match(t.columns[0].strip()):
+        return [Row(tuple(t.columns), t.page), *t.rows]
+    return list(t.rows)
+
+
+def _clause(r: Row) -> tuple[str, str]:
+    """The words and the rate cell of a clause row: an item mark is dropped, the last cell is the rate
+    ('' when the row prints none)."""
+    cells = [c.strip() for c in r.cells]
+    if cells and _ITEM.match(cells[0]):
+        cells = cells[1:]
+    while cells and not cells[0]:
+        cells = cells[1:]
+    if not cells:
+        return "", ""
+    if len(cells) == 1:
+        return _ITEM_LEAD.sub("", arr_rates._norm(cells[0])), ""
+    return _ITEM_LEAD.sub("", arr_rates._norm(" ".join(c for c in cells[:-1] if c))), cells[-1]
+
+
+def _demand_clauses(src: Source, t: SectionTable, cat: str) -> _Entry | None:
+    """A demand charge printed as clauses: telescopic slabs of billing demand ('For the first 500 kVA
+    … / next 500 kVA … / in excess of 1000 kVA …'), or one rate up to the contract demand, and the
+    rate on demand above the contract demand. None when the table is not of this shape."""
+    if not _FIXED.search(t.title) or len(t.columns) not in (2, 3):
+        return None
+    if any(_FIXED.search(c) or _ENERGY.search(c) for c in t.columns):
+        return None
+    rows = [(r, *_clause(r)) for r in _printed_rows(t)]
+    kinds = (_SLAB_FIRST, _SLAB_NEXT, _SLAB_REST, _WITHIN_CONTRACT, _OVER_CONTRACT)
+    if not any(k.match(words) for _, words, _ in rows for k in kinds):
+        return None
+    slabs: list[tuple[str | None, arr_rates.Rate, dict[str, Any]]] = []
+    flat: tuple[arr_rates.Rate, dict[str, Any]] | None = None
+    over: tuple[arr_rates.Rate, dict[str, Any]] | None = None
+    edge = Decimal(0)
+    for r, words, cell in rows:
+        if not cell and (not words or _WITHIN_CONTRACT.match(words)):
+            continue  # an empty row, or the sub-heading above the slabs
+        slab = _SLAB_FIRST.match(words) or _SLAB_NEXT.match(words) or _SLAB_REST.match(words)
+        got = arr_rates.rate(cell) if cell else None
+        if (slab and slab.group(2) != "kva") or (got and got.unit == Unit.INR_PER_KW_MONTH):
+            raise _Skip("billing-demand clauses in kW: the family's slabs are in kVA")
+        if got is None or got.unit != Unit.INR_PER_KVA_MONTH:
+            raise _Skip(f"a demand clause not read as rupees per kVA per month: '{_quote(r.cells)[:80]}'")
+        ref = _ref(src, t, r.page, list(r.cells), [t.title])
+        closed = bool(slabs) and slabs[-1][0] is None
+        if _SLAB_FIRST.match(words) and not slabs:
+            edge = Decimal(slab.group(1)) if slab else edge
+            slabs.append((format(edge, "f"), got, ref))
+        elif _SLAB_NEXT.match(words) and slabs and not closed:
+            edge += Decimal(slab.group(1)) if slab else Decimal(0)
+            slabs.append((format(edge, "f"), got, ref))
+        elif _SLAB_REST.match(words) and slabs and not closed and slab and Decimal(slab.group(1)) == edge:
+            slabs.append((None, got, ref))
+        elif _WITHIN_CONTRACT.match(words) and not slabs and flat is None:
+            flat = (got, ref)
+        elif _OVER_CONTRACT.match(words) and over is None:
+            over = (got, ref)
+        else:
+            raise _Skip(f"a demand clause not understood: '{_quote(r.cells)[:80]}'")
+    if slabs and (flat is not None or len(slabs) < 2 or slabs[-1][0] is not None):
+        raise _Skip("the demand slabs do not run from the first kVA to an open last slab")
+    if not slabs and flat is None:
+        raise _Skip("no demand charge up to the contract demand is printed in the table")
+    e = _Entry(t, cat, "")
+    e.fixed = (slabs[-1][1], slabs[-1][2]) if slabs else flat
+    e.extra = {"slabs": slabs, "over_contract": over}
+    return e
+
+
+def _energy_clauses(src: Source, t: SectionTable, cat: str) -> _Entry | None:
+    """An energy charge for the whole consumption chosen by the month's billing demand, printed as
+    clauses under one heading ('Up to 500 kVA of billing demand 400 Paise per unit / For billing
+    demand above 500 kVA and up to 2500 kVA 420 Paise per Unit / …'). None when not of this shape."""
+    if len(t.columns) != 1 or not t.rows or any(len(r.cells) != 1 for r in t.rows):
+        return None
+    head = t.columns[0]
+    if _CLOCK_HEAD.search(head):
+        raise _Skip(
+            "a time-of-use charge printed as a clause of the schedule (the hours are in its heading), "
+            "not a time-of-day table"
+        )
+    if not re.search(r"\bentire\s+consumption\b", head, re.I):
+        return None
+    base: tuple[arr_rates.Rate, dict[str, Any]] | None = None
+    bands: list[tuple[str, arr_rates.Rate, dict[str, Any]]] = []
+    edge: str | None = None
+    for r in t.rows:
+        read = arr_rates.trailing_rate(r.cells[0])
+        if read is None:
+            raise _Skip(f"an energy clause not read: '{r.cells[0][:80]}'")
+        words, got = _ITEM_LEAD.sub("", read[0]), read[1].in_rupees()
+        if got.unit not in ENERGY_BASIS:
+            raise _Skip(f"an energy clause in a unit outside the family: '{r.cells[0][:80]}'")
+        ref = _ref(src, t, r.page, [head, *r.cells], [t.title])
+        low, above = _BAND_BASE.match(words), _BAND_ABOVE.match(words)
+        if low and base is None:
+            base, edge = (got, ref), low.group(1)
+        elif above and base is not None and above.group(1) == edge:
+            bands.append((above.group(1), got, ref))
+            edge = above.group(2)
+        else:
+            raise _Skip(f"an energy clause not understood: '{r.cells[0][:80]}'")
+    units = {b[1].unit for b in bands} | ({base[0].unit} if base else set())
+    if base is None or not bands or edge is not None or len(units) != 1:
+        raise _Skip("the energy bands do not run from the lowest billing demand to an open last band")
+    e = _Entry(t, cat, "")
+    e.energy = base
+    e.extra = {"bands": bands}
+    return e
+
+
+def _clause_entry(src: Source, t: SectionTable, cat: str) -> _Entry | None:
+    return _demand_clauses(src, t, cat) or _energy_clauses(src, t, cat)
+
+
+def _apply_clauses(row: dict[str, Any], extra: dict[str, Any]) -> None:
+    """Demand slabs, the rate above the contract demand and energy bands onto a schedule row, each
+    value with the citation of its own printed line."""
+    body, refs = row["body"], row.setdefault("field_refs", {})
+    slabs = extra.get("slabs") or []
+    if slabs:
+        body["demand_charge"]["basis"] = "inr_per_kva_month_billing_demand"
+        body["demand_charge"]["slabs"] = [
+            {"value": rate.text(), **({"up_to_kva": upto} if upto else {})} for upto, rate, _ in slabs
+        ]
+        for i, (_, _, ref) in enumerate(slabs):
+            refs[f"/demand_charge/slabs/{i}/value"] = ref
+    over = extra.get("over_contract")
+    if over:
+        body["demand_charge"]["billing_demand_rule"] = {"excess_demand_rate": over[0].text()}
+        refs["/demand_charge/billing_demand_rule/excess_demand_rate"] = over[1]
+    for i, (above, rate, ref) in enumerate(extra.get("bands") or []):
+        body["energy_charge"].setdefault("by_billing_demand", []).append(
+            {"above_kva": above, "base": rate.text()}
+        )
+        refs[f"/energy_charge/by_billing_demand/{i}/base"] = ref
+
+
+def _adjustment_columns(t: SectionTable, cols: list[int]) -> list[int]:
+    """Of the columns beside the hours, the one that holds the adjustment: a demand-charge column
+    that prints 'Normal Rate' in every row adjusts nothing and is set aside."""
+    if len(cols) < 2 or not t.rows:
+        return cols
+    keep = [
+        i
+        for i in cols
+        if not (
+            _FIXED.search(t.columns[i])
+            and all(i < len(r.cells) and arr_rates.of_normal_pct(r.cells[i]) == 0 for r in t.rows)
+        )
+    ]
+    return keep if len(keep) == 1 else cols
+
+
+def _tod_scope(category: str) -> dict[str, Any]:
+    """Who a time-of-day table is for: the category it is printed under, or, when it stands in the
+    general terms of high- or low-tension supply, every consumer of that kind."""
+    m = _GENERAL_TERMS.match(category)
+    if m:
+        return {"consumer_kind": ["ht", "eht"] if m.group(2).lower() == "high" else ["lt"]}
+    return {"category": [category]}
+
+
+def _headed_rate(src: Source, t: SectionTable, pattern: str, component: str) -> dict[str, Any]:
+    """A charge printed under its own column heading, the heading saying it is approved ('Approved
+    Green Energy Charges Rs/Unit' | '0.30'), in a table with one row of figures under it."""
+    cols = [
+        i
+        for i, c in enumerate(t.columns)
+        if re.search(pattern, c, re.I) and _APPROVED.search(c) and not _NOT_APPROVED.search(c)
+    ]
+    if len(cols) != 1:
+        raise _Skip("no single column headed as the approved charge")
+    col = cols[0]
+    rated = []
+    for r in t.rows:
+        if col < len(r.cells) and re.fullmatch(r"\s*\d[\d,]*(\.\d+)?\s*", r.cells[col]):
+            got = arr_rates.rate(r.cells[col], heading=t.columns[col])
+            if got is not None and got.unit != Unit.PERCENT:
+                rated.append((r, got))
+    if len(rated) != 1:
+        raise _Skip(f"no single per-unit rate under the approved heading ({len(rated)} rows state one)")
+    r, got = rated[0]
+    row = _oa_row(src, t, r, component, got, _plain(t.columns[col]), {})
+    lead = [f"{t.label} {t.title}".strip()]
+    row["source_ref"] = _ref(src, t, r.page, [t.columns[col], r.cells[col]], lead)
+    return row
 
 
 # ------------------------------------------------------------------ the order

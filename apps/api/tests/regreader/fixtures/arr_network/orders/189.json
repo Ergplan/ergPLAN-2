@@ -1,0 +1,29 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 189,
+  "commission": "GERC",
+  "title": "GERC Tariff Order: Truing up for FY 2024-25 and Revised ARR & Tariff for FY 2026-27, MGVCL (Case No. 2582 of 2025, 25.03.2026)",
+  "url": "https://www.mgvcl.com/Upload/tariff_petition/2025/2582/MGVCL%20Tariff%20Order%20for%20FY%202026-27.pdf",
+  "sha256": "1c4697f8b315d64a2f161e2a26cafc5ad2ccc5cb62799161fcfb529695925e1a",
+  "pages": 184,
+  "pages_without_text": 2,
+  "arr_year": "FY2026-27",
+  "years_decided": [
+   "FY2026-27"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "session discovery 2026-11-23: MGVCL's tariff-petition page (gercin.org fails TLS verification); %PDF and SHA-256 checked, text layer checked",
+  "fetched_on": "2026-11-23T00:00:00.000Z",
+  "read_status": "downloaded",
+  "utilities": [
+   "MGVCL"
+  ]
+ },
+ "parses": [],
+ "tables": [],
+ "facts": [],
+ "key_paragraphs": []
+}

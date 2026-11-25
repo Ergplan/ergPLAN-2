@@ -1,0 +1,21 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# BERC Tariff Order of NBPDCL and SBPDCL for FY 2026-27, effective 1 April 2026 (sha256 2661e60b…, 612 pages),
+# Appendix 1, Part B, Terms and conditions of high tension supply, 12) Time of Day tariff (for all HT consumers),
+# PDF page 567: off-peak 9:00 a.m. to 5.00 p.m. at 80% of the normal energy rate, evening peak 5.00 p.m. to 11.00 p.m.
+# at 120%, normal period 11.00 p.m. to 9.00 a.m.; demand charges at the normal rate throughout.
+jurisdiction: br_discoms
+family: tod_slots
+effective_on: '2026-08-01'
+tests:
+  - {name: "FY 2026-27 · HT ToD · one row for an HT consumer", given: {context: {consumer_kind: ht}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · HT ToD · off-peak starts 09:00", given: {context: {consumer_kind: ht}, field: /slots/0/start}, expect: {value: "09:00"}}
+  - {name: "FY 2026-27 · HT ToD · off-peak ends 17:00", given: {context: {consumer_kind: ht}, field: /slots/0/end}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT ToD · off-peak rebate 20%", given: {context: {consumer_kind: ht}, field: /slots/0/rebate_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT ToD · evening peak 17:00", given: {context: {consumer_kind: ht}, field: /slots/1/start}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · HT ToD · evening peak ends 23:00", given: {context: {consumer_kind: ht}, field: /slots/1/end}, expect: {value: "23:00"}}
+  - {name: "FY 2026-27 · HT ToD · evening peak surcharge 20%", given: {context: {consumer_kind: ht}, field: /slots/1/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2026-27 · HT ToD · normal period from 23:00", given: {context: {consumer_kind: ht}, field: /slots/2/start}, expect: {value: "23:00"}}
+  - {name: "FY 2026-27 · HT ToD · normal period to 09:00", given: {context: {consumer_kind: ht}, field: /slots/2/end}, expect: {value: "09:00"}}
+  # The low tension table (p. 554) prints two shares for the evening peak (120% for NDS and LTIS, 110% for others)
+  # in one cell: it is not imported.
+  - {name: "FY 2026-27 · no LT ToD row", given: {context: {consumer_kind: lt}}, expect: {absent: true}}

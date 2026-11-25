@@ -1,0 +1,16 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# BERC Tariff Order of NBPDCL and SBPDCL for FY 2025-26, effective 1 April 2025 (sha256 a247053b…, 779 pages),
+# Appendix 1, Part B, 12) Time of Day tariff (for all HT consumers), PDF page 736: off-peak 9:00 a.m. to 5.00 p.m. at
+# 80%, evening peak 5.00 p.m. to 11.00 p.m. at 120%, normal period 11.00 p.m. to 9.00 a.m.
+jurisdiction: br_discoms
+family: tod_slots
+effective_on: '2025-08-01'
+tests:
+  - {name: "FY 2025-26 · HT ToD · one row for an HT consumer", given: {context: {consumer_kind: ht}}, expect: {count: 1}}
+  - {name: "FY 2025-26 · HT ToD · off-peak 09:00 to 17:00", given: {context: {consumer_kind: ht}, field: /slots/0/end}, expect: {value: "17:00"}}
+  - {name: "FY 2025-26 · HT ToD · off-peak rebate 20%", given: {context: {consumer_kind: ht}, field: /slots/0/rebate_pct}, expect: {value: "20"}}
+  - {name: "FY 2025-26 · HT ToD · evening peak surcharge 20%", given: {context: {consumer_kind: ht}, field: /slots/1/surcharge_pct}, expect: {value: "20"}}
+  - {name: "FY 2025-26 · HT ToD · evening peak ends 23:00", given: {context: {consumer_kind: ht}, field: /slots/1/end}, expect: {value: "23:00"}}
+  # A table on p. 758 (directives) is headed 'Time of Day (Proposed for FY 2025-26)': a proposal, not imported;
+  # with it there would be a second row for the category it is filed under.
+  - {name: "FY 2025-26 · the proposed smart-meter ToD table is not a row", given: {context: {category: "IAS –I"}}, expect: {absent: true}}

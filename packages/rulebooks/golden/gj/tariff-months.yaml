@@ -1,0 +1,36 @@
+# Months of a consumer's bill worked by hand from the order pages (rates read from the text layer of the PDF,
+# independently of the importer), for the versions imported from the ARR Network. Each case is evaluated through
+# rulebook.sandbox on the draft in force at the end of the month and engine.tariff_eval
+# (apps/api/tests/regreader/test_arr_gj_mp_br.py). Recorded demand is at or above 85% of contract demand and below
+# the contract demand in every case, so the billing-demand floor and the rate on demand above contract (rules the
+# order states in clauses that no table of the source holds) do not enter. No time-of-use adder: the order prints
+# it as a clause (11.3, 12.3), which the import leaves unmapped, so by_slot is empty.
+#
+# GERC MGVCL order for FY 2026-27 (ARR Network order 189): HTP-1 p. 173, HTP-II pp. 176-177.
+origin: arr_network
+state: GJ
+cases:
+  - name: MGVCL HTP-1, 3,000 kVA contract, 2,800 kVA recorded, June 2026
+    # demand: first 500 x 150 = 75,000; next 500 x 260 = 130,000; remaining 1,800 x 475 = 855,000 -> 1,060,000
+    # energy: billing demand above 2,500 kVA -> 430 paise for the entire consumption: 1,200,000 x 4.30 = 5,160,000
+    discom: mgvcl
+    category: HTP-1
+    voltage_kv: 11
+    month: 2026-06
+    contract_kva: 3000
+    max_kva: 2800
+    units: 1200000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, demand_charge: "1060000.00", energy_charge: "5160000.00", tod_adjustment: "0.00", total: "6220000.00"}
+  - name: MGVCL HTP-II, 800 kVA contract, 700 kVA recorded, October 2026
+    # demand: first 500 x 115 = 57,500; next 200 x 225 = 45,000 -> 102,500
+    # energy: billing demand above 500 and up to 2,500 kVA -> 455 paise: 200,000 x 4.55 = 910,000
+    discom: mgvcl
+    category: HTP-II
+    voltage_kv: 11
+    month: 2026-10
+    contract_kva: 800
+    max_kva: 700
+    units: 200000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, demand_charge: "102500.00", energy_charge: "910000.00", tod_adjustment: "0.00", total: "1012500.00"}

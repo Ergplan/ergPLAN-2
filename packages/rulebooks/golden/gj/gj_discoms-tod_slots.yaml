@@ -2,6 +2,8 @@
 # 500 kVA) or +85 paise (above 500 kVA) in 07:00-11:00 and 18:00-22:00; 60 paise concession 11:00-17:00.
 jurisdiction: gj_discoms
 family: tod_slots
+# these cases are for the FY 2026-27 schedule: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "morning peak +0.45", given: {context: {category: HTP-I}, field: /slots/0/rate_delta_inr_per_kwh}, expect: {value: "0.45"}}
   - {name: "morning peak above 500 kVA +0.85", given: {context: {category: HTP-I}, field: /slots/0/rate_delta_by_billing_demand/0/rate_delta_inr_per_kwh}, expect: {value: "0.85"}}

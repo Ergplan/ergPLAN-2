@@ -1,0 +1,30 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# BERC Tariff Order of NBPDCL and SBPDCL for FY 2026-27, issued 18 March 2026, effective 1 April 2026 (sha256
+# 2661e60b…, 612 pages), Appendix 1, Part B: high tension supply. Energy is printed in paise per kVAh; rupees here.
+jurisdiction: br_discoms
+family: tariff_schedule
+effective_on: '2026-08-01'
+tests:
+  # 9.1 HTS (General) – I (11 kV), PDF page 556: demand Rs. 550 per kVA per month, all units 798 paise per kVAh.
+  - {name: "FY 2026-27 · HTS-I 11 kV · demand", given: {context: {category: "HTS (General) – I (11 kV)"}, field: /demand_charge/value}, expect: {value: "550"}}
+  - {name: "FY 2026-27 · HTS-I 11 kV · energy", given: {context: {category: "HTS (General) – I (11 kV)"}, field: /energy_charge/base}, expect: {value: "7.98"}}
+  - {name: "FY 2026-27 · HTS-I billed in kVAh", given: {context: {category: "HTS (General) – I (11 kV)"}, field: /billing_basis}, expect: {value: kvah}}
+  # 9.2 HTS (General) – II (33 kV), PDF page 556: 550, all units 792.
+  - {name: "FY 2026-27 · HTS-II 33 kV · demand", given: {context: {category: "HTS (General) – II (33 kV)"}, field: /demand_charge/value}, expect: {value: "550"}}
+  - {name: "FY 2026-27 · HTS-II 33 kV · energy", given: {context: {category: "HTS (General) – II (33 kV)"}, field: /energy_charge/base}, expect: {value: "7.92"}}
+  # 9.6 HTS (General – Cold Storage) (11 kV), PDF page 558: 100, all units 674.
+  - {name: "FY 2026-27 · HTS cold storage 11 kV · demand", given: {context: {category: "HTS (General – Cold Storage) (11 kV)"}, field: /demand_charge/value}, expect: {value: "100"}}
+  - {name: "FY 2026-27 · HTS cold storage 11 kV · energy", given: {context: {category: "HTS (General – Cold Storage) (11 kV)"}, field: /energy_charge/base}, expect: {value: "6.74"}}
+  # 10.1 HTIS (Industrial) – I (11 kV), PDF pages 558 (heading) and 559 (rates): 550, all units 798.
+  - {name: "FY 2026-27 · HTIS-I 11 kV · demand", given: {context: {category: "HTIS (Industrial) – I (11 kV)"}, field: /demand_charge/value}, expect: {value: "550"}}
+  - {name: "FY 2026-27 · HTIS-I 11 kV · energy", given: {context: {category: "HTIS (Industrial) – I (11 kV)"}, field: /energy_charge/base}, expect: {value: "7.98"}}
+  - {name: "FY 2026-27 · HTIS-I demand charge is per kVA", given: {context: {category: "HTIS (Industrial) – I (11 kV)"}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  # 10.6 HTSS – (33 kV/11 kV), PDF page 561: 800, all units 494 (a 5% surcharge for supply at 11 kV is stated in words).
+  - {name: "FY 2026-27 · HTSS 33/11 kV · demand", given: {context: {category: "HTSS – (33 kV/11 kV)"}, field: /demand_charge/value}, expect: {value: "800"}}
+  - {name: "FY 2026-27 · HTSS 33/11 kV · energy", given: {context: {category: "HTSS – (33 kV/11 kV)"}, field: /energy_charge/base}, expect: {value: "4.94"}}
+  # 11.0 RTS (Railway Traction), PDF page 562: 540, all units 816.
+  - {name: "FY 2026-27 · RTS · demand", given: {context: {category: "RTS (Railway Traction)"}, field: /demand_charge/value}, expect: {value: "540"}}
+  - {name: "FY 2026-27 · RTS · energy", given: {context: {category: "RTS (Railway Traction)"}, field: /energy_charge/base}, expect: {value: "8.16"}}
+  # 10.2 to 10.5 HTIS-II to V (pp. 559-560: 792, 785, 779, 772 paise) reach the ARR Network under one heading,
+  # 'HTIS (Industrial)– II (33 kV)', so which table is the 33 kV one cannot be told there: none is imported.
+  - {name: "FY 2026-27 · no HTIS-II row (four tables under one heading at the source)", given: {context: {category: "HTIS (Industrial)– II (33 kV)"}}, expect: {absent: true}}

@@ -1,0 +1,11 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MPERC ARR and Retail Supply Tariff Order for FY 2025-26, dated 29 March 2025 (sha256 66254f46…, 259 pages).
+jurisdiction: mp_discoms
+family: oa_charge
+effective_on: '2025-08-01'
+tests:
+  # Table 97 'Determination of Additional Surcharge for FY 2025-26', PDF page 135, row 7: Rs. 1.24 per kWh.
+  - {name: "FY 2025-26 · additional surcharge 1.24", given: {context: {connection: intra_state}, where: {/component: additional_surcharge}, field: /value}, expect: {value: "1.24"}}
+  # Table 99 'Green Energy Charges … approved by the Commission for FY 2025-26', PDF page 138: 0.53.
+  - {name: "FY 2025-26 · green energy charge 0.53", given: {context: {}, where: {/component: green_tariff_premium}, field: /value}, expect: {value: "0.53"}}
+  - {name: "FY 2025-26 · no wheeling row (table not headed approved)", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling}}, expect: {absent: true}}

@@ -1,0 +1,16 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# MPERC ARR and Retail Supply Tariff Order for FY 2026-27, dated 26 March 2026 (sha256 77ffe9d2…, 255 pages).
+jurisdiction: mp_discoms
+family: oa_charge
+effective_on: '2026-08-01'
+tests:
+  # Table 98 'Determination of Additional Surcharge for FY 2026-27', PDF page 139, row 7; para 3.40: "The Commission
+  # has thus determined the Additional Surcharge of Rs. 1.18 per unit".
+  - {name: "FY 2026-27 · additional surcharge 1.18", given: {context: {connection: intra_state}, where: {/component: additional_surcharge}, field: /value}, expect: {value: "1.18"}}
+  - {name: "FY 2026-27 · additional surcharge is per kWh", given: {context: {connection: intra_state}, where: {/component: additional_surcharge}, field: /basis}, expect: {value: inr_per_kwh}}
+  # Table 100 'Green Energy Charges … approved by the Commission for FY 2026-27', PDF page 142, column H: 0.30.
+  - {name: "FY 2026-27 · green energy charge 0.30", given: {context: {}, where: {/component: green_tariff_premium}, field: /value}, expect: {value: "0.30"}}
+  # Table 89 (p. 131) works wheeling charges out (0.17 at 33 kV, 0.69 at 11 kV) and Table 96 (p. 136) illustrates the
+  # cross-subsidy surcharge; neither table is headed as approved, so neither is imported.
+  - {name: "FY 2026-27 · no wheeling row (table not headed approved)", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling}}, expect: {absent: true}}
+  - {name: "FY 2026-27 · no cross-subsidy row (illustration)", given: {context: {connection: intra_state, category: HV-3, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}}, expect: {absent: true}}
