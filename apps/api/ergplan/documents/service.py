@@ -77,14 +77,20 @@ def register(
         raise NotAPdf("the file does not start with %PDF")
     sha = hashlib.sha256(data).hexdigest()
     existing = session.scalar(select(SourceDocument).where(SourceDocument.file_sha256 == sha))
-    if existing is not None:
+    target = path_for(sha)
+    if existing is not None and existing.file_bytes and target.exists():
         return existing, False
     pages = page_count(data)
-    target = path_for(sha)
     if not target.exists():
         tmp = target.with_suffix(".part")
         tmp.write_bytes(data)
         tmp.replace(target)
+    if existing is not None:
+        # the row was a reference (register_reference), or its file was not on this machine: the
+        # PDF has now arrived, so its pages open
+        existing.file_bytes, existing.pages = len(data), pages
+        session.flush()
+        return existing, False
     doc = SourceDocument(
         id=document_id(sha),
         title=meta.title,
@@ -107,6 +113,47 @@ def register(
     session.add(doc)
     session.flush()
     return doc, True
+
+
+def register_reference(
+    session: Session, sha256: str, pages: int, meta: DocumentMeta, uploaded_by: str
+) -> tuple[SourceDocument, bool]:
+    """A row for a PDF this machine does not hold: its SHA-256 (so its id is the one the PDF will
+    have), its page count and the regulator's link, as another reader reported them. `file_bytes`
+    is 0 and no file is written, so `stored_ids` leaves it out and every citation to it says the
+    page is not stored, beside the regulator's link. `register` with the PDF itself completes it."""
+    sha = sha256.lower()
+    if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
+        raise ValueError("not a SHA-256")
+    existing = session.scalar(select(SourceDocument).where(SourceDocument.file_sha256 == sha))
+    if existing is not None:
+        return existing, False
+    doc = SourceDocument(
+        id=document_id(sha),
+        title=meta.title,
+        regulator=meta.regulator,
+        jurisdiction=meta.jurisdiction,
+        document_kind=meta.document_kind,
+        utilities=list(meta.utilities),
+        file_sha256=sha,
+        file_bytes=0,
+        pages=pages,
+        order_date=meta.order_date,
+        effective_from=meta.effective_from,
+        effective_to=meta.effective_to,
+        url_public=meta.url_public,
+        notes=list(meta.notes),
+        page_hints=meta.page_hints or {},
+        original_filename=meta.original_filename,
+        uploaded_by=uploaded_by,
+    )
+    session.add(doc)
+    session.flush()
+    return doc, True
+
+
+def is_stored(doc: SourceDocument) -> bool:
+    return path_for(doc.file_sha256).exists()
 
 
 def get(session: Session, document_id: str) -> SourceDocument:

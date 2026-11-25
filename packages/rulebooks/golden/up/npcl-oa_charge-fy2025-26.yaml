@@ -1,0 +1,18 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UPERC NPCL Tariff Order FY 2025-26 (sha256 7922703d…, 477 pages), in force from 22 Nov 2025 until the FY 2026-27 order.
+# Wheeling Table 7-5 (p. 356); CSS Table 7-14 column D 'Approved' (p. 367). 'Supply at 11 kV up to 66 kV' is read as above 11 kV
+# (the row before it is 'Supply at 11 kV'), and 'at 66 kV up to 132 kV' as above 66 kV and below 132 kV (the row after it is 'at 132 kV').
+jurisdiction: npcl
+family: oa_charge
+effective_on: '2026-01-15'
+tests:
+  - {name: "FY 2025-26 · average wheeling 0.78", given: {context: {connection: intra_state}, where: {/component: wheeling}, field: /value}, expect: {value: "0.78"}}
+  - {name: "FY 2025-26 · wheeling is per kWh", given: {context: {connection: intra_state}, where: {/component: wheeling}, field: /basis}, expect: {value: inr_per_kwh}}
+  - {name: "FY 2025-26 · CSS HV-2 at 11 kV", given: {context: {connection: intra_state, category: HV-2, voltage_kv: 11}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "0.57"}}
+  - {name: "FY 2025-26 · CSS HV-2 at 33 kV", given: {context: {connection: intra_state, category: HV-2, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "0.59"}}
+  - {name: "FY 2025-26 · CSS HV-2 at 66 kV", given: {context: {connection: intra_state, category: HV-2, voltage_kv: 66}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "0.59"}}
+  - {name: "FY 2025-26 · CSS HV-2 at 110 kV", given: {context: {connection: intra_state, category: HV-2, voltage_kv: 110}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "0.36"}}
+  - {name: "FY 2025-26 · CSS HV-2 at 132 kV", given: {context: {connection: intra_state, category: HV-2, voltage_kv: 132}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "0.36"}}
+  - {name: "FY 2025-26 · CSS HV-1 at 11 kV", given: {context: {connection: intra_state, category: HV-1, voltage_kv: 11}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.33"}}
+  - {name: "FY 2025-26 · CSS HV-1 at 33 kV", given: {context: {connection: intra_state, category: HV-1, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.40"}}
+  - {name: "FY 2025-26 · CSS for supply below 11 kV", given: {context: {connection: intra_state, voltage_kv: 0.4}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.46"}}

@@ -1,6 +1,8 @@
 # UPERC NPCL Tariff Order FY 2026-27, HV-2 TOD Structure and Rates, PDF page 388 (read from the text layer).
 jurisdiction: npcl
 family: tod_slots
+# these cases are for the FY 2026-27 order: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "one summer row in May", given: {context: {category: HV-2, month: 5}}, expect: {count: 1}}
   - {name: "summer 19:00 starts the peak", given: {context: {category: HV-2, month: 5}, field: /slots/0/start}, expect: {value: "19:00"}}

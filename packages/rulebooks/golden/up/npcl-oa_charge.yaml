@@ -2,6 +2,8 @@
 # additional surcharge approved as zero (para 9.4.7, p. 323). Read from the text layer.
 jurisdiction: npcl
 family: oa_charge
+# these cases are for the FY 2026-27 order: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "average wheeling 1.03", given: {context: {connection: intra_state}, where: {/component: wheeling}, field: /value}, expect: {value: "1.03"}}
   - {name: "wheeling is per kWh", given: {context: {connection: intra_state}, where: {/component: wheeling}, field: /basis}, expect: {value: inr_per_kwh}}

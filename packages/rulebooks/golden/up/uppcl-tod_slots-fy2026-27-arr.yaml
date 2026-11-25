@@ -1,0 +1,17 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UPERC State DISCOMs Tariff Order FY 2026-27 (sha256 3a046bfa…, 501 pages).
+# These cases are for versions imported from the ARR Network only: the approved FY 2026-27 rulebook holds HV-2 alone.
+# LMV-6 TOD, PDF page 432.
+jurisdiction: uppcl
+family: tod_slots
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "FY 2026-27 · LMV-6 · one summer row in June", given: {context: {category: LMV-6, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LMV-6 · summer 05:00–10:00 rebate 15%", given: {context: {category: LMV-6, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · summer peak starts 19:00", given: {context: {category: LMV-6, month: 6}, field: /slots/2/start}, expect: {value: "19:00"}}
+  - {name: "FY 2026-27 · LMV-6 · summer peak ends 03:00", given: {context: {category: LMV-6, month: 6}, field: /slots/2/end}, expect: {value: "03:00"}}
+  - {name: "FY 2026-27 · LMV-6 · summer peak surcharge 15%", given: {context: {category: LMV-6, month: 6}, field: /slots/2/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · winter peak 17:00–23:00 surcharge 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/2/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · winter night starts 23:00", given: {context: {category: LMV-6, month: 12}, field: /slots/3/start}, expect: {value: "23:00"}}
+  - {name: "FY 2026-27 · LMV-6 · winter night rebate 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/3/rebate_pct}, expect: {value: "15"}}

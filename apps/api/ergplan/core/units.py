@@ -21,6 +21,7 @@ class Unit(StrEnum):
     INR_PER_MW_DAY = "INR/MW/day"
     INR_PER_YEAR = "INR/year"
     PAISE_PER_KWH = "paise/kWh"
+    PAISE_PER_KVAH = "paise/kVAh"
     PERCENT = "percent"
     KWH = "kWh"
     KVAH = "kVAh"
@@ -47,6 +48,8 @@ _FACTORS: dict[tuple[Unit, Unit], Decimal] = {
     (Unit.INR_PER_KWH, Unit.INR_PER_MWH): Decimal("1000"),
     (Unit.PAISE_PER_KWH, Unit.INR_PER_KWH): Decimal("0.01"),
     (Unit.INR_PER_KWH, Unit.PAISE_PER_KWH): Decimal("100"),
+    (Unit.PAISE_PER_KVAH, Unit.INR_PER_KVAH): Decimal("0.01"),
+    (Unit.INR_PER_KVAH, Unit.PAISE_PER_KVAH): Decimal("100"),
     (Unit.MWH, Unit.KWH): Decimal("1000"),
     (Unit.KWH, Unit.MWH): Decimal("0.001"),
     (Unit.MW, Unit.KW): Decimal("1000"),

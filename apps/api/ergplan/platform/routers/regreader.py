@@ -1,5 +1,6 @@
-"""The two doors into a draft rulebook: the direct reader (OpenAI over stored pages, grounded) and
-the tariff-oder import. Both write drafts only; approval is the rulebook endpoints' job."""
+"""The doors into a draft rulebook: the direct reader (OpenAI over stored pages, grounded), the
+tariff-oder import and the ARR Network import. All write drafts only; approval is the rulebook
+endpoints' job."""
 
 from __future__ import annotations
 
@@ -13,7 +14,8 @@ from ...core.settings import get_settings
 from ...db.base import session_scope
 from ...documents import service as documents
 from ...providers.openai_client import NoModelConfigured, ProviderError
-from ...regreader import direct, locate, tariff_oder
+from ...regreader import arr_import, direct, locate, tariff_oder
+from ...regreader.arr_network import ArrNetworkClient, ArrNetworkError
 from ...rulebook import service
 from ..auth import Caller, analyst
 
@@ -173,3 +175,40 @@ def import_tariff_oder(body: TariffOderIn, who: Analyst) -> list[DraftOut]:
         )
     )
     return out
+
+
+class ArrNetworkIn(BaseModel):
+    state: str
+    orders: list[int]
+    dry_run: bool = True  # map and report; nothing is written until the analyst asks for it
+    fetch_pdf: bool = True
+    effective_from: dict[int, date] = {}
+    jurisdictions: dict[int, str] = {}
+
+
+def arr_client() -> ArrNetworkClient:
+    return ArrNetworkClient()
+
+
+@router.post("/arr-network", status_code=201)
+def import_arr_network(body: ArrNetworkIn, who: Analyst) -> list[dict[str, Any]]:
+    """Tariff orders of the ARR Network as draft versions (one per family and order), with what was
+    not mapped and why. Drafts only: an analyst approves each in the rulebook editor."""
+    if not body.orders or len(body.orders) > 12:
+        raise HTTPException(422, "import between 1 and 12 orders at a time")
+    try:
+        outcomes = arr_import.run(
+            arr_client(),
+            body.state,
+            body.orders,
+            actor=who.actor,
+            dry_run=body.dry_run,
+            fetch_pdf=body.fetch_pdf,
+            effective=body.effective_from,
+            jurisdictions=body.jurisdictions,
+        )
+    except arr_import.ImportRefused as e:
+        raise HTTPException(422, str(e)) from e
+    except ArrNetworkError as e:
+        raise HTTPException(502, str(e)) from e
+    return arr_import.as_json(outcomes)

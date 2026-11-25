@@ -9,6 +9,8 @@ from ergplan.core.units import IncompatibleUnits, Unit, convert, kwh_from_kw_blo
 def test_convert_same_dimension() -> None:
     assert convert(Decimal("4500"), Unit.INR_PER_MWH, Unit.INR_PER_KWH) == Decimal("4.5000")
     assert convert(Decimal("710"), Unit.PAISE_PER_KWH, Unit.INR_PER_KWH) == Decimal("7.10")
+    assert convert(Decimal("435"), Unit.PAISE_PER_KVAH, Unit.INR_PER_KVAH) == Decimal("4.35")
+    assert convert(Decimal("4.35"), Unit.INR_PER_KVAH, Unit.PAISE_PER_KVAH) == Decimal("435.00")
     assert convert(Decimal("2.5"), Unit.MW, Unit.KW) == Decimal("2500.0")
     assert convert(Decimal("8"), Unit.PERCENT, Unit.RATIO) == Decimal("0.08")
     assert convert(Decimal("3"), "INR/kWh", "INR/kWh") == Decimal("3")

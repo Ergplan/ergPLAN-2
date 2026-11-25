@@ -2,6 +2,8 @@
 # and para 10.4.11 (p. 384), CSS Table 10-14 column D 'Approved' (p. 386). Read from the text layer.
 jurisdiction: uppcl
 family: oa_charge
+# these cases are for the FY 2026-27 order: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "average wheeling 0.9318", given: {context: {connection: intra_state}, where: {/component: wheeling}, field: /value}, expect: {value: "0.9318"}}
   - {name: "distribution loss below 11 kV 13.07%", given: {context: {connection: intra_state, voltage_kv: 0.4}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "13.07"}}

@@ -1,0 +1,28 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UPERC NPCL Tariff Order FY 2026-27 (sha256 ff36813e…, 423 pages).
+# These cases are for versions imported from the ARR Network only: the approved FY 2026-27 rulebook holds HV-2 alone.
+jurisdiction: npcl
+family: tariff_schedule
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  # Rate Schedule HV-1, PDF page 384: (a) commercial loads and (b) residential multi-storied buildings.
+  - {name: "FY 2026-27 · HV-1 commercial at 11 kV · demand", given: {context: {category: HV-1, voltage_kv: 11, rate_block: "commercial loads"}, field: /demand_charge/value}, expect: {value: "430.00"}}
+  - {name: "FY 2026-27 · HV-1 commercial at 11 kV · energy", given: {context: {category: HV-1, voltage_kv: 11, rate_block: "commercial loads"}, field: /energy_charge/base}, expect: {value: "8.32"}}
+  - {name: "FY 2026-27 · HV-1 commercial above 11 kV · demand", given: {context: {category: HV-1, voltage_kv: 33, rate_block: "commercial loads"}, field: /demand_charge/value}, expect: {value: "400.00"}}
+  - {name: "FY 2026-27 · HV-1 commercial above 11 kV · energy", given: {context: {category: HV-1, voltage_kv: 33, rate_block: "commercial loads"}, field: /energy_charge/base}, expect: {value: "8.12"}}
+  - {name: "FY 2026-27 · HV-1 residential at 11 kV · demand", given: {context: {category: HV-1, voltage_kv: 11, rate_block: "residential multi-storied buildings"}, field: /demand_charge/value}, expect: {value: "380.00"}}
+  - {name: "FY 2026-27 · HV-1 residential above 11 kV · energy", given: {context: {category: HV-1, voltage_kv: 33, rate_block: "residential multi-storied buildings"}, field: /energy_charge/base}, expect: {value: "7.50"}}
+  # Rate Schedule HV-4, PDF page 393: (a) demand charges and (b) energy charges by voltage.
+  - {name: "FY 2026-27 · HV-4 at 11 kV · demand", given: {context: {category: HV-4, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "350.00"}}
+  - {name: "FY 2026-27 · HV-4 at 11 kV · energy", given: {context: {category: HV-4, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "8.50"}}
+  - {name: "FY 2026-27 · HV-4 at 33 kV · demand", given: {context: {category: HV-4, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "340.00"}}
+  - {name: "FY 2026-27 · HV-4 at 33 kV · energy", given: {context: {category: HV-4, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "8.40"}}
+  - {name: "FY 2026-27 · HV-4 at 132 kV · demand", given: {context: {category: HV-4, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "330.00"}}
+  - {name: "FY 2026-27 · HV-4 at 132 kV · energy", given: {context: {category: HV-4, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "8.25"}}
+  - {name: "FY 2026-27 · no HV-4 row above 132 kV", given: {context: {category: HV-4, voltage_kv: 220}}, expect: {absent: true}}
+  # Rate Schedule LMV-6 (A), consumers other than the rural schedule, PDF page 374.
+  - {name: "FY 2026-27 · LMV-6 other than rural · fixed charge", given: {context: {category: LMV-6, rate_block: "other than rural"}, field: /demand_charge/value}, expect: {value: "290.00"}}
+  - {name: "FY 2026-27 · LMV-6 fixed charge is per kW", given: {context: {category: LMV-6, rate_block: "other than rural"}, field: /demand_charge/basis}, expect: {value: inr_per_kw_month}}
+  - {name: "FY 2026-27 · LMV-6 other than rural · energy", given: {context: {category: LMV-6, rate_block: "other than rural"}, field: /energy_charge/base}, expect: {value: "7.30"}}
+  - {name: "FY 2026-27 · LMV-6 billed in kWh", given: {context: {category: LMV-6, rate_block: "other than rural"}, field: /billing_basis}, expect: {value: kwh}}

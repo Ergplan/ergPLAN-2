@@ -114,6 +114,13 @@ def printed_numbers(texts: Iterable[str]) -> set[str]:
     return found
 
 
+def quote_numbers_missing(quote: str, page_text: str) -> list[str]:
+    """The numbers of a quote that are not printed on the page (in any of their printed forms)."""
+    printed = printed_numbers([page_text])
+    found = [m.group(0) for m in _NUM.finditer(unicodedata.normalize("NFKC", quote))]
+    return sorted({n for n in found if not (_forms(n) & printed)})
+
+
 def ungrounded_numbers(body: dict[str, Any], page_texts: Iterable[str]) -> list[str]:
     """Numbers in the body that are printed on none of the given pages (time bands like 19:00
     count as printed when the hour is)."""

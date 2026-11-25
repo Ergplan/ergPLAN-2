@@ -1,0 +1,27 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 66,
+  "commission": "UPERC",
+  "title": "NPCL Tariff Order for True-up for FY 2024-25, APR for 2025-26 and ARR and Tariff for FY 2026-27 in Petition no 2330 of 2025",
+  "url": "https://www.uperc.org/App_File/NPCL_TariffOrder-pdf72202631759PM.pdf",
+  "sha256": "ff36813e2671e0498b78784afec73f548626d9779af8d1c1bb79585a4e174b1a",
+  "pages": 423,
+  "pages_without_text": 21,
+  "arr_year": "FY2026-27",
+  "years_decided": [
+   "FY2024-25",
+   "FY2025-26",
+   "FY2026-27"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "discovery profile uperc-discovery v1",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "NPCL"
+  ]
+ }
+}

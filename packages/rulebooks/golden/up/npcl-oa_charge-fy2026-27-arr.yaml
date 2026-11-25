@@ -1,0 +1,12 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UPERC NPCL Tariff Order FY 2026-27 (sha256 ff36813e…, 423 pages).
+# These cases are for versions imported from the ARR Network only: the approved FY 2026-27 rulebook holds HV-2 alone.
+# CSS Table 9-14 column D 'Approved' (p. 321).
+jurisdiction: npcl
+family: oa_charge
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "FY 2026-27 · CSS HV-1 at 11 kV", given: {context: {connection: intra_state, category: HV-1, voltage_kv: 11}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.33"}}
+  - {name: "FY 2026-27 · CSS HV-1 at 33 kV", given: {context: {connection: intra_state, category: HV-1, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.40"}}
+  - {name: "FY 2026-27 · CSS for supply below 11 kV", given: {context: {connection: intra_state, voltage_kv: 0.4}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.46"}}

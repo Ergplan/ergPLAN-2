@@ -1,0 +1,18 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UPERC State DISCOMs Tariff Order FY 2026-27 (sha256 3a046bfa…, 501 pages).
+# These cases are for versions imported from the ARR Network only: the approved FY 2026-27 rulebook holds HV-2 alone.
+# CSS Table 10-14 column D 'Approved' (p. 386).
+jurisdiction: uppcl
+family: oa_charge
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "FY 2026-27 · CSS HV-1 at 11 kV", given: {context: {connection: intra_state, category: HV-1, voltage_kv: 11}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.53"}}
+  - {name: "FY 2026-27 · CSS HV-1 at 33 kV", given: {context: {connection: intra_state, category: HV-1, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.33"}}
+  - {name: "FY 2026-27 · CSS HV-4 at 11 kV", given: {context: {connection: intra_state, category: HV-4, voltage_kv: 11}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.51"}}
+  - {name: "FY 2026-27 · CSS HV-4 at 33 kV", given: {context: {connection: intra_state, category: HV-4, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.36"}}
+  - {name: "FY 2026-27 · CSS HV-4 at 132 kV", given: {context: {connection: intra_state, category: HV-4, voltage_kv: 132}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.26"}}
+  - {name: "FY 2026-27 · CSS for supply below 11 kV", given: {context: {connection: intra_state, voltage_kv: 0.4}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.59"}}
+  # Table 8-8 (p. 363) computes a green tariff of 0.48; para 8.3.11 on the same page caps it and approves Rs. 0.34 per kWh.
+  # The table is not the tariff payable, so no row may carry 0.48.
+  - {name: "FY 2026-27 · the computed green tariff is not imported", given: {context: {}, where: {/component: green_tariff_premium}}, expect: {absent: true}}

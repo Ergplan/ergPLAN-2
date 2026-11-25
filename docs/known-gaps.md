@@ -153,3 +153,9 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | An administrator username that is an email address can also sign in by emailed link | Person |
 | No browser test of the sign-in form or the weak-password banner | Next |
 | Password sign-in has not been exercised on the live address: the two variables are not in `.env` | Person (questions 16) |
+| Imported drafts carry no prose conditions (billing-demand floor, excess-demand multiple, surcharge and wheeling exemptions, additional surcharge, banking, limits): approving one as it stands over an approved version would lose those rows; an analyst merges | Analyst (questions 20) |
+| Uttar Pradesh HV-2 66–132 kV row is missing from the imported drafts (the ARR Network's column heading is broken there) | ARR Network |
+| Uttar Pradesh FY 2026-27 green tariff (₹0.34, para 8.3.11) is not sourced; state transmission charge and losses are not in the ARR Network's tables | Stage 12 |
+| Uttar Pradesh bills with supply before 22 Nov 2025 need the FY 2024-25 order (ARR Network orders 63 and 61), not imported | Next round |
+| The ARR importer does not map consumption slabs, per-BHP rates, subsidy columns, or schedules printed as running text (Uttar Pradesh HV-3, LMV-1, 2, 3, 5, 8, 11) | Next round |
+| No screen for the import; it runs by command or `POST /regreader/arr-network` | Next |

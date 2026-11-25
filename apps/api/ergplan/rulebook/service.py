@@ -197,6 +197,18 @@ def revise(session: Session, version_id: str, rows: list[dict[str, Any]]) -> Rul
     return v
 
 
+def reschedule(
+    session: Session, version_id: str, effective_from: date, effective_to: date | None
+) -> RulebookVersion:
+    """The effective window of a draft (an importer learns the next order's date after it proposed
+    this one). Approved versions keep theirs: `approve` and supersession decide those."""
+    v = _draft(session, version_id)
+    v.effective_from, v.effective_to = effective_from, effective_to
+    v.golden_status = "not_run"
+    session.flush()
+    return v
+
+
 def update_row(session: Session, version_id: str, rule_id: str, row: dict[str, Any]) -> Rule:
     v = _draft(session, version_id)
     errors = validate_rows(v.family, [row])
@@ -275,7 +287,9 @@ def run_golden(session: Session, version_id: str) -> golden.GoldenResult:
 
 def approve(session: Session, version_id: str, actor: str, role: str) -> RulebookVersion:
     """Approve a draft. The session must carry role 'analyst' (the trigger checks it too). Any
-    approved version of the same family and jurisdiction whose dates overlap is superseded."""
+    approved version of the same family and jurisdiction whose effective window overlaps this one's
+    is superseded; one that ends before this starts, or starts after this ends (the next tariff
+    year, approved earlier), stays in force for its own dates."""
     if role != "analyst":
         raise ApprovalRefused("approval needs role analyst")
     v = _draft(session, version_id)
@@ -290,7 +304,9 @@ def approve(session: Session, version_id: str, actor: str, role: str) -> Ruleboo
             RulebookVersion.id != v.id,
         )
     ):
-        if old.effective_to is None or old.effective_to >= v.effective_from:
+        starts_after = v.effective_to is not None and old.effective_from > v.effective_to
+        ends_before = old.effective_to is not None and old.effective_to < v.effective_from
+        if not starts_after and not ends_before:
             old.status = "superseded"
     session.flush()
     v.status = "approved"

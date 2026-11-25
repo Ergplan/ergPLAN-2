@@ -1,0 +1,27 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UPERC NPCL Tariff Order FY 2025-26 (sha256 7922703d…, 477 pages), in force from 22 Nov 2025 until the FY 2026-27 order.
+# HV-2 TOD Structure and Rates, PDF page 447; LMV-6, PDF pages 433–434 (the winter table runs over the page).
+jurisdiction: npcl
+family: tod_slots
+effective_on: '2026-01-15'
+tests:
+  - {name: "FY 2025-26 · one summer row in June", given: {context: {category: HV-2, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2025-26 · summer peak starts 19:00", given: {context: {category: HV-2, month: 6}, field: /slots/0/start}, expect: {value: "19:00"}}
+  - {name: "FY 2025-26 · summer peak ends 02:00", given: {context: {category: HV-2, month: 6}, field: /slots/0/end}, expect: {value: "02:00"}}
+  - {name: "FY 2025-26 · summer peak surcharge 15%", given: {context: {category: HV-2, month: 6}, field: /slots/0/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · summer 07:00–16:00 rebate 15%", given: {context: {category: HV-2, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · winter night 22:00–04:00 rebate 15%", given: {context: {category: HV-2, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · winter morning peak 06:00–10:00 surcharge 15%", given: {context: {category: HV-2, month: 12}, field: /slots/2/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · winter evening peak starts 17:00", given: {context: {category: HV-2, month: 12}, field: /slots/4/start}, expect: {value: "17:00"}}
+  - {name: "FY 2025-26 · winter evening peak surcharge 15%", given: {context: {category: HV-2, month: 12}, field: /slots/4/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · winter last slot ends 22:00", given: {context: {category: HV-2, month: 12}, field: /slots/5/end}, expect: {value: "22:00"}}
+  - {name: "FY 2025-26 · LMV-6 · one summer row in June", given: {context: {category: LMV-6, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2025-26 · LMV-6 · summer peak starts 19:00", given: {context: {category: LMV-6, month: 6}, field: /slots/0/start}, expect: {value: "19:00"}}
+  - {name: "FY 2025-26 · LMV-6 · summer peak ends 02:00", given: {context: {category: LMV-6, month: 6}, field: /slots/0/end}, expect: {value: "02:00"}}
+  - {name: "FY 2025-26 · LMV-6 · summer peak surcharge 15%", given: {context: {category: LMV-6, month: 6}, field: /slots/0/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · LMV-6 · summer 07:00–16:00 rebate 15%", given: {context: {category: LMV-6, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · LMV-6 · winter night 22:00–04:00 rebate 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · LMV-6 · winter morning peak 06:00–10:00 surcharge 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/2/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · LMV-6 · winter evening peak starts 17:00", given: {context: {category: LMV-6, month: 12}, field: /slots/4/start}, expect: {value: "17:00"}}
+  - {name: "FY 2025-26 · LMV-6 · winter evening peak surcharge 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/4/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2025-26 · LMV-6 · winter last slot ends 22:00", given: {context: {category: LMV-6, month: 12}, field: /slots/5/end}, expect: {value: "22:00"}}

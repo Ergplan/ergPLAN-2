@@ -11,6 +11,16 @@ Files: packages/rulebooks/golden/<state>/<jurisdiction>-<family>.yaml
         source_ref: {kind: order, document: <sha256 prefix or id>, page: 384, quote: "..."}
 
 `given.where` optionally filters rows on body fields ({/component: cross_subsidy_surcharge}).
+A file may say which versions its tests are for, so that two tariff years of one DISCOM each have
+their own cases (a test may also say so itself, inside `given`):
+
+    effective_on: '2026-01-15'   # only versions whose effective window holds this date
+    origin: arr_network          # only versions of this origin (an importer's drafts and what an
+                                 # analyst approves of them)
+
+A jurisdiction and family may have several files (one per tariff year); test names are unique
+across them.
+
 `expect` is one of {value: "..."} (one row applies and its field equals it, compared as decimals
 when both are numbers), {absent: true} (no row applies), {count: n} (n rows apply).
 """
@@ -18,6 +28,7 @@ when both are numbers), {absent: true} (no row applies), {count: n} (n rows appl
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -27,7 +38,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..core.settings import get_settings
-from ..db.models import Rule, RulebookVersion, RuleTest, RuleTestRun
+from ..db.models import RulebookVersion, RuleTest, RuleTestRun
+from . import sandbox
 from .models import RuleView
 from .scope import matches, specificity
 
@@ -50,6 +62,9 @@ class GoldenResult:
         return self.total > 0 and self.passed == self.total
 
 
+SCOPE_KEYS = ("effective_on", "origin")  # which versions a file's (or a test's) cases are for
+
+
 def golden_dir() -> Path:
     return get_settings().rulebooks_dir / "golden"
 
@@ -66,45 +81,35 @@ def load_files(root: Path | None = None) -> list[dict[str, Any]]:
 
 def sync_tests(session: Session, root: Path | None = None) -> int:
     """Upsert golden tests from files (by jurisdiction, family and name). Returns the count."""
-    n = 0
+    wanted: dict[tuple[str, str], dict[str, tuple[dict[str, Any], dict[str, Any], Any]]] = {}
     for d in load_files(root):
-        jid, fam = d["jurisdiction"], d["family"]
+        cases = wanted.setdefault((d["jurisdiction"], d["family"]), {})
+        for t in d["tests"]:
+            if t["name"] in cases:
+                raise ValueError(f"{d['_file']}: a second golden test named '{t['name']}'")
+            given = dict(t["given"])
+            for key in SCOPE_KEYS:
+                if key in d and key not in given:
+                    given[key] = str(d[key])
+            cases[t["name"]] = (given, t["expect"], t.get("source_ref"))
+    n = 0
+    for (jid, fam), cases in wanted.items():
         existing = {
             t.name: t
             for t in session.scalars(
                 select(RuleTest).where(RuleTest.jurisdiction_id == jid, RuleTest.family == fam)
             )
         }
-        names = set()
-        for t in d["tests"]:
-            names.add(t["name"])
-            row = existing.get(t["name"]) or RuleTest(jurisdiction_id=jid, family=fam, name=t["name"])
-            row.given, row.expect, row.source_ref = t["given"], t["expect"], t.get("source_ref")
+        for name, (given, expect, ref) in cases.items():
+            row = existing.get(name) or RuleTest(jurisdiction_id=jid, family=fam, name=name)
+            row.given, row.expect, row.source_ref = given, expect, ref
             session.add(row)
             n += 1
         for name, row in existing.items():
-            if name not in names:
+            if name not in cases:
                 session.delete(row)
     session.flush()
     return n
-
-
-def _views(session: Session, v: RulebookVersion) -> list[RuleView]:
-    return [
-        RuleView(
-            id=r.id,
-            family=r.family,
-            version_id=v.id,
-            jurisdiction_id=v.jurisdiction_id,
-            scope=r.scope,
-            body=r.body,
-            source_ref=r.source_ref,
-            field_refs=r.field_refs or {},
-            label=r.label,
-            position=r.position,
-        )
-        for r in session.scalars(select(Rule).where(Rule.rulebook_version_id == v.id).order_by(Rule.position))
-    ]
 
 
 def _equal(a: Any, b: Any) -> bool:
@@ -136,13 +141,28 @@ def evaluate(
     return _equal(value, expect["value"]), {"value": value, "row": top[0].label or top[0].id}
 
 
+def applies(given: dict[str, Any], v: RulebookVersion) -> bool:
+    """Whether a golden case is for this version (its `effective_on` date and `origin`, when stated)."""
+    on = given.get("effective_on")
+    if on is not None:
+        d = date.fromisoformat(str(on))
+        if d < v.effective_from or (v.effective_to is not None and d > v.effective_to):
+            return False
+    return given.get("origin") in (None, v.origin)
+
+
 def run(session: Session, v: RulebookVersion) -> GoldenResult:
-    tests = list(
-        session.scalars(
-            select(RuleTest).where(RuleTest.jurisdiction_id == v.jurisdiction_id, RuleTest.family == v.family)
+    """Evaluate the version's golden cases on its rows as the sandbox gives them (drafts included)."""
+    tests = [
+        t
+        for t in session.scalars(
+            select(RuleTest)
+            .where(RuleTest.jurisdiction_id == v.jurisdiction_id, RuleTest.family == v.family)
+            .order_by(RuleTest.name)
         )
-    )
-    rows = _views(session, v)
+        if applies(t.given, v)
+    ]
+    rows = sandbox.rules(session, v.id)
     session.execute(delete(RuleTestRun).where(RuleTestRun.rulebook_version_id == v.id))
     res = GoldenResult(total=len(tests), passed=0)
     for t in tests:

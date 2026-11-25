@@ -1,0 +1,88 @@
+# Months of a consumer's bill worked by hand from the order pages (rates and ToD windows read from the text
+# layer of the PDFs, independently of the importer), for the versions imported from the ARR Network. Each case is
+# evaluated through rulebook.sandbox on the draft in force at the end of the month and engine.tariff_eval
+# (apps/api/tests/regreader/test_arr_months.py). Recorded demand is at or above 75% of contract demand in every
+# case, so the billable-demand floor (a rule the orders state in words, which no table holds) does not enter.
+#
+# UPERC State DISCOMs FY 2025-26 (order 65): HV-2 urban p. 526, ToD p. 527, HV-4 p. 532.
+# UPERC State DISCOMs FY 2026-27 (order 67): HV-2 urban p. 445, ToD p. 446.
+# UPERC NPCL FY 2025-26 (order 64): HV-2 urban p. 446, ToD p. 447. NPCL FY 2026-27 (order 66): p. 387, ToD p. 388.
+origin: arr_network
+cases:
+  - name: PVVNL HV-2 at 33 kV, 3,000 kVA contract, December 2025 (FY 2025-26 order)
+    # demand 2,800 kVA x 290 = 812,000; energy 1,200,000 kVAh x 6.80 = 8,160,000;
+    # 17:00-23:00 +15%: 330,000 x 6.80 x 0.15 = 336,600; 23:00-05:00 -15%: 210,000 x 6.80 x 0.15 = 214,200
+    discom: pvvnl
+    category: HV-2
+    rate_block: urban
+    voltage_kv: 33
+    month: 2025-12
+    contract_kva: 3000
+    max_kva: 2800
+    units: 1200000
+    by_slot: {"05:00 hrs – 11:00 hrs": 300000, "11:00 hrs – 17:00 hrs": 360000, "17:00 hrs – 23:00 hrs": 330000, "23:00 hrs – 05:00 hrs": 210000}
+    expect: {tariff_year: FY2025-26, demand_charge: "812000.00", energy_charge: "8160000.00", tod_adjustment: "122400.00", total: "9094400.00"}
+  - name: MVVNL HV-2 at 11 kV, 3,000 kVA contract, June 2026 (FY 2025-26 order, summer windows)
+    # demand 2,900 x 300 = 870,000; energy 1,000,000 x 7.10 = 7,100,000;
+    # 05:00-10:00 -15%: 200,000 x 7.10 x 0.15 = 213,000; 19:00-03:00 +15%: 300,000 x 7.10 x 0.15 = 319,500
+    discom: mvvnl
+    category: HV-2
+    rate_block: urban
+    voltage_kv: 11
+    month: 2026-06
+    contract_kva: 3000
+    max_kva: 2900
+    units: 1000000
+    by_slot: {"05:00 hrs – 10:00 hrs": 200000, "10:00 hrs – 19:00 hrs": 450000, "19:00 hrs – 03:00 hrs": 300000, "03:00 hrs – 05:00 hrs": 50000}
+    expect: {tariff_year: FY2025-26, demand_charge: "870000.00", energy_charge: "7100000.00", tod_adjustment: "106500.00", total: "8076500.00"}
+  - name: DVVNL HV-4 at 132 kV, 4,000 kVA, February 2026 (FY 2025-26 order, no ToD for HV-4)
+    # demand 4,000 x 330 = 1,320,000; energy 2,000,000 x 8.25 = 16,500,000
+    discom: dvvnl
+    category: HV-4
+    voltage_kv: 132
+    month: 2026-02
+    contract_kva: 4000
+    max_kva: 4000
+    units: 2000000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, demand_charge: "1320000.00", energy_charge: "16500000.00", tod_adjustment: "0.00", total: "17820000.00"}
+  - name: PVVNL HV-2 at 220 kV, 3,000 kVA contract, August 2026 (FY 2026-27 order)
+    # demand 3,000 x 270 = 810,000; energy 1,500,000 x 6.10 = 9,150,000;
+    # 05:00-10:00 -15%: 300,000 x 6.10 x 0.15 = 274,500; 19:00-03:00 +15%: 500,000 x 6.10 x 0.15 = 457,500
+    discom: pvvnl
+    category: HV-2
+    rate_block: urban
+    voltage_kv: 220
+    month: 2026-08
+    contract_kva: 3000
+    max_kva: 3000
+    units: 1500000
+    by_slot: {"05:00 hrs – 10:00 hrs": 300000, "10:00 hrs – 19:00 hrs": 600000, "19:00 hrs – 03:00 hrs": 500000, "03:00 hrs – 05:00 hrs": 100000}
+    expect: {tariff_year: FY2026-27, demand_charge: "810000.00", energy_charge: "9150000.00", tod_adjustment: "183000.00", total: "10143000.00"}
+  - name: NPCL HV-2 at 33 kV, 3,000 kVA contract, January 2026 (FY 2025-26 order, two winter peaks)
+    # demand 2,800 x 290 = 812,000; energy 1,200,000 x 6.80 = 8,160,000;
+    # 22:00-04:00 -15%: 250,000 x 6.80 x 0.15 = 255,000; 06:00-10:00 +15%: 200,000 x 1.02 = 204,000;
+    # 17:00-19:00 +15%: 120,000 x 1.02 = 122,400; net +71,400
+    discom: npcl
+    category: HV-2
+    rate_block: urban
+    voltage_kv: 33
+    month: 2026-01
+    contract_kva: 3000
+    max_kva: 2800
+    units: 1200000
+    by_slot: {"22:00 hrs – 04:00 hrs": 250000, "04:00 hrs – 06:00 hrs": 80000, "06:00 hrs – 10:00 hrs": 200000, "10:00 hrs – 17:00 hrs": 350000, "17:00 hrs – 19:00 hrs": 120000, "19:00 hrs – 22:00 hrs": 200000}
+    expect: {tariff_year: FY2025-26, demand_charge: "812000.00", energy_charge: "8160000.00", tod_adjustment: "71400.00", total: "9043400.00"}
+  - name: NPCL HV-2 at 11 kV, 3,000 kVA contract, August 2026 (FY 2026-27 order, summer windows)
+    # demand 2,500 x 300 = 750,000; energy 1,000,000 x 7.10 = 7,100,000;
+    # 19:00-02:00 +15%: 350,000 x 7.10 x 0.15 = 372,750; 07:00-16:00 -15%: 400,000 x 7.10 x 0.15 = 426,000; net -53,250
+    discom: npcl
+    category: HV-2
+    rate_block: urban
+    voltage_kv: 11
+    month: 2026-08
+    contract_kva: 3000
+    max_kva: 2500
+    units: 1000000
+    by_slot: {"19:00 hrs – 02:00 hrs": 350000, "02:00 hrs – 07:00 hrs": 150000, "07:00 hrs – 16:00 hrs": 400000, "16:00 hrs – 19:00 hrs": 100000}
+    expect: {tariff_year: FY2026-27, demand_charge: "750000.00", energy_charge: "7100000.00", tod_adjustment: "-53250.00", total: "7796750.00"}

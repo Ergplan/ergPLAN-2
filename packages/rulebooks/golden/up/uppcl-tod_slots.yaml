@@ -1,6 +1,8 @@
 # UPERC State DISCOMs Tariff Order FY 2026-27, HV-2 TOD Structure and Rates, PDF page 446 (read from the text layer).
 jurisdiction: uppcl
 family: tod_slots
+# these cases are for the FY 2026-27 order: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "one summer row in June", given: {context: {category: HV-2, month: 6}}, expect: {count: 1}}
   - {name: "summer 05:00-10:00 rebate 15%", given: {context: {category: HV-2, month: 6}, field: /slots/0/rebate_pct}, expect: {value: "15"}}

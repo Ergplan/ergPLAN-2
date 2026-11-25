@@ -1,0 +1,19 @@
+# Written by reading the order's text layer page by page, independently of the importer's output.
+# UPERC NPCL Tariff Order FY 2026-27 (sha256 ff36813e…, 423 pages).
+# These cases are for versions imported from the ARR Network only: the approved FY 2026-27 rulebook holds HV-2 alone.
+# LMV-6 TOD, PDF pages 374–375 (the winter table runs over the page).
+jurisdiction: npcl
+family: tod_slots
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "FY 2026-27 · LMV-6 · one summer row in June", given: {context: {category: LMV-6, month: 6}}, expect: {count: 1}}
+  - {name: "FY 2026-27 · LMV-6 · summer peak starts 19:00", given: {context: {category: LMV-6, month: 6}, field: /slots/0/start}, expect: {value: "19:00"}}
+  - {name: "FY 2026-27 · LMV-6 · summer peak ends 02:00", given: {context: {category: LMV-6, month: 6}, field: /slots/0/end}, expect: {value: "02:00"}}
+  - {name: "FY 2026-27 · LMV-6 · summer peak surcharge 15%", given: {context: {category: LMV-6, month: 6}, field: /slots/0/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · summer 07:00–16:00 rebate 15%", given: {context: {category: LMV-6, month: 6}, field: /slots/2/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · winter night 22:00–04:00 rebate 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/0/rebate_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · winter morning peak 06:00–10:00 surcharge 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/2/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · winter evening peak starts 17:00", given: {context: {category: LMV-6, month: 12}, field: /slots/4/start}, expect: {value: "17:00"}}
+  - {name: "FY 2026-27 · LMV-6 · winter evening peak surcharge 15%", given: {context: {category: LMV-6, month: 12}, field: /slots/4/surcharge_pct}, expect: {value: "15"}}
+  - {name: "FY 2026-27 · LMV-6 · winter last slot ends 22:00", given: {context: {category: LMV-6, month: 12}, field: /slots/5/end}, expect: {value: "22:00"}}

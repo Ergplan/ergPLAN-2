@@ -2,6 +2,8 @@
 # UPERC NPCL Tariff Order FY 2026-27 (sha256 ff36813e…), Rate Schedule HV-2, (A) Urban Schedule, PDF page 387.
 jurisdiction: npcl
 family: tariff_schedule
+# these cases are for the FY 2026-27 order: versions in force on this date (rulebook/golden.py)
+effective_on: '2026-08-01'
 tests:
   - {name: "HV-2 urban up to 11 kV · demand", given: {context: {category: HV-2, voltage_kv: 11, rate_block: urban}, field: /demand_charge/value}, expect: {value: "300.00"}}
   - {name: "HV-2 urban up to 11 kV · energy", given: {context: {category: HV-2, voltage_kv: 11, rate_block: urban}, field: /energy_charge/base}, expect: {value: "7.10"}}

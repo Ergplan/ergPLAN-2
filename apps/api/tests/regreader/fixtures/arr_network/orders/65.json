@@ -1,0 +1,31 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 65,
+  "commission": "UPERC",
+  "title": "State Discoms Tariff Order for True-up for FY 2023-24, APR for 2024-25 and ARR and Tariff for FY 2025-26 in Petition no 2162/2024, 2163/2024, 2164/2024, 2165/2024 and 2176/2024",
+  "url": "https://www.uperc.org/App_File/UPPCLTariffOrderFY2025-26-pdf1122202564623PM.pdf",
+  "sha256": "e687a4c7cc2037b00abe50f2037b88afc203a45c71915277136ca03ea36cb7c5",
+  "pages": 568,
+  "pages_without_text": 20,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2023-24",
+   "FY2024-25",
+   "FY2025-26"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "discovery profile uperc-discovery v1",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "DVVNL",
+   "KESCO",
+   "MVVNL",
+   "PUVVNL",
+   "PVVNL"
+  ]
+ }
+}

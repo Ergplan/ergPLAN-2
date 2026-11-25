@@ -303,3 +303,12 @@ The person asked for one application from two: this repository's flow and engine
 - **Lockout by address, in the database** (`signin_attempts`): the fifth wrong attempt in fifteen minutes locks the address for fifteen minutes. The address is the last `X-Forwarded-For` entry, believed only from `ERGPLAN_TRUSTED_PROXIES` (Caddy), otherwise the peer.
 - **An attempt records the username only when it is the administrator's**, otherwise `(other)`, so a password typed into the wrong box is never stored or logged.
 - **Rate limits live in the API process**: 20 a minute per address on each sign-in route, 60 in ten minutes per account and address on bill upload (settings).
+
+## 25 Nov 2026 — tariffs from the ARR Network (Stage 14)
+
+- **ARR Network tariffs are read from the site's order pages** (`/order/{id}/sections`, HTML) behind `regreader.arr_network.ArrNetworkClient`, because `/api/v1` carries no tariff figures. Everything imported is a draft of origin `arr_network`; the builder approves nothing.
+- **Only tables the commission approved are imported.** Claimed, existing, proposed and "computed" tables are listed as unmapped with the reason (Uttar Pradesh FY 2026-27 green tariff: the table computes ₹0.48, the order's text approves ₹0.34, so the table is not imported).
+- **Every imported row is grounded**: the order PDF is fetched from the regulator, its SHA-256 checked against the ARR Network's, stored, and the row's numbers must be printed on the cited page; a row that fails is dropped and listed. A PDF that cannot be fetched gets a reference row (`documents.register_reference`) and its citations say the page is not stored.
+- **Effective date of an imported order**: the date given, else the order's date, else 1 April of the tariff year marked ASSUMED. Uttar Pradesh FY 2025-26 is taken as 22 Nov 2025 (named in the FY 2026-27 order's Table 10-14).
+- **Golden cases may state `effective_on` and `origin`**, so two tariff years of one DISCOM each have their own cases; the approval gate (migration 0015) counts the cases that apply to the version and is otherwise as strict as before.
+- **`approve` supersedes only versions whose window overlaps** (a defect found on the way: approving a previous year's version would have superseded the current year's).
