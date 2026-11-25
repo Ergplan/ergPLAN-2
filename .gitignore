@@ -17,3 +17,4 @@ docs/stage-reports/*-review.md
 *.tsbuildinfo
 .next-e2e/
 .next-*/
+.claude/worktrees/
