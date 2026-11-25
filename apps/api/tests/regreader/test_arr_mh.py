@@ -91,6 +91,7 @@ def test_category_codes_of_a_heading() -> None:
     assert arr_map._category_codes("LT III(B): Above 20kW") == ["LT III (B)"]
     assert arr_map._category_codes("LT III (B): LT - Industry, above 20 kW load") == ["LT III (B)"]
     assert arr_map._category_codes("HV-2") == [] and arr_map._category_codes("LT Industry") == []
+    assert arr_map._category_codes("HT-I(A)") == [] and arr_map._category_codes("HT I") == []
 
 
 def test_order_spec_names_one_year_of_a_multi_year_order() -> None:

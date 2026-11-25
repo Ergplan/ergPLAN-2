@@ -796,12 +796,12 @@ def _years_named(text: str) -> set[str]:
 def _category_codes(heading: str) -> list[str]:
     """The category codes a heading starts with, in one spelling: 'EHT I and HT I: HT – Industry' →
     ['EHT I', 'HT I']; 'HT - II Commercial' → ['HT II']; 'LT III(B): Above 20kW' → ['LT III (B)'].
-    Empty where the heading is not headed by such a code ('HV-2' is a code already)."""
+    Empty where the heading is not headed by such a code, or is nothing but the code ('HV-2', 'HT-I(A)')."""
     head = heading.split(":")[0] if ":" in heading else heading
     codes: list[str] = []
     for m in _CODE.finditer(head):
         code = f"{m.group(1)} {m.group(2)}" + (f" ({m.group(3).upper()})" if m.group(3) else "")
-        if code not in codes and code != heading:
+        if code not in codes and _key(code) != _key(heading):  # a heading that is the code adds nothing
             codes.append(code)
     return codes
 
