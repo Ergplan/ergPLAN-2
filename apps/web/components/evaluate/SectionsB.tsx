@@ -5,7 +5,7 @@ import { RefChips } from "@/components/cost/RefChips";
 import { IsoSite } from "@/components/site/IsoSite";
 import { isoFromDraft } from "@/lib/iso";
 import { AssetsEditor } from "@/components/intake/AssetsEditor";
-import { INPUT_FIELDS, OPEN_ACCESS_CHOICES, OWNERSHIP_LABEL, TECH_GROUPS, inr, num, type DiscomOut, type Draft, type TodayOut } from "@/lib/evaluate";
+import { INPUT_FIELDS, OPEN_ACCESS_CHOICES, OWNERSHIP_LABEL, TECH_GROUPS, inputApplies, paysTariff, inr, num, type DiscomOut, type Draft, type TodayOut } from "@/lib/evaluate";
 import type { BillOut } from "@/lib/intake";
 import type { SourceOption } from "@/lib/runs";
 import { Advanced, Field, Note, Toggle } from "./ui";
@@ -78,7 +78,7 @@ export function TechSection({ d, set, options, discom }: { d: Draft; set: Set; o
           {g.options.map((o) => {
             const t = d.tech[o.kind] ?? { on: false, ownership: "", price: "", max_mw: "", min_mw: "", commissioned: "" };
             const exch = o.price_kind === "iex";
-            const inputs = Object.entries(o.inputs ?? {});
+            const inputs = Object.entries(o.inputs ?? {}).filter(([key]) => inputApplies(key, o.price_kind, t.ownership));
             const setInput = (key: string, v: string) => upd(o.kind, { inputs: { ...(t.inputs ?? {}), [key]: v } });
             return (
               <div key={o.kind} className={`ep-tech${t.on ? " ep-tech--on" : ""}${o.available ? "" : " ep-tech--off"}`}>
@@ -94,13 +94,13 @@ export function TechSection({ d, set, options, discom }: { d: Draft; set: Set; o
                   <div className="ep-tech__body">
                     <div className="ep-grid3">
                       {o.ownerships.length > 0 && (
-                        <Field label="Arrangement" help="Captive: you hold at least 26% of the plant's equity and take at least 51% of its energy, so the cross-subsidy surcharge and additional surcharge are waived. Group captive: the same, shared among several consumers. Third party: a PPA; the surcharges apply.">
+                        <Field label="Arrangement" help="Captive, my own plant: you pay the plant's capital cost and O&M and no tariff; the capital is in payback and IRR, and the cross-subsidy and additional surcharges are waived. Captive with 26% equity: you put in an equity outlay (26% of the plant's capital cost for your capacity unless you state another share) and pay a tariff for the rest; you take at least 51% of the energy, and the surcharges are waived. Third party: a PPA tariff only, no capital; the surcharges apply.">
                           <select value={t.ownership} onChange={(e) => upd(o.kind, { ownership: e.target.value })}>
                             {o.ownerships.map((w) => <option key={w} value={w}>{OWNERSHIP_LABEL[w] ?? w}</option>)}
                           </select>
                         </Field>
                       )}
-                      {o.price_kind === "ppa" && (
+                      {paysTariff(o.price_kind, t.ownership) && (
                         <Field label="Tariff at the plant" unit="₹/kWh" help={`The price you pay the generator at its bus bar, before wheeling, losses and surcharges. Blank uses the 2026 market figure${o.default_price_inr_per_kwh ? ` (₹${o.default_price_inr_per_kwh}${o.price_note ? `: ${o.price_note}` : ""})` : ""}, marked as assumed.`}>
                           <input inputMode="decimal" value={t.price} onChange={(e) => upd(o.kind, { price: e.target.value })} placeholder={o.default_price_inr_per_kwh ?? ""} />
                         </Field>

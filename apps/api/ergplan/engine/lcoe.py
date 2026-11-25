@@ -73,6 +73,111 @@ def default_rooftop() -> GenerationCost:
     )
 
 
+# Utility-scale plant the consumer owns (captive) or holds equity in (group captive): planning figures,
+# each an assumption the client replaces with their own. Chosen so the levelised cost at the normative
+# all-India CUF sits beside the benchmark PPA tariff of the same technology (solar ₹3.10, wind ₹3.60,
+# hybrid ₹3.50 per kWh at the plant): a PPA tariff is, to first order, the plant's levelised cost.
+# (capital INR per kW AC, O&M % of capital a year, all-India CUF %, degradation % a year, what it is)
+UTILITY: dict[str, tuple[str, str, str, str, str]] = {
+    "solar": ("42000", "1.5", "21", "0.5", "utility-scale solar plant"),
+    "wind": ("68000", "2", "28", "0", "utility-scale wind plant"),
+    "hybrid": (
+        "55000",
+        "1.75",
+        "24.5",
+        "0.25",
+        "solar-wind hybrid plant (half solar, half wind by capacity)",
+    ),
+}
+REPLACE = "a planning assumption, to be replaced by your own figure"
+# what stands where a tariff would for a plant of the consumer's own (the landed-cost card, a run's
+# chain): built from the plant's cost, so never a price the client can quote in its place
+OWN_LCOE = "Levelised cost of your own plant (capital and O&M over its life; no tariff is paid)"
+
+
+def default_utility(source: str) -> GenerationCost:
+    """The benchmark cost of an open-access plant of the consumer's own (`source`: solar, wind or
+    hybrid; KeyError for anything else). The CUF here is the all-India normative one; a run and the
+    landed-cost card use the normative curve of the consumer's state, or the client's figure."""
+    capex, om, cuf, deg, what = UTILITY[source]
+    return GenerationCost(
+        capex_inr_per_kw=assumed(
+            capex,
+            Unit.INR,
+            f"capital cost of a {what}, per kW (AC) with evacuation to the grid substation, 2026 "
+            f"(₹{Decimal(capex) / 10000} crore per MW); {REPLACE}",
+            "Capital cost per kW",
+        ),
+        om_pct_of_capex=assumed(
+            om, Unit.PERCENT, f"annual O&M of a {what} as % of its capital cost; {REPLACE}", "O&M"
+        ),
+        cuf_pct=assumed(
+            cuf, Unit.PERCENT, f"capacity utilisation of a {what}, all-India normative; {REPLACE}", "CUF"
+        ),
+        degradation_pct=assumed(
+            deg, Unit.PERCENT, f"fall in the output of a {what} per year; {REPLACE}", "Degradation"
+        ),
+        life_years=assumed("25", Unit.COUNT, f"economic life of a {what}; {REPLACE}", "Life"),
+        discount_pct=assumed("10", Unit.PERCENT, "pre-tax cost of capital", "Discount rate"),
+    )
+
+
+def default_equity_share() -> SourcedValue:
+    """Group captive: the consumer's outlay as a share of the plant's capital cost for the capacity
+    taken. The plant's own debt and equity are not modelled, so the share is taken on the whole
+    capital cost (with a plant financed partly by debt the 26% of its equity is a smaller sum)."""
+    return assumed(
+        "26",
+        Unit.PERCENT,
+        "your outlay for a captive plant with 26% equity: 26% of the plant's capital cost for the "
+        "capacity you take (the plant's own debt and equity split is not modelled); " + REPLACE,
+        "Equity share",
+    )
+
+
+def annual_cost_per_kw(g: GenerationCost) -> SourcedValue:
+    """What a kW of owned plant costs a year: capital × capital recovery factor + O&M."""
+    f = crf(g.discount_pct, g.life_years)
+    return derive(
+        g.capex_inr_per_kw.value * (f.value + g.om_pct_of_capex.value / 100),
+        Unit.INR,
+        [g.capex_inr_per_kw, g.om_pct_of_capex, f],
+        label="Yearly cost per kW (capital recovery and O&M)",
+    )
+
+
+def equity_outlay_per_kw(g: GenerationCost, share_pct: SourcedValue) -> SourcedValue:
+    """Group captive: the consumer's outlay at year 0 per kW taken = equity share × capital cost."""
+    return derive(
+        g.capex_inr_per_kw.value * share_pct.value / 100,
+        Unit.INR,
+        [g.capex_inr_per_kw, share_pct],
+        label="Equity outlay per kW",
+    )
+
+
+def equity_cost_per_kwh(g: GenerationCost, share_pct: SourcedValue) -> SourcedValue:
+    """The same outlay carried over the plant's life, per kWh generated: outlay × capital recovery
+    factor ÷ the average yearly energy of a kW. The per-kWh view of the equity where there is no cash
+    flow (the landed-cost card); a run holds the outlay at year 0 instead, never both."""
+    f = crf(g.discount_pct, g.life_years)
+    outlay = equity_outlay_per_kw(g, share_pct)
+    return derive(
+        outlay.value * f.value / _energy_per_kw(g),
+        Unit.INR_PER_KWH,
+        [g.capex_inr_per_kw, share_pct, g.cuf_pct, g.degradation_pct, f],
+        label="Equity cost (group captive)",
+    )
+
+
+def _energy_per_kw(g: GenerationCost) -> Decimal:
+    """Average kWh a year from a kW over the plant's life, degradation applied."""
+    n = int(g.life_years.value)
+    d = g.degradation_pct.value / 100
+    avg_factor = sum(((1 - d) ** y for y in range(n)), Decimal(0)) / n
+    return HOURS * g.cuf_pct.value / 100 * avg_factor
+
+
 def default_bess() -> StorageCost:
     return StorageCost(
         capex_inr_per_kwh=assumed(
@@ -89,10 +194,7 @@ def default_bess() -> StorageCost:
 
 def lcoe(g: GenerationCost) -> SourcedValue:
     f = crf(g.discount_pct, g.life_years)
-    n = int(g.life_years.value)
-    d = g.degradation_pct.value / 100
-    avg_factor = sum(((1 - d) ** y for y in range(n)), Decimal(0)) / n
-    energy_per_kw = HOURS * g.cuf_pct.value / 100 * avg_factor
+    energy_per_kw = _energy_per_kw(g)
     annual = g.capex_inr_per_kw.value * f.value + g.capex_inr_per_kw.value * g.om_pct_of_capex.value / 100
     return derive(
         annual / energy_per_kw,

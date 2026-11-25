@@ -63,6 +63,7 @@ GRID_FACTOR = (
 )
 ROOF_SQM_PER_KWP = Decimal(10)
 STORAGE = ("btm_bess", "oa_bess")
+OWNED_OA = ("captive", "group_captive")  # ownerships that put capital of the consumer's own in a plant
 ZERO = Decimal(0)
 
 
@@ -95,6 +96,12 @@ class CandMeta:
     # electricity duty per kWh assumed on this source's units (engine.levies), when it was applied:
     # no approved electricity_duty_oa row covers the source
     own_duty: SourcedValue | None = None
+    # capital of the consumer's own in this source: "plant" (rooftop, a captive open-access plant),
+    # "battery", or "equity" (the outlay for a plant taken with 26% equity); None: bought by the unit
+    owned: str | None = None
+    capital_words: str | None = None  # what the capital is, in words, beside its figure
+    # what the capital per kW (or per kWh) rests on: the capital cost, and the equity share
+    capital_inputs: list[SourcedValue] = field(default_factory=list)
 
 
 @dataclass
@@ -127,6 +134,11 @@ class Assembled:
     bill_factors: tuple[SourcedValue, SourcedValue] | None = None  # kVAh per kWh, power factor
     levies: list[LevyUse] = field(default_factory=list)  # those in force (the rule does not state them)
     thermal_duty: SourcedValue | None = None
+    # how capital is treated (pinned, invariant 5). 2: a captive open-access plant is costed from its
+    # capital and O&M, a plant with 26% equity carries the equity outlay, payback and IRR are on the
+    # owned capital. 1: runs made before 25 Nov 2026 (captive at a PPA tariff, no capital), kept so
+    # they replay as they were solved
+    capital_treatment: int = 2
 
 
 def _f(x: Decimal | float) -> float:
@@ -158,6 +170,31 @@ def _storage_cost(cs: CandidateSpec) -> lcoe.StorageCost:
         om_pct_of_capex=_stated(cs.om_pct_of_capex, st.om_pct_of_capex, "battery O&M"),
         life_years=_stated(cs.life_years, st.life_years, "battery life"),
         round_trip_pct=_stated(cs.round_trip_pct, st.round_trip_pct, "battery round-trip efficiency"),
+    )
+
+
+CAPITAL_TREATMENT = 2
+NO_TARIFF = "No tariff: your own plant (its capital and O&M are a yearly cost)"
+
+
+def capital_treatment(pins: dict[str, Any] | None) -> int:
+    """The capital treatment a stored run was solved with: runs made before the captive plant carried
+    its capital have no `capital` pin and are treatment 1."""
+    return int(((pins or {}).get("capital") or {}).get("treatment") or 1)
+
+
+def own_plant(source: str, cs: CandidateSpec, cuf: SourcedValue | None) -> lcoe.GenerationCost:
+    """The cost of an open-access plant of the consumer's own (captive, or the plant a 26% equity
+    holding is in): the benchmark for the technology, each figure the client stated in its place,
+    and the CUF the run generates with (the state's normative curve or the client's)."""
+    g0 = lcoe.default_utility(source)
+    return dataclasses.replace(
+        g0,
+        capex_inr_per_kw=_stated(cs.capex_inr_per_kw, g0.capex_inr_per_kw, "the plant's capital cost per kW"),
+        om_pct_of_capex=_stated(cs.om_pct_of_capex, g0.om_pct_of_capex, "the plant's O&M"),
+        cuf_pct=cuf or g0.cuf_pct,
+        life_years=_stated(cs.life_years, g0.life_years, "the plant's life"),
+        degradation_pct=_stated(cs.degradation_pct, g0.degradation_pct, "the plant's degradation"),
     )
 
 
@@ -224,9 +261,11 @@ def assemble(
     profile_id: str | None = None,
     vintage_pins: dict[str, str] | None = None,
     bill_pins: dict[str, Any] | None = None,
+    treatment: int = CAPITAL_TREATMENT,
 ) -> Assembled:
     """`bill_pins` (a replay): what the original run read from the client's bills — the levies and
-    the kVAh factor and power factor — used instead of reading the bills again."""
+    the kVAh factor and power factor — used instead of reading the bills again. `treatment` (a
+    replay): the capital treatment the original run pinned (`capital_treatment`)."""
     conn = s.get(Connection, sc.connection_id)
     if conn is None:
         raise RunError("connection not found")
@@ -463,6 +502,7 @@ def assemble(
                 int(st.life_years.value),
             )
             meta.om_pct, meta.life_sv = st.om_pct_of_capex, st.life_years
+            meta.owned, meta.capital_inputs = "battery", [st.capex_inr_per_kwh]
             fixed_kwh[cid] = yearly
             energy_d[cid] = [ZERO] * n
             meta.inputs = [st.capex_inr_per_kwh, st.om_pct_of_capex, st.round_trip_pct, f]
@@ -487,6 +527,7 @@ def assemble(
                 int(st.life_years.value),
             )
             meta.om_pct, meta.life_sv = st.om_pct_of_capex, st.life_years
+            meta.owned, meta.capital_inputs = "battery", [st.capex_inr_per_kwh]
             fixed_kwh[cid] = yearly
             meta.inputs = [st.capex_inr_per_kwh, st.om_pct_of_capex, st.round_trip_pct, f]
             if not cs.max_mw:
@@ -553,6 +594,7 @@ def assemble(
             meta.capex_inr, meta.crf, meta.life_years = g.capex_inr_per_kw.value, f, int(g.life_years.value)
             meta.om_pct, meta.life_sv, meta.degradation = g.om_pct_of_capex, g.life_years, g.degradation_pct
             meta.cuf = g.cuf_pct
+            meta.owned, meta.capital_inputs = "plant", [g.capex_inr_per_kw]
             fixed_kw[cid] = yearly
             # rooftop units are not bought from the DISCOM: the assumed duty, when the bills print one
             energy_d[cid] = [duty_own.value if duty_own is not None else ZERO] * n
@@ -568,6 +610,8 @@ def assemble(
         if governing is None and own_rule is not None:
             governing = own_rule
         meta.rule = own_rule
+        cost_prices: dict[tuple[int, str], SourcedValue] = {}
+        own_inputs: list[SourcedValue] = []
         if own_rule is None:
             # no approved settlement rule for this ownership in the state: the simulator sets off
             # in the same block with no banking, which the plan must say (rule 13)
@@ -633,7 +677,78 @@ def assemble(
             meta.cuf = cuf_sv
             mx = cs.max_mw * 1000 if cs.max_mw else cd_kva * 3
             oa_shape = None  # after the delivered share is known
+            if treatment >= 2 and ownership in OWNED_OA and src.source in lcoe.UTILITY:
+                plant = own_plant(src.source, cs, cuf_sv)
+                f = lcoe.crf(plant.discount_pct, plant.life_years)
+                meta.crf, meta.life_years, meta.life_sv = f, int(plant.life_years.value), plant.life_years
+                if ownership == "captive":
+                    # the consumer's own plant: capital × capital recovery factor + O&M per kW a year,
+                    # as the rooftop is costed, and no tariff per kWh; the open-access charges that a
+                    # captive plant still pays stay per kWh delivered
+                    yearly = lcoe.annual_cost_per_kw(plant).value
+                    meta.capex_inr = plant.capex_inr_per_kw.value
+                    meta.om_pct, meta.degradation = plant.om_pct_of_capex, plant.degradation_pct
+                    meta.owned, meta.capital_inputs = "plant", [plant.capex_inr_per_kw]
+                    meta.capital_words = (
+                        "the plant's capital cost for the capacity sized (capital cost per kW × kW)"
+                    )
+                    own_inputs = [plant.capex_inr_per_kw, plant.om_pct_of_capex, f]
+                    shown = lcoe.lcoe(plant)
+                    meta.price = derive(
+                        _q(shown.value, "0.0001"), Unit.INR_PER_KWH, [shown], label=lcoe.OWN_LCOE
+                    )
+                    free = derive(ZERO, Unit.INR_PER_KWH, own_inputs, label=NO_TARIFF)
+                    cost_prices = {(mo, nm): free for mo in months for nm in slots_of[mo]}
+                    prices = {(mo, nm): meta.price for mo in months for nm in slots_of[mo]}
+                    if cs.price_inr_per_kwh is not None:
+                        notes.append(
+                            f"{meta.label}: the price you stated (₹{cs.price_inr_per_kwh}/kWh) is not used. "
+                            "A captive plant is your own and pays no tariff: it is costed from its capital "
+                            "cost and O&M. State those instead, or take the plant with 26% equity or from "
+                            "a third party to pay a tariff"
+                        )
+                    notes.append(
+                        f"{meta.label}: your own plant. Its capital cost (₹{plant.capex_inr_per_kw.value} "
+                        f"per kW) and O&M ({plant.om_pct_of_capex.value}% of it a year) are in the plan's "
+                        "cost as a yearly cost per kW (capital × capital recovery factor + O&M) and in "
+                        "payback and IRR as capital at year 0; no tariff is paid for its energy, and the "
+                        "open-access charges that apply to a captive plant are paid per kWh delivered. "
+                        "The landed cost per kWh shown for it is its levelised cost with those charges"
+                    )
+                else:
+                    # 26% equity: the consumer's outlay at year 0 is the equity share of the plant's
+                    # capital for the capacity taken; the rest of the plant comes through the tariff.
+                    # The outlay's yearly carrying cost (outlay × capital recovery factor) is what
+                    # the per-kWh "equity cost" of the landed-cost card is, so no per-kWh equity line
+                    # is charged here
+                    share = _stated(cs.equity_share_pct, lcoe.default_equity_share(), "your equity share")
+                    outlay = lcoe.equity_outlay_per_kw(plant, share)
+                    yearly = outlay.value * f.value
+                    meta.capex_inr = outlay.value
+                    meta.om_pct = _sv(
+                        ZERO,
+                        Unit.PERCENT,
+                        SourceRef(kind=RefKind.ASSUMPTION, note="the plant's O&M is inside the tariff"),
+                        "O&M",
+                    )
+                    meta.owned, meta.capital_inputs = "equity", [plant.capex_inr_per_kw, share]
+                    meta.capital_words = (
+                        f"your equity outlay: {share.value}% of the plant's capital cost for the capacity "
+                        "taken (equity share × capital cost per kW × kW; the plant's own debt and equity "
+                        "split is not modelled)"
+                    )
+                    own_inputs = [plant.capex_inr_per_kw, share, f]
+                    notes.append(
+                        f"{meta.label}: captive with {share.value}% equity. Your outlay at year 0 is "
+                        f"{share.value}% of the plant's capital cost for the capacity taken "
+                        f"(₹{_q(outlay.value, '0.01')} per kW; the plant's own debt and equity split is not "
+                        "modelled); it is in payback and IRR as capital, and in the year's cost as its "
+                        "yearly carrying cost (outlay × capital recovery factor). The rest of the plant "
+                        "is paid through the tariff per kWh. The equity is not charged again per kWh"
+                    )
+                fixed_kw[cid] = yearly
         energy: dict[tuple[int, str], Decimal] = {}
+        own_capital = cid in fixed_kw
         # IEX: the landed cost is affine in the clearing price (losses scale it, charges add to it),
         # so each slot's slope and intercept price every block at its own clearing price
         affine: dict[tuple[int, str], tuple[Decimal, Decimal]] = {}
@@ -668,6 +783,17 @@ def assemble(
                 if duty_own is not None and duty_own in wf.lines:
                     meta.own_duty = duty_own  # no approved electricity_duty_oa row covers this source
                 energy[(mo, nm)] = wf.total.value
+                if own_capital and meta.owned == "plant":
+                    # what the plant's energy costs per kWh at the meter beside its yearly cost: the
+                    # same chain with no tariff (the charges, and the losses on them)
+                    energy[(mo, nm)] = landed_cost.evaluate(
+                        src,
+                        ctx,
+                        dataclasses.replace(base, price=cost_prices[(mo, nm)]),
+                        oa_rows,
+                        waivers,
+                        None,
+                    ).total.value
                 if src.price_kind == "iex":
                     up = landed_cost.evaluate(
                         src,
@@ -710,6 +836,7 @@ def assemble(
                 cid,
                 shape=oa_shape,
                 energy_inr_per_kwh=block_rates,
+                fixed_inr_per_kw_year=_f(fixed_kw[cid]) if own_capital else 0.0,
                 min_kw=min(_f(lo_kw), _f(mx)),
                 max_kw=_f(mx),
                 category="exchange" if src.price_kind == "iex" else CATEGORY[ownership],
@@ -726,6 +853,8 @@ def assemble(
                 [min_oa_kw[1]],
             )
         meta.inputs = [x for x in (meta.price, delivered, cuf_sv) if x is not None]
+        if own_capital:
+            meta.inputs += own_inputs
         meta.gaps = list(dict.fromkeys(meta.gaps))
         cands.append(meta)
     # batteries at the open-access plant: they store the output of the plan's own open-access plant
@@ -906,6 +1035,7 @@ def assemble(
         bill_factors=(factor, pf),
         levies=levy_uses,
         thermal_duty=duty_own if thermals else None,
+        capital_treatment=treatment,
     )
 
 
@@ -974,6 +1104,7 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
     after = sum(after_lines.values(), ZERO)
     saving = before - after
     capex = ZERO
+    owned_assets: list[tuple[CandMeta, Decimal]] = []  # each source with capital of the consumer's own
     for m in a.cands:
         if m.crf is None:
             continue
@@ -983,11 +1114,16 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
             else Decimal(str(sol.cap_kw.get(m.cid, 0.0)))
         )
         capex += _q(size) * m.capex_inr
-    # Payback and IRR are the plan's as a whole, from the lifecycle (one computation, engine.lifecycle):
-    # the capital of the owned plant against the whole plan's cash flow year by year. With a PPA in
-    # the mix part of that saving needs no capital, which the note says.
+        if _q(size) > 0:
+            owned_assets.append((m, _q(size) * m.capex_inr))
+    legacy = a.capital_treatment < 2
+    # Treatment 2: payback and IRR are on the capital of the consumer's own (rooftop, batteries, a
+    # captive plant, the equity outlay) against the saving that capital brings: the plan's saving
+    # less the saving of the sources bought by the unit with no capital (`_bought`).
+    # Treatment 1 (a replay of an older run): the plan's as a whole, with the note below.
     ppa = any(m.crf is None and Decimal(str(sol.cap_kw.get(m.cid, 0.0))) > 0 for m in a.cands)
-    if ppa and capex > 0:
+    by_unit = None if legacy else _bought(a, sol, rs, after_lines)
+    if legacy and ppa and capex > 0:
         sized = {
             m.cid: sol.bess_kwh.get(m.cid, 0.0) if m.spec.kind in STORAGE else sol.cap_kw.get(m.cid, 0.0)
             for m in a.cands
@@ -1005,7 +1141,7 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
         )
 
     grid_total = sum(om.exact_of(p).load_kwh, ZERO)
-    lifecycle_json = _lifecycle(a, sol, before_lines, after_lines, grid_total, all_inputs)
+    lifecycle_json = _lifecycle(a, sol, before_lines, after_lines, grid_total, all_inputs, by_unit)
     sizes = []
     for m in a.cands:
         if m.spec.kind in STORAGE:
@@ -1102,21 +1238,37 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
     for name in sol.binding:
         words, refs = a.limits.get(name, (name, []))
         binding.append({"name": name, "words": words, "refs": [r.model_dump(mode="json") for r in refs]})
+    owned_json: dict[str, Any] = {}
+    if by_unit is not None:
+        owned_json["owned_capital"] = _owned_capital(
+            a, owned_assets, capex, saving, by_unit, lifecycle_json, all_inputs
+        )
     return {
         "sizes": sizes,
         "annual": {
             "before": sv(before, Unit.INR, "Grid cost today, for the year", grid_inputs),
             "after": sv(after, Unit.INR, "Cost with the plan, for the year (re-settled)", all_inputs),
             "saving": sv(saving, Unit.INR, "Saving for the year", all_inputs),
-            "capex": sv(capex, Unit.INR, "Capital cost (rooftop and batteries)", all_inputs),
+            "capex": sv(
+                capex,
+                Unit.INR,
+                "Capital cost (rooftop and batteries)"
+                if legacy
+                else "Capital of your own (plant, batteries and equity outlay)",
+                all_inputs,
+            ),
         },
+        # the capital of the consumer's own asset by asset, the saving it is measured against and how
+        # payback and IRR are defined, in words (absent on a replay of a run made before 25 Nov 2026)
+        **owned_json,
         "lines_before": {k: str(v) for k, v in before_lines.items()},
         "lines_after": {k: str(v) for k, v in after_lines.items()},
         # FPPCA and duty at the bills' rates: amounts inside the costs above, and the treatment on
         # units not bought from the DISCOM in words (an assumption, not sourced to a regulation)
         "levies": levies_json,
         "lifecycle": lifecycle_json,
-        # the headline payback and IRR are the lifecycle's (escalation, degradation and replacements in)
+        # the headline payback and IRR are the lifecycle's (escalation, degradation and replacements
+        # in): on the owned capital, None when the plan has none (`owned_capital` says why)
         "payback_years": lifecycle_json.get("simple_payback_years"),
         "irr_pct": lifecycle_json.get("irr_pct"),
         "emissions": {
@@ -1235,6 +1387,140 @@ def _levies(
     return out
 
 
+@dataclass
+class Bought:
+    """The sources of a plan bought by the unit with no capital of the consumer's own (a third-party
+    PPA, the exchange), and what they save in the settled year: their units valued at the grid energy
+    rate of the blocks they were set off in (banked units at the rate of the blocks they were drawn
+    in, shared by what each source banked), less what is paid for them."""
+
+    labels: list[str]
+    avoided: Decimal  # INR, grid energy cost their units avoid
+    cost: Decimal  # INR, what is paid for them
+
+    @property
+    def saving(self) -> Decimal:
+        return self.avoided - self.cost
+
+
+def _bought(a: Assembled, sol: Solution, rs: Resettled, after_lines: dict[str, Decimal]) -> Bought:
+    p = a.problem
+    x = om.exact_of(p)
+    res = rs.result
+    banked_all = sum((sum(v, ZERO) for v in res.deposit_kwh.values()), ZERO)
+    drawn = sum((res.withdrawn_kwh[t] * x.rate[t] for t in range(p.n)), ZERO)
+    out = Bought([], ZERO, ZERO)
+    for m in a.cands:
+        if m.crf is not None or Decimal(str(sol.cap_kw.get(m.cid, 0.0))) <= 0:
+            continue
+        setoff = res.setoff_kwh.get(m.cid, [])
+        out.avoided += sum((setoff[t] * x.rate[t] for t in range(len(setoff)) if setoff[t]), ZERO)
+        if banked_all > 0:
+            out.avoided += drawn * sum(res.deposit_kwh.get(m.cid, []), ZERO) / banked_all
+        out.cost += after_lines.get(f"energy:{m.cid}", ZERO)
+        out.labels.append(m.label)
+    out.avoided, out.cost = _q(out.avoided, "0.01"), _q(out.cost, "0.01")
+    return out
+
+
+CAPITAL_KIND = {
+    "plant": "your own plant",
+    "battery": "your own battery",
+    "equity": "equity outlay",
+}
+
+
+def _owned_capital(
+    a: Assembled,
+    assets: list[tuple[CandMeta, Decimal]],
+    capex: Decimal,
+    saving: Decimal,
+    bought: Bought,
+    lc: dict[str, Any],
+    all_inputs: list[SourcedValue],
+) -> dict[str, Any]:
+    """The capital of the consumer's own in the plan, asset by asset; the saving payback and IRR are
+    measured against; and how they are defined, in the words the client reads beside them."""
+
+    def money(v: Decimal, label: str, inputs: list[SourcedValue]) -> dict[str, Any]:
+        return derive(_q(v, "0.01"), Unit.INR, inputs, label=label).model_dump(mode="json")
+
+    owned = ", ".join(f"{m.label} ({CAPITAL_KIND[m.owned or 'plant']})" for m, _ in assets)
+    years = lc["analysis_years"]["value"]
+    payback_absent = irr_absent = None
+    if not assets:
+        by_unit = ", ".join(bought.labels) or "the grid"
+        payback_absent = irr_absent = (
+            "No payback or IRR: this plan has no capital of your own. Every source in it is bought by "
+            f"the unit ({by_unit}), so its saving needs no investment to pay back."
+        )
+        basis = payback_absent
+    else:
+        if bought.labels:
+            basis = (
+                f"Payback and IRR are on the capital of your own ({owned}) against the saving that "
+                "capital brings: the plan's saving less the saving of the sources bought by the unit "
+                f"with no capital ({', '.join(bought.labels)}), whose units are valued at the grid energy "
+                "rate of the hours they were set off in, less what is paid for them. The plan's yearly "
+                "saving is shown separately."
+            )
+        else:
+            basis = (
+                f"Payback and IRR are on the capital of your own ({owned}) against the whole plan's "
+                "saving: every source in the plan carries capital of your own."
+            )
+        basis += (
+            " The capital is paid at year 0; the saving it is measured on is each year's grid cost "
+            "avoided less what is still paid per kWh and for O&M, with tariffs and O&M escalating as "
+            "the assumptions say. The plan's saving for the year, shown beside it, is after the yearly "
+            "cost of the same capital (capital × capital recovery factor)."
+        )
+        if lc.get("simple_payback_years") is None:
+            payback_absent = (
+                f"No payback: the saving on the capital of your own does not recover it within the "
+                f"{years}-year analysis period."
+            )
+        if lc.get("irr_pct") is None:
+            irr_absent = (
+                "No IRR: the cash flows on the capital of your own have no rate of return between "
+                "−99% and 1,000% a year."
+            )
+    return {
+        "total": money(capex, "Capital of your own, year 0", all_inputs),
+        "assets": [
+            {
+                "id": m.cid,
+                "label": m.label,
+                "kind": m.owned or "plant",
+                "capex": money(c, f"{m.label}: {CAPITAL_KIND[m.owned or 'plant']}", m.capital_inputs),
+                "words": m.capital_words
+                or (
+                    "the battery's capital cost for the energy sized (capital cost per kWh × kWh)"
+                    if m.owned == "battery"
+                    else "the plant's capital cost for the capacity sized (capital cost per kW × kW)"
+                ),
+            }
+            for m, c in assets
+        ],
+        # the first year's cash saving the capital is measured on (the lifecycle's year 1): the grid
+        # cost avoided less what is still paid per kWh and for O&M, before the capital itself
+        "saving": money(
+            Decimal(lc["years"][0]["owned_saving"]["value"]) if lc["years"] else saving - bought.saving,
+            "Saving in year 1 on the capital of your own (after O&M, before the capital itself)",
+            all_inputs,
+        ),
+        "bought_saving": money(
+            bought.saving, "Saving in year 1 of the sources bought by the unit", all_inputs
+        )
+        if bought.labels
+        else None,
+        "bought": bought.labels,
+        "basis": basis,
+        "payback_absent": payback_absent,
+        "irr_absent": irr_absent,
+    }
+
+
 def _lifecycle(
     a: Assembled,
     sol: Solution,
@@ -1242,6 +1528,7 @@ def _lifecycle(
     after_lines: dict[str, Decimal],
     load_kwh: Decimal,
     inputs: list[SourcedValue],
+    bought: Bought | None = None,
 ) -> dict[str, Any]:
     """The settled year projected over the analysis period (engine.lifecycle): owned plant paid at
     year 0 and replaced at the end of its life, degrading; tariffs and O&M escalating; every year
@@ -1279,11 +1566,14 @@ def _lifecycle(
             displaced = ZERO
         else:
             size = _q(Decimal(str(sol.cap_kw.get(m.cid, 0.0))))
-            gen = sum((Decimal(f"{x:.3f}") for x in sol.gen.get(m.cid, [])), ZERO)
+            # an open-access plant of the consumer's own: what it delivers at the meter
+            series = sol.gen.get(m.cid) or sol.delivered.get(m.cid) or []
+            gen = sum((Decimal(f"{x:.3f}") for x in series), ZERO)
             displaced = gen * avg_grid
         if size <= 0:
             continue
-        capex = derive(size * m.capex_inr, Unit.INR, [*m.inputs], label=f"{m.label}: capital cost")
+        what = "equity outlay" if m.owned == "equity" and bought is not None else "capital cost"
+        capex = derive(size * m.capex_inr, Unit.INR, [*m.inputs], label=f"{m.label}: {what}")
         assets.append(
             lifecycle.Asset(
                 cid=m.cid,
@@ -1295,8 +1585,10 @@ def _lifecycle(
                 displaced_inr=_q(displaced, "0.01"),
             )
         )
-    lc = lifecycle.project(before_lines, after_lines, assets, fin)
-    return lifecycle.to_json(lc, inputs)
+    if bought is None:  # a replay of a run made before payback and IRR were on the owned capital
+        return lifecycle.to_json(lifecycle.project(before_lines, after_lines, assets, fin), inputs)
+    lc = lifecycle.project(before_lines, after_lines, assets, fin, bought=(bought.avoided, bought.cost))
+    return lifecycle.to_json(lc, inputs, owned=True)
 
 
 def _monthly_mix(
@@ -1357,8 +1649,14 @@ def sensitivities(spec: ScenarioSpec, summary: dict[str, Any], a: Assembled) -> 
                 if cid is None:
                     continue
                 b = before
-                after = reprice(lines, f"energy:{cid}", pct)
-                label = f"{snt.candidate} price {pct:+}% (sizes held)"
+                m = next(m for m in a.cands if m.cid == cid)
+                if a.capital_treatment >= 2 and m.owned == "plant":
+                    # a plant of the consumer's own has no price: its capital and O&M move instead
+                    after = reprice(lines, f"fixed:{cid}", pct)
+                    label = f"{snt.candidate} capital cost and O&M {pct:+}% (sizes held)"
+                else:
+                    after = reprice(lines, f"energy:{cid}", pct)
+                    label = f"{snt.candidate} price {pct:+}% (sizes held)"
             out.append(
                 {
                     "label": label,
@@ -1464,6 +1762,8 @@ def execute(run_id: str) -> str:
                 vintage_pins=pins.get("price_vintages_by_segment") if run.replay_of else None,
                 # a run made before the bill pins existed replays with no levies, as it was solved
                 bill_pins=(pins.get("bills") or {"levies": []}) if run.replay_of else None,
+                # a run made before the captive plant carried its capital replays as it was solved
+                treatment=capital_treatment(pins) if run.replay_of else CAPITAL_TREATMENT,
             )
             used_versions = sorted(reader.used)
             vint_by_seg = {
@@ -1508,6 +1808,9 @@ def execute(run_id: str) -> str:
                     if a.bill_factors
                     else None,
                 },
+                # how capital is treated (`Assembled.capital_treatment`); absent on a run made
+                # before 25 Nov 2026 and on its replays
+                **({"capital": {"treatment": a.capital_treatment}} if a.capital_treatment >= 2 else {}),
             }
             run.solver = {
                 "status": sol.status,

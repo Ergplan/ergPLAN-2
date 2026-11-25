@@ -1,7 +1,7 @@
 import { RefChips } from "@/components/cost/RefChips";
 import { Fig, traceOf } from "./Fig";
 import type { Ref } from "@/lib/intake";
-import { markUnstored, monthLabel, rate, slotLabel, type BookDetail, type BookPoint, type BookRoute, type Sourced } from "@/lib/statebook";
+import { inputText, markUnstored, monthLabel, rate, slotLabel, type BookDetail, type BookPoint, type BookRoute, type Sourced } from "@/lib/statebook";
 
 const FAMILY: Record<string, string> = {
   oa_charge: "Open-access charges",
@@ -78,6 +78,11 @@ function Waterfall({ r }: { r: BookRoute }) {
           )}
         </tbody>
       </table>
+      {(r.inputs?.length ?? 0) > 0 && (
+        <p className="ep-small" style={{ margin: "4px 0" }}>
+          Built from: {r.inputs!.map((x, i) => <span key={i}>{inputText(x)} <RefChips refs={x.source_refs} max={1} />{" "}</span>)}
+        </p>
+      )}
       {[...r.gaps.map((g) => `Not sourced: ${g.replace(/_/g, " ")}`), ...r.notes].map((n) => (
         <p key={n} className="eg-muted ep-small" style={{ margin: "6px 0 0" }}>{n}</p>
       ))}

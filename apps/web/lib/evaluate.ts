@@ -34,7 +34,8 @@ export type TechPick = {
 // The cost and yield inputs a technology takes, in the order shown.
 export const INPUT_FIELDS: Record<string, { label: string; unit: string; help: string }> = {
   cuf_pct: { label: "CUF", unit: "%", help: "The plant's capacity utilisation factor over a year: energy generated ÷ (capacity × 8,760 hours). Blank uses the normative figure for your state; the hourly and monthly shape stays the state's." },
-  capex_inr_per_kw: { label: "Capital cost", unit: "₹/kW", help: "Installed cost per kW (DC), all in." },
+  capex_inr_per_kw: { label: "Capital cost", unit: "₹/kW", help: "Installed cost per kW, all in (rooftop: per kW DC; an open-access plant of your own or one you hold equity in: per kW AC with evacuation)." },
+  equity_share_pct: { label: "Equity share", unit: "% of the plant's capital", help: "Captive with 26% equity: your outlay at year 0 as a share of the plant's capital cost for the capacity you take. The plant's own debt and equity split is not modelled, so the share is taken on the whole capital cost; lower it if the plant is partly debt-financed." },
   capex_inr_per_kwh: { label: "Capital cost", unit: "₹/kWh", help: "Installed cost per kWh of battery energy, with its power conversion and installation." },
   om_pct_of_capex: { label: "O&M", unit: "% of capex a year", help: "Annual operation and maintenance as a share of the capital cost." },
   life_years: { label: "Life", unit: "years", help: "Economic life. The capital is recovered over it; a battery is replaced when it ends inside the analysis period." },
@@ -90,10 +91,24 @@ export const OPEN_ACCESS_CHOICES: [string, string][] = [
 ];
 
 export const OWNERSHIP_LABEL: Record<string, string> = {
-  captive: "Captive (I own 26%+ and take 51%+)",
-  group_captive: "Group captive",
-  third_party: "Third party (a PPA)",
+  captive: "Captive, my own plant (I pay its capital, no tariff)",
+  group_captive: "Captive with 26% equity (an equity outlay, then a tariff)",
+  third_party: "Third party (a PPA tariff, no capital)",
 };
+
+// Which cost and yield inputs a technology takes under an arrangement: a plant of your own takes its
+// capital cost, O&M, life and degradation (and no tariff); one with 26% equity its capital cost, life
+// and your equity share (the rest is in the tariff); a third-party PPA only its CUF.
+const PLANT_INPUTS: Record<string, string[]> = {
+  captive: ["capex_inr_per_kw", "om_pct_of_capex", "life_years", "degradation_pct"],
+  group_captive: ["capex_inr_per_kw", "life_years", "equity_share_pct"],
+};
+export function inputApplies(key: string, priceKind: string, ownership: string): boolean {
+  if (priceKind !== "ppa" || key === "cuf_pct") return true;
+  return (PLANT_INPUTS[ownership] ?? []).includes(key);
+}
+// A plant of your own pays no tariff: the field is not asked for and a typed price is not sent.
+export const paysTariff = (priceKind: string, ownership: string) => priceKind === "ppa" && ownership !== "captive";
 
 export const TECH_GROUPS: { id: string; title: string; blurb: string }[] = [
   { id: "At your site", title: "Behind the meter", blurb: "Built inside your premises; no open-access charges, no banking." },
@@ -263,12 +278,13 @@ export function mixFromDraft(d: Draft, options: SourceOption[]): { sources: Cand
     if (!t?.on) continue;
     const c: CandidateSpec = { kind: o.kind };
     if (o.ownerships.length && t.ownership) c.ownership = t.ownership;
-    if (t.price.trim() && o.price_kind === "ppa") c.price_inr_per_kwh = t.price.trim();
+    if (t.price.trim() && paysTariff(o.price_kind, t.ownership)) c.price_inr_per_kwh = t.price.trim();
     if (t.max_mw.trim()) c.max_mw = t.max_mw.trim();
     if (t.min_mw.trim()) c.min_mw = t.min_mw.trim();
     if (t.commissioned) c.commissioned = t.commissioned;
     if (t.fix && t.max_mw.trim()) c.fix_at_max = true;
     for (const key of Object.keys(o.inputs ?? {})) {
+      if (!inputApplies(key, o.price_kind, t.ownership)) continue;
       const v = (t.inputs?.[key] ?? "").trim();
       if (v === "" || !(Number(v) > 0)) continue;
       if (key === "life_years") c.life_years = Math.round(Number(v));

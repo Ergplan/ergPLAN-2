@@ -42,6 +42,12 @@ def curve_for(source: str, state: str) -> list[str]:
     return [one(source)]
 
 
+def annual_cuf(curve_ids: list[str]) -> Decimal:
+    """The blended annual CUF (percent) of the curves, as `profile` returns it."""
+    cufs = [Decimal(str(curve(cid)["annual_cuf_pct"])) for cid in curve_ids]
+    return sum(cufs, Decimal(0)) / len(cufs)
+
+
 def profile(curve_ids: list[str], capacity_kw: Decimal, year_start: date) -> tuple[list[Decimal], Decimal]:
     """15-minute kW for a year from `year_start` and the blended annual CUF (percent)."""
     days = []

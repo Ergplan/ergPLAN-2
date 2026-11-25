@@ -139,3 +139,10 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | The results page prints the solver's raw status word (`time_limit`) beside the note in words | Next |
 | Month models are rebuilt in Pyomo for each dispatch pass (about 4 s of the Uttar Pradesh site's 48 s) | Next |
 | The independent reviewer has not run since Stage 10: no OpenAI key on the VM. Stages are tagged `-built`, not `-done`, until it has | Person |
+| The captive plant's benchmark capital and O&M are constants in the code (as the rooftop's are); a run pins the treatment, not the benchmark values | Next |
+| An inter-state captive plant uses the consumer's state's CUF curve, so its levelised cost (about ₹3.2 in Uttar Pradesh) is above the ₹2.70 inter-state PPA benchmark | Stage 15 (generation profiles) |
+| No what-if for a captive plant's capital cost (capacity, contract demand and off only) | Next |
+| Group captive: the equity share is taken on the plant's whole capital cost; the plant's own debt share is not modelled | Person (questions 14) |
+| In payback and IRR, a bought source's saving leaves out its share of the demand saving, the banking charge in ₹/kWh and the lapse payment | Next |
+| A drawal charge set as a percentage of the price is zero on a captive plant in a run (no price) but taken on the levelised cost on its card; the card uses life-average energy and the run the first year's, about 6% apart for solar | Next |
+| The rule book's markdown file does not print the route notes; the web view does | Next |

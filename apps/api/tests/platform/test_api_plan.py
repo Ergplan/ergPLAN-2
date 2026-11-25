@@ -66,7 +66,16 @@ def test_logged_out_visitor_reads_the_plan(plan: dict[str, str]) -> None:
     assert d["documents"] and all(
         doc["pages"] and doc["url"].startswith("/documents/") for doc in d["documents"]
     )
-    assert any(e["tool"] == "set_price" for e in d["editable"])
+    # a price may be changed for each source that pays a tariff; a captive plant is the client's own
+    # and has none (its capital and O&M are its cost), and the contract demand may always be changed
+    rec = next(s for s in d["scenarios"] if s["scenario_id"] == d["recommended"])
+    pays_tariff = {
+        z["kind"]
+        for z in rec["summary"]["sizes"]
+        if z["kind"].startswith("oa_") and z["kind"] != "oa_bess" and z["ownership"] != "captive"
+    }
+    assert {e["source"] for e in d["editable"] if e["tool"] == "set_price"} == pays_tariff
+    assert any(e["tool"] == "set_contract_demand" for e in d["editable"])
     assert client.get("/p/not-a-token").status_code == 404
     own = client.get(f"/connections/{plan['conn']}/plan", headers=CL).json()  # step 6, before sharing
     assert own["token"] is None and own["recommended"] == d["recommended"]

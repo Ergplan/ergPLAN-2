@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { crore, levyRows, type LevyOut, mw, mwh, presets } from "../lib/runs";
+import { OWNERSHIP_LABEL, inputApplies, paysTariff } from "../lib/evaluate";
+import { crore, levyRows, type LevyOut, mw, mwh, paybackHeadline, presets } from "../lib/runs";
 
 const sv = (value: string) => ({ value, unit: "kW", source_refs: [{ kind: "derived" }] }) as never;
 
@@ -30,5 +31,73 @@ describe("step 5 helpers", () => {
     expect(ed.afterOther).toBe("900.00");
     expect(fp.words).toContain("Not sourced to a regulation");
     expect(levyRows(undefined)).toEqual([]);
+  });
+});
+
+describe("payback and IRR are on the owned capital", () => {
+  const v = (value: string, unit = "INR", label?: string) => ({ value, unit, label, source_refs: [{ kind: "assumption", note: "planning assumption" }] }) as never;
+  const base = { annual: { before: v("191476310.78"), after: v("160590445.93"), saving: v("30885864.85"), capex: v("292000000.00") } };
+  it("labels the figures, breaks the capital down by asset and names the saving they rest on", () => {
+    const h = paybackHeadline({
+      ...base, payback_years: v("4.4", "years"), irr_pct: v("24.41", "percent"),
+      owned_capital: {
+        total: v("292000000.00"), saving: v("66000000.00"), bought_saving: null, bought: [],
+        assets: [
+          { id: "rooftop_pv", label: "Rooftop solar (behind the meter)", kind: "plant", capex: v("40000000.00"), words: "capital cost per kW × kW" },
+          { id: "oa_solar_intra", label: "Open-access solar, intra-state", kind: "plant", capex: v("252000000.00"), words: "capital cost per kW × kW" },
+          { id: "oa_wind_intra", label: "Open-access wind, intra-state", kind: "equity", capex: v("17680000.00"), words: "26% of the plant's capital cost" },
+        ],
+        basis: "Payback and IRR are on the capital of your own.", payback_absent: null, irr_absent: null,
+      },
+    });
+    expect(h.label).toBe("Payback on the owned capital");
+    expect(h.payback).toBe("4.4 years");
+    expect(h.irr).toBe("24.4%");
+    expect(h.capital).toBe("₹29.20 cr");
+    expect(h.assets).toEqual([
+      { label: "Rooftop solar (behind the meter)", kind: "your own plant", capex: "₹4.00 cr" },
+      { label: "Open-access solar, intra-state", kind: "your own plant", capex: "₹25.20 cr" },
+      { label: "Open-access wind, intra-state", kind: "equity outlay", capex: "₹1.77 cr" },
+    ]);
+    expect(h.saving).toBe("₹6.60 cr");
+    expect(h.absent).toBeNull();
+  });
+  it("says why there is no payback when the plan has no capital of its own, never a zero", () => {
+    const why = "No payback or IRR: this plan has no capital of your own. Every source in it is bought by the unit (Open-access solar, intra-state), so its saving needs no investment to pay back.";
+    const h = paybackHeadline({
+      annual: { ...base.annual, capex: v("0.00") }, payback_years: null, irr_pct: null,
+      owned_capital: { total: v("0.00"), saving: v("0.00"), bought_saving: v("13059213.72"), bought: ["Open-access solar, intra-state"], assets: [], basis: why, payback_absent: why, irr_absent: why },
+    });
+    expect(h.label).toBe("Payback on the owned capital");
+    expect(h.payback).toBe("none to state");
+    expect(h.irr).toBe("none to state");
+    expect(h.capital).toBeNull();
+    expect(h.absent).toBe(why);
+    expect(`${h.payback} ${h.irr}`).not.toMatch(/0\.0|—/);
+  });
+  it("labels a run made before the treatment as the plan's as a whole", () => {
+    const h = paybackHeadline({ annual: { ...base.annual, capex: v("40000000.00") }, payback_years: v("1.0", "years"), irr_pct: v("113.0", "percent") });
+    expect(h.label).toBe("Payback on the plan as a whole");
+    expect(h.basis).toContain("against the whole plan's saving");
+    expect(h.payback).toBe("1.0 years");
+  });
+});
+
+describe("what a plant takes under each arrangement", () => {
+  it("asks a tariff of every arrangement but a plant of one's own", () => {
+    expect(paysTariff("ppa", "captive")).toBe(false);
+    expect(paysTariff("ppa", "group_captive")).toBe(true);
+    expect(paysTariff("ppa", "third_party")).toBe(true);
+    expect(paysTariff("iex", "")).toBe(false);
+  });
+  it("asks the plant's capital of a captive plant, the equity share of one with 26% equity, neither of a PPA", () => {
+    const keys = ["cuf_pct", "capex_inr_per_kw", "om_pct_of_capex", "life_years", "degradation_pct", "equity_share_pct"];
+    const of = (own: string) => keys.filter((k) => inputApplies(k, "ppa", own));
+    expect(of("captive")).toEqual(["cuf_pct", "capex_inr_per_kw", "om_pct_of_capex", "life_years", "degradation_pct"]);
+    expect(of("group_captive")).toEqual(["cuf_pct", "capex_inr_per_kw", "life_years", "equity_share_pct"]);
+    expect(of("third_party")).toEqual(["cuf_pct"]);
+    expect(inputApplies("capex_inr_per_kw", "lcoe", "")).toBe(true); // rooftop keeps every input
+    expect(OWNERSHIP_LABEL.captive).toContain("my own plant");
+    expect(OWNERSHIP_LABEL.group_captive).toContain("26% equity");
   });
 });

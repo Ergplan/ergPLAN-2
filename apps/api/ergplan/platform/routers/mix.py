@@ -56,6 +56,22 @@ INPUTS: dict[str, dict[str, str]] = {
 }
 
 
+def _plant_inputs(source: str) -> dict[str, str]:
+    """An open-access plant: its CUF always (blank: the state's curve); and, when it is taken as
+    captive (the consumer's own) or with 26% equity, the plant's benchmark cost (engine.lcoe)."""
+    if source not in lcoe.UTILITY:
+        return {"cuf_pct": ""}
+    g = lcoe.default_utility(source)
+    return {
+        "cuf_pct": "",
+        "capex_inr_per_kw": str(g.capex_inr_per_kw.value),
+        "om_pct_of_capex": str(g.om_pct_of_capex.value),
+        "life_years": str(g.life_years.value),
+        "degradation_pct": str(g.degradation_pct.value),
+        "equity_share_pct": str(lcoe.default_equity_share().value),
+    }
+
+
 class SourceOption(BaseModel):
     kind: str
     label: str
@@ -153,7 +169,7 @@ def _options() -> list[SourceOption]:
                 ownerships=(["captive", "group_captive", "third_party"] if src.price_kind == "ppa" else []),
                 available=available,
                 reason=reason,
-                inputs=INPUTS.get(kind, {"cuf_pct": ""} if src.price_kind == "ppa" else {}),
+                inputs=INPUTS.get(kind, _plant_inputs(src.source) if src.price_kind == "ppa" else {}),
             )
         )
     return out

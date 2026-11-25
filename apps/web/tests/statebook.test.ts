@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { qty } from "../lib/format";
-import { markUnstored, whoFor } from "../lib/statebook";
+import { inputText, markUnstored, whoFor } from "../lib/statebook";
 
 describe("markUnstored", () => {
   const content = {
@@ -39,5 +39,15 @@ describe("quantities in a rule book", () => {
   it("names the reference consumer as 33 kV and 5,000 kVA, not 33.000 and 5000.000", () => {
     const c = { kind: "reference", client: null, site: null, category: "HV-2", rate_block: null, voltage_kv: "33.000", contract_demand_kva: "5000.000" };
     expect(whoFor(c)).toBe("Reference consumer · HV-2 · 33 kV · 5,000 kVA");
+  });
+});
+
+describe("a captive plant's price is built from its inputs", () => {
+  it("prints each input of the levelised cost with its unit", () => {
+    const a = (value: string, unit: string, label: string) => ({ value, unit, label, source_refs: [{ kind: "assumption", note: "planning assumption" }] }) as never;
+    expect(inputText(a("42000", "INR", "Capital cost per kW"))).toBe("Capital cost per kW 42,000 ₹");
+    expect(inputText(a("1.5", "percent", "O&M"))).toBe("O&M 1.5%");
+    expect(inputText(a("25", "count", "Life"))).toBe("Life 25 years");
+    expect(inputText(a("26", "percent", "Equity share"))).toBe("Equity share 26%");
   });
 });

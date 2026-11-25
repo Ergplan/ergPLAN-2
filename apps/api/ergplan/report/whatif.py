@@ -69,12 +69,19 @@ def evaluate(s: Session, run: Run, w: WhatIf) -> dict[str, Any]:
             continue
         upd: dict[str, Any] = {}
         if c.kind in w.prices:
+            if c.ownership == "captive" and svc.capital_treatment(run.pins) >= 2:
+                raise WhatIfFailed(
+                    f"{landed_cost.SOURCE_BY_ID[c.kind].label} is a plant of your own in this plan: it "
+                    "pays no tariff, so there is no price to change. Its cost is its capital cost and "
+                    "O&M, set in the plan's inputs"
+                )
             upd["price_inr_per_kwh"] = w.prices[c.kind]
         cands.append(c.model_copy(update=upd))
     if not cands:
         raise WhatIfFailed("every source is switched off")
     spec = spec.model_copy(update={"candidates": cands, "resolution_min": 60, "as_of": w.as_of or spec.as_of})
-    a = svc.assemble(s, sc, spec, Reader())
+    # the capital treatment of the run being changed, so the two savings compare like with like
+    a = svc.assemble(s, sc, spec, Reader(), treatment=svc.capital_treatment(run.pins))
     sizes = {z["kind"]: z for z in rr.summary["sizes"]}
     cap: dict[str, float] = {}
     bkw: dict[str, float] = {}

@@ -43,7 +43,10 @@ class CandidateSpec(BaseModel):
     # ergPLAN 2: the target (max_mw) may be taken as given instead of as a ceiling, and the client
     # may state the plant's cost and yield; whatever is left blank is an assumption shown as such
     fix_at_max: bool = False  # install exactly max_mw (the target) instead of sizing up to it
-    capex_inr_per_kw: Decimal | None = Field(default=None, gt=0)  # owned generation (rooftop)
+    # owned generation: rooftop, and an open-access plant taken as captive or with 26% equity
+    capex_inr_per_kw: Decimal | None = Field(default=None, gt=0)
+    # captive with 26% equity: the consumer's outlay as a share of the plant's capital cost
+    equity_share_pct: Decimal | None = Field(default=None, gt=0, le=100)
     capex_inr_per_kwh: Decimal | None = Field(default=None, gt=0)  # batteries, per kWh of energy
     om_pct_of_capex: Decimal | None = Field(default=None, ge=0, le=20)
     cuf_pct: Decimal | None = Field(default=None, gt=0, le=100)  # the plant's annual CUF

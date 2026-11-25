@@ -59,6 +59,9 @@ class Year:
     cumulative: Decimal
     discount: Decimal  # 1 / (1 + r)^year
     pv_cash: Decimal
+    # the part of the saving the owned capital brings: saving − what the sources bought by the unit
+    # with no capital save (equal to `saving` when the plan has none)
+    owned_saving: Decimal = ZERO
 
 
 @dataclass(frozen=True)
@@ -70,6 +73,8 @@ class Lifecycle:
     pv_plan: Decimal  # grid + contracted + om + capex (year 0 and replacements), discounted
     npv: Decimal  # pv_bau − pv_plan
     nominal_saving: Decimal  # Σ saving − Σ capex, undiscounted
+    # payback and IRR are on the owned capital (capex0, and replacements for the IRR) against the
+    # saving that capital brings (`Year.owned_saving`); None when there is no owned capital
     simple_payback_years: Decimal | None
     discounted_payback_years: Decimal | None
     irr_pct: Decimal | None
@@ -85,11 +90,20 @@ def project(
     after_lines: dict[str, Decimal],
     assets: list[Asset],
     fin: Inputs,
+    bought: tuple[Decimal, Decimal] | None = None,
 ) -> Lifecycle:
     """Year 1 is the optimizer's settled year. `after_lines` holds the plan's grid lines (`demand`,
     `grid_energy`, `excess_demand`), each contracted source's `energy:<cid>` and each owned asset's
     annualised `fixed:<cid>`; the fixed lines are replaced here by capital at year 0 (and at each
-    replacement) plus O&M, which is what the cash flows are."""
+    replacement) plus O&M, which is what the cash flows are.
+
+    `assets` is every piece of capital of the consumer's own: rooftop, batteries, a captive
+    open-access plant, and the equity outlay for a plant taken with 26% equity (no O&M: it is in the
+    tariff). `bought` is what the sources bought by the unit with no capital do in year 1 — (the grid
+    energy cost their units avoid, what is paid for them); the first escalates with the tariff, the
+    second with the PPA rate, and their difference is taken out of the saving that payback and IRR
+    are measured on, so capital is never credited with a saving it did not buy. NPV, the lifecycle
+    costs and the yearly saving stay the whole plan's."""
     n = int(fin.analysis_years.value)
     r = fin.discount_pct.value / HUNDRED
     bau1 = sum(before_lines.values(), ZERO)
@@ -102,6 +116,8 @@ def project(
     pv_bau = ZERO
     pv_plan = capex0  # paid at year 0, discount factor 1; replacements are discounted in their year
     savings: list[Decimal] = []  # full precision; the Year rows are quantized for display only
+    owned: list[Decimal] = []  # the saving on the owned capital
+    owned_cash: list[Decimal] = []
     cashes: list[Decimal] = []
     discounts: list[Decimal] = []
     notes: list[str] = []
@@ -142,7 +158,10 @@ def project(
         disc = ONE / (ONE + r) ** y
         pv_bau += bau * disc
         pv_plan += (grid + contracted + om + capex_y) * disc
+        by_unit = (bought[0] * _esc(te, y) - bought[1] * _esc(pe, y)) if bought else ZERO
         savings.append(saving)
+        owned.append(saving - by_unit)
+        owned_cash.append(saving - by_unit - capex_y)
         cashes.append(cash)
         discounts.append(disc)
         years.append(
@@ -158,6 +177,7 @@ def project(
                 cumulative=_q(cumulative),
                 discount=disc.quantize(Decimal("0.000001")),
                 pv_cash=_q(cash * disc),
+                owned_saving=_q(saving - by_unit),
             )
         )
     # every total from the full-precision series; quantized once, here, for the report
@@ -171,9 +191,9 @@ def project(
         npv=_q(pv_bau - pv_plan),
         nominal_saving=_q(nominal),
         # payback on the operating saving (replacements are in the IRR and NPV, not the payback)
-        simple_payback_years=_payback(capex0, savings),
-        discounted_payback_years=_payback(capex0, [sv * d for sv, d in zip(savings, discounts, strict=True)]),
-        irr_pct=_irr([-capex0, *cashes]) if capex0 > 0 else None,
+        simple_payback_years=_payback(capex0, owned),
+        discounted_payback_years=_payback(capex0, [sv * d for sv, d in zip(owned, discounts, strict=True)]),
+        irr_pct=_irr([-capex0, *owned_cash]) if capex0 > 0 else None,
         notes=notes,
     )
 
@@ -200,7 +220,7 @@ def _irr(cash: list[Decimal]) -> Decimal | None:
     return lcoe.irr(cash)
 
 
-def _year_json(y: Year) -> dict[str, object]:
+def _year_json(y: Year, owned: bool = False) -> dict[str, object]:
     """One year's row. Every figure is a SourcedValue (invariant 1) with one `derived` ref that names
     the year; the inputs it rests on are cited in full on the lifecycle's totals."""
     ref = SourceRef(
@@ -212,7 +232,9 @@ def _year_json(y: Year) -> dict[str, object]:
     def sv(v: Decimal, label: str) -> dict[str, object]:
         return SourcedValue(value=v, unit=Unit.INR, source_refs=(ref,), label=label).model_dump(mode="json")
 
+    extra = {"owned_saving": sv(y.owned_saving, "Saving on the owned capital")} if owned else {}
     return {
+        **extra,
         "year": y.year,
         "bau": sv(y.bau, "Grid bill today"),
         "grid": sv(y.grid, "Grid with the plan"),
@@ -227,9 +249,11 @@ def _year_json(y: Year) -> dict[str, object]:
     }
 
 
-def to_json(lc: Lifecycle, inputs: list[SourcedValue]) -> dict[str, object]:
+def to_json(lc: Lifecycle, inputs: list[SourcedValue], owned: bool = False) -> dict[str, object]:
     """The lifecycle for the run summary: totals as SourcedValues carrying every input, the years as
-    plain decimals (strings), the assumptions by name."""
+    plain decimals (strings), the assumptions by name. `owned`: payback and IRR are labelled as on
+    the owned capital and each year carries the saving they are measured on (False only for the
+    replay of a run stored before that, whose summary must come out as it was)."""
     fin = lc.inputs
     all_inputs = [
         *inputs,
@@ -253,14 +277,24 @@ def to_json(lc: Lifecycle, inputs: list[SourcedValue]) -> dict[str, object]:
             "ppa_escalation_pct": fin.ppa_escalation_pct.model_dump(mode="json"),
             "om_escalation_pct": fin.om_escalation_pct.model_dump(mode="json"),
         },
-        "capex": sv(lc.capex0, Unit.INR, "Capital cost, year 0"),
+        "capex": sv(lc.capex0, Unit.INR, "Capital of your own, year 0" if owned else "Capital cost, year 0"),
         "pv_bau": sv(lc.pv_bau, Unit.INR, "Lifecycle cost today (present value)"),
         "pv_plan": sv(lc.pv_plan, Unit.INR, "Lifecycle cost with the plan (present value)"),
         "npv": sv(lc.npv, Unit.INR, "Net present value of the plan"),
         "nominal_saving": sv(lc.nominal_saving, Unit.INR, "Saving over the period, undiscounted"),
-        "simple_payback_years": sv(lc.simple_payback_years, Unit.YEARS, "Simple payback"),
-        "discounted_payback_years": sv(lc.discounted_payback_years, Unit.YEARS, "Discounted payback"),
-        "irr_pct": sv(lc.irr_pct, Unit.PERCENT, "IRR on the capital"),
-        "years": [_year_json(y) for y in lc.years],
+        "simple_payback_years": sv(
+            lc.simple_payback_years,
+            Unit.YEARS,
+            "Payback on the owned capital (simple)" if owned else "Simple payback",
+        ),
+        "discounted_payback_years": sv(
+            lc.discounted_payback_years,
+            Unit.YEARS,
+            "Payback on the owned capital (discounted)" if owned else "Discounted payback",
+        ),
+        "irr_pct": sv(
+            lc.irr_pct, Unit.PERCENT, "IRR on the owned capital" if owned else "IRR on the capital"
+        ),
+        "years": [_year_json(y, owned) for y in lc.years],
         "notes": lc.notes,
     }

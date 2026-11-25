@@ -55,6 +55,14 @@ export function SourceCard({ s, avoided, analyst }: { s: LandedSource; avoided: 
           </table>
         </details>
       ))}
+      {(s.inputs?.length ?? 0) > 0 && (
+        <p className="ep-small" data-testid="built-from">
+          Built from:{" "}
+          {s.inputs!.map((x, i) => (
+            <span key={i} className="ep-input-chip">{x.label} {Number(x.value).toLocaleString("en-IN")}{UNIT[x.unit] ?? ` ${x.unit}`} <RefChips refs={uniqueRefs([x])} max={1} kinds={1} />{" "}</span>
+          ))}
+        </p>
+      )}
       {same && s.by_slot.length > 1 && <p className="eg-muted ep-small">The same in every ToD slot ({s.by_slot.map((b) => b.slot).join(", ")}).</p>}
       {s.gaps.length > 0 && <p className="ep-small"><span className="eg-chip eg-chip--warning">not yet sourced</span> {s.gaps.map((g) => g.replaceAll("_", " ")).join(", ")}</p>}
       {s.notes.map((n) => <p key={n} className="eg-muted ep-small">{n}</p>)}
@@ -62,6 +70,8 @@ export function SourceCard({ s, avoided, analyst }: { s: LandedSource; avoided: 
     </article>
   );
 }
+
+const UNIT: Record<string, string> = { percent: "%", INR: " ₹/kW", count: " years" };
 
 function Versus({ v, a }: { v: number; a: number }) {
   return (

@@ -74,6 +74,8 @@ class LifecycleYearOut(BaseModel):
     cash: SourcedValue = _f()
     cumulative: SourcedValue = _f()
     pv_cash: SourcedValue = _f()
+    # the part of the saving payback and IRR are measured on (absent on runs before 25 Nov 2026)
+    owned_saving: SourcedValue | None = _o()
     discount: str
 
 
@@ -196,13 +198,44 @@ class LevyOut(BaseModel):
     after_other: SourcedValue = _f()
 
 
+_CAPITAL_OWNER = "scenarios.spec + run_results.summary"
+
+
+class OwnedAssetOut(BaseModel):
+    """One piece of capital of the consumer's own: a plant (rooftop, a captive open-access plant), a
+    battery, or the equity outlay for a plant taken with 26% equity."""
+
+    id: str
+    label: str
+    kind: str  # plant | battery | equity
+    # the benchmark (an assumption) or the client's own figure; never a sourced fact
+    capex: SourcedValue = _f(_CAPITAL_OWNER, ["assumption", "client_stated"])
+    words: str
+
+
+class OwnedCapitalOut(BaseModel):
+    """The capital of the consumer's own in the plan and how payback and IRR are measured on it:
+    against the saving that capital brings, never the saving of sources bought by the unit."""
+
+    total: SourcedValue = _f(_CAPITAL_OWNER)
+    assets: list[OwnedAssetOut]
+    saving: SourcedValue = _f()  # the year's saving on the owned capital
+    bought_saving: SourcedValue | None = _o()  # the year's saving of the sources bought by the unit
+    bought: list[str] = Field(default_factory=list)
+    basis: str
+    payback_absent: str | None = None  # why there is no payback to state, in words
+    irr_absent: str | None = None
+
+
 class SummaryOut(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     sizes: list[SizeOut]
     annual: AnnualOut
+    # on the owned capital (`owned_capital` says against which saving); None when the plan has none
     payback_years: SourcedValue | None = _o()
     irr_pct: SourcedValue | None = _o()
+    owned_capital: OwnedCapitalOut | None = None
     emissions: EmissionsOut
     settlement: SettlementOut
     contract_demand_kva: SourcedValue = _f()

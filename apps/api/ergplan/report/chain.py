@@ -27,6 +27,7 @@ from ..core.sourced import SourcedValue, SourceRef, derive
 from ..core.units import Unit
 from ..db.models import Connection, Run, RunResult, Scenario, Site
 from ..engine.gaps import GAPS
+from ..engine.lcoe import OWN_LCOE
 
 EXTRA: dict[str, Any] = {
     "owner": "run_results.summary",
@@ -190,7 +191,9 @@ def _landed(sid: str, size: dict[str, Any]) -> tuple[list[ChainStep], str | None
                 running=running,
                 rule_id=rule_id,
                 pointer=pointer,
-                editable="price_inr_per_kwh" if kind == "price" else None,
+                # a tariff is the client's to state; the levelised cost of a plant of their own is
+                # built from its capital and O&M, which are stated on the plant instead
+                editable="price_inr_per_kwh" if kind == "price" and label != OWN_LCOE else None,
             )
         )
 
@@ -313,10 +316,18 @@ def build(s: Session, connection_id: str, scenario_id: str | None = None) -> Cha
         ChainStep(key="money.before", kind="total", label="Grid cost today, for the year", value=before_ref)
     )
     names = {str(z["id"]): str(z["label"]) for z in sm["sizes"]}
+    # the capital of the client's own, by source (absent on a run made before 25 Nov 2026)
+    owned = sm.get("owned_capital") or {}
+    owned_kind = {str(a["id"]): str(a["kind"]) for a in owned.get("assets") or []}
+    oa_kinds = {str(z["id"]) for z in sm["sizes"] if z.get("ownership")}
     for key, amount in (sm.get("lines_after") or {}).items():
         head, _, cid = key.partition(":")
         if cid:
             what = {"energy": "energy", "fixed": "plant (capital recovery and O&M)"}.get(head, head)
+            if head == "fixed" and owned_kind.get(cid) == "equity":
+                what = "equity outlay (its yearly carrying cost: outlay × capital recovery factor)"
+            elif head == "energy" and owned_kind.get(cid) == "plant" and cid in oa_kinds:
+                what = "open-access charges on its energy (no tariff: your own plant)"
             label = f"With the plan: {names.get(cid, cid)}, {what}"
         else:
             label = f"With the plan: {MONEY_LABEL.get(key, key.replace('_', ' '))}"
@@ -334,6 +345,33 @@ def build(s: Session, connection_id: str, scenario_id: str | None = None) -> Cha
     saving = _sv(annual["saving"])
     assert saving is not None
     money.append(ChainStep(key="money.saving", kind="total", label="Saving for the year", value=saving))
+    # the capital of the client's own behind that saving, asset by asset, and the payback and IRR
+    # worked on it (the plan's own figures; nothing is recomputed)
+    for a in owned.get("assets") or []:
+        capex = _sv(a.get("capex"))
+        if capex is not None:
+            money.append(
+                ChainStep(
+                    key=f"money.capital.{a['id']}",
+                    kind="money",
+                    label=f"Capital of your own, year 0: {a['label']} ({a['words']})",
+                    value=capex,
+                )
+            )
+    total_capital = _sv(owned.get("total"))
+    if total_capital is not None and owned.get("assets"):
+        money.append(
+            ChainStep(
+                key="money.capital", kind="total", label="Capital of your own, year 0", value=total_capital
+            )
+        )
+        for key, label in (
+            ("payback_years", "Payback on the owned capital"),
+            ("irr_pct", "IRR on the owned capital"),
+        ):
+            v = _sv(sm.get(key))
+            if v is not None:
+                money.append(ChainStep(key=f"money.{key}", kind="total", label=label, value=v))
     lb, la = sm.get("lines_before") or {}, sm.get("lines_after") or {}
     grid_kwh = _sv(st.get("grid_kwh"))
     if load is not None and grid_kwh is not None and "grid_energy" in lb and "grid_energy" in la:

@@ -65,13 +65,17 @@ ROUTES: tuple[tuple[str, str, str], ...] = (
         "The consumer holds at least 26% of the generating company's equity and takes at least 51% of its "
         "output (Electricity Rules 2005, rule 3): the plant is captive, so the cross-subsidy surcharge and "
         "the additional surcharge do not apply (Electricity Act 2003, section 42(2) and 42(4)). The "
-        "exemption is a line of its own below; the cost of the consumer's equity is added as an assumption.",
+        "exemption is a line of its own below. The consumer's equity outlay, taken as 26% of the plant's "
+        "capital cost (an assumption; the plant's own debt and equity split is not modelled), is carried "
+        "over the plant's life as a cost per kWh beside the tariff.",
     ),
     (
         "captive",
         "Captive, own plant",
         "The consumer owns the plant outright: the cross-subsidy surcharge and the additional surcharge do "
-        "not apply (Electricity Act 2003, section 42(2) and 42(4)); the exemption is a line of its own below.",
+        "not apply (Electricity Act 2003, section 42(2) and 42(4)); the exemption is a line of its own below. "
+        "No tariff is paid: the price is the plant's levelised cost, from its capital cost, O&M, CUF and life "
+        "(each an assumption), and a tariff quoted for the source is not used on this route.",
     ),
 )
 RE_SOURCES = ("oa_solar_intra", "oa_wind_intra", "oa_solar_ists", "oa_wind_ists")
@@ -412,6 +416,9 @@ def _route_table(
         "gaps": src.gaps,
         "notes": [n for n in src.notes if not n.startswith("the banking charge is shown")],
         "rules_used": src.rules_used,
+        # what a price that is built up, not quoted, rests on: the plant's capital cost, O&M, CUF,
+        # degradation, life and discount rate (captive), the equity share (26% equity)
+        "inputs": [_j(x) for x in src.inputs],
     }
 
 
@@ -501,7 +508,6 @@ def build(
             sc_in=sc,
             connection_id=connection_id or "",
             ownership_all=route,
-            assume_equity=True,
             levies=levies,
         )
     base = by_route["third_party"]
@@ -947,6 +953,15 @@ def quantity(value: object) -> str:
     return sign + ",".join([*groups, tail]) + (f".{frac}" if frac else "")
 
 
+_INPUT_UNIT = {"percent": "%", "INR": " ₹", "count": " years"}
+
+
+def _plain(value: str) -> str:
+    """A stored decimal without trailing zeros, with Indian digit grouping left to the reader."""
+    d = Decimal(value)
+    return format(d.quantize(Decimal(1)) if d == d.to_integral_value() else d.normalize(), "f")
+
+
 def _cite(refs: list[dict[str, Any]], notes: list[str], stored: set[str] | None = None) -> str:
     """Footnote marks for a figure's sources; the notes list collects each distinct source once.
     Given `stored` (the documents in this server's library), a page that is not there is cited in
@@ -1059,6 +1074,17 @@ def to_markdown(book: StateRulebook, stored: set[str] | None = None) -> str:
             if not r["available"] or not r["slots"]:
                 continue
             L += [f"**{r['route_label']}.** {r['route_note']}", ""]
+            if r.get("inputs"):  # absent in a book generated before 25 Nov 2026
+                L += [
+                    "Built from (each an assumption, to be replaced by your own figure): "
+                    + "; ".join(
+                        f"{x.get('label')} {_plain(x['value'])}{_INPUT_UNIT.get(x['unit'], '')}"
+                        f"{_cite(x['source_refs'], notes, stored)}"
+                        for x in r["inputs"]
+                    )
+                    + ".",
+                    "",
+                ]
             names = [sl["slot"] for sl in r["slots"]]
             L += ["| Line | " + " | ".join(names) + " |", "| --- |" + " ---: |" * len(names)]
             labels = list(dict.fromkeys(ln.get("label") or "" for sl in r["slots"] for ln in sl["lines"]))

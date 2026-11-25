@@ -11,7 +11,7 @@ import { isoFromSizes } from "@/lib/iso";
 import { clientFetch, type ConnectionOut } from "@/lib/intake";
 import type { PlanOut } from "@/lib/plan";
 import type { DispatchOut, RunOut, ScenarioOut } from "@/lib/runs";
-import { Constraints, CostTable, DispatchChart, Inputs, Lifecycle, Settlement, Sizes, Summary, YearMix } from "./parts";
+import { Constraints, CostTable, DispatchChart, Inputs, Lifecycle, Settlement, Sizes, OwnedCapital, Summary, YearMix } from "./parts";
 
 type ShareOut = { token: string; path: string; url: string };
 
@@ -152,6 +152,7 @@ export function Results({ connectionId, scenarioId }: { connectionId: string; sc
               <h2 className="eg-card__title">Summary</h2>
               <p className="eg-card__sub">{scenario?.name}: the least-cost mix of the sources you chose, sized over a {run.resolution_min === 60 ? "hourly" : "15-minute"} year and re-settled under {chain?.settlement_rule ? `“${chain.settlement_rule}”` : "the state's rules"}, then projected {years} years.</p>
               <Summary s={run.summary} years={years} />
+              <OwnedCapital s={run.summary} />
             </section>
 
             <section id="system" className="eg-card ep-panel ep-report">

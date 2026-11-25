@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from ergplan.db.base import get_engine
+from ergplan.engine import lcoe
 from ergplan.platform.app import app
 from tests.platform.test_api_plan import _truncate
 from tests.platform.test_api_runs import AN, CL, make_site, msedcl_5mw
@@ -80,14 +81,29 @@ def test_reference_book_landed_cost_saving_and_routes(site: dict[str, str]) -> N
     assert "exemption (captive 26 51)" in labels(own) and "exemption (group captive)" in labels(group)
     assert "Equity cost" in labels(group) and "Equity cost" not in labels(own)
     assert D(own["landed_avg"]["value"]) < D(group["landed_avg"]["value"]) < D(third["landed_avg"]["value"])
-    assert D(group["landed_avg"]["value"]) - D(own["landed_avg"]["value"]) == D("0.25")
+    # the 26% route: the tariff, and the equity outlay (26% of the plant's capital cost) carried over
+    # the plant's life per kWh at the meter — derived from the plant's assumed cost, not a flat figure
+    plant = lcoe.default_utility("solar")  # Maharashtra's normative solar CUF is the benchmark's 21%
+    at_bus = lcoe.equity_cost_per_kwh(plant, lcoe.default_equity_share()).value
+    equity = next(x for x in group["slots"][0]["lines"] if x["label"] == "Equity cost (group captive)")
+    assert D(equity["value"]) > at_bus > D("0.5")  # brought to the meter by the losses
+    assert {r["kind"] for r in equity["source_refs"]} >= {"assumption"}
+    assert {x["label"] for x in group["inputs"]} >= {"Capital cost per kW", "Equity share", "CUF", "Life"}
+    # the own-plant route pays no tariff: its price is the plant's levelised cost, from the same inputs
+    own_price = own["slots"][0]["lines"][0]
+    assert own_price["label"].startswith("Levelised cost of your own plant")
+    assert abs(D(own_price["value"]) - lcoe.lcoe(plant).value) < D("0.0001")
+    assert {r["kind"] for r in own_price["source_refs"]} == {"assumption"}
+    assert [x["label"] for x in own["inputs"]][:2] == ["Capital cost per kW", "O&M"] and third["inputs"] == []
+    assert not any(x["label"] == "PPA tariff" for x in own["slots"][0]["lines"])
+    assert "No tariff is paid" in own["route_note"] and "26% of the plant's" in group["route_note"]
     # third party less group captive is exactly the surcharges exempted, less the equity cost
     for t_sl, g_sl in zip(third["slots"], group["slots"], strict=True):
         exempt = -sum(
             D(x["value"]) for x in g_sl["lines"] if "exemption (group captive)" in (x["label"] or "")
         )
         assert exempt > 0
-        assert D(t_sl["landed"]["value"]) - D(g_sl["landed"]["value"]) == exempt - D("0.25")
+        assert D(t_sl["landed"]["value"]) - D(g_sl["landed"]["value"]) == exempt - D(equity["value"])
     assert "section 42(2)" in group["route_note"] and "rule 3" in group["route_note"]
     assert D(own["saving_avg"]["value"]) > D(third["saving_avg"]["value"]) > 0
     # how far the figures are traced is counted, and a page ref names its order

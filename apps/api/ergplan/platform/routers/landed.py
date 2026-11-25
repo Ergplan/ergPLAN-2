@@ -24,7 +24,7 @@ from ...engine import levies as elevies
 from ...engine import scope as escope
 from ...engine.gaps import GAPS
 from ...engine.tariff_eval import slot_of
-from ...intake import site_intake
+from ...intake import generation, site_intake
 from ...rulebook import repository
 from ...rulebook.models import RuleView
 from ...rulebook.scope import matches
@@ -56,6 +56,12 @@ DEFAULT_PRICE = {
     "pumped_storage": ("5.20", "pumped-storage supply tariff, 2026"),
     "group_captive": ("3.10", "group-captive solar PPA before the equity cost"),
 }
+# A plant taken as captive is the consumer's own: no tariff, so its card shows the levelised cost of
+# the plant (engine.lcoe.default_utility: capital, O&M, CUF, life; each an assumption). A plant taken
+# with 26% equity pays the tariff above plus the carrying cost of the equity outlay per kWh
+# (engine.lcoe.equity_cost_per_kwh) — the per-kWh view of the outlay a run holds at year 0.
+OWN_LCOE = lcoe.OWN_LCOE
+EQUITY_LABEL = "Equity cost (group captive)"
 DEFAULT_OWNERSHIP = {"group_captive": "group_captive"}
 # the plant a battery at the open-access plant is taken to store for its landed-cost card (the
 # optimizer stores whichever open-access solar, wind or hybrid plant is in the plan)
@@ -71,6 +77,12 @@ class SourceScenario(BaseModel):
     capacity_mw: Decimal | None = None
     cuf_pct: Decimal | None = None
     equity_cost_inr_per_kwh: Decimal | None = None
+    # the plant, when it is the consumer's own (captive) or they hold equity in it (group captive)
+    capex_inr_per_kw: Decimal | None = Field(default=None, gt=0)
+    om_pct_of_capex: Decimal | None = Field(default=None, ge=0, le=20)
+    life_years: int | None = Field(default=None, ge=1, le=40)
+    degradation_pct: Decimal | None = Field(default=None, ge=0, le=5)
+    equity_share_pct: Decimal | None = Field(default=None, gt=0, le=100)
 
 
 class ScenarioIn(BaseModel):
@@ -107,6 +119,13 @@ class SourceOut(BaseModel):
     gaps: list[str]
     notes: list[str]
     rules_used: list[str]
+    # what the price rests on where it is built up, not quoted: the plant's capital cost, O&M, CUF,
+    # degradation, life and discount rate (captive), and the equity share (26% equity); each one an
+    # assumption or the client's own figure, shown as an editable chip
+    inputs: list[SourcedValue] = Field(
+        default_factory=list,
+        json_schema_extra={"owner": "scenario", "ref_kinds": ["assumption", "client_stated"]},
+    )
 
 
 class AvoidedSlot(BaseModel):
@@ -246,13 +265,13 @@ def landed(
     sc_in: ScenarioIn,
     connection_id: str,
     ownership_all: str | None = None,
-    assume_equity: bool = False,
     levies: tuple[elevies.Levy, ...] = (),
 ) -> LandedOut:
     """Every source's landed cost per ToD slot for a consumer described by `facts` (a client's
     connection, or a reference consumer of a DISCOM for the state rule book). `ownership_all` sets
-    the ownership of every open-access PPA source; `assume_equity` adds the assumed cost of the 26%
-    equity to every source taken as group captive. `levies` are FPPCA and duty at the rates on the
+    the ownership of every open-access PPA source. A solar, wind or hybrid plant taken as captive is
+    priced at the levelised cost of the plant, not a PPA tariff; one taken with 26% equity pays the
+    tariff plus the carrying cost of the equity outlay. `levies` are FPPCA and duty at the rates on the
     client's own bills (none for a reference consumer): on DISCOM units they are in the grid rate;
     on other units they follow the stated assumption (engine.levies)."""
     as_of = sc_in.as_of or date.today()
@@ -308,27 +327,122 @@ def landed(
             or "third_party"
         )
 
-    def ppa(spec: landed_cost.SourceSpec, ownership: str) -> tuple[SourcedValue, tuple[SourcedValue, ...]]:
-        """A PPA source's price at the generator bus and its source-specific additions."""
+    def plant_of(spec: landed_cost.SourceSpec) -> lcoe.GenerationCost | None:
+        """The plant behind a solar, wind or hybrid source, were it the consumer's own: the benchmark
+        with whatever the client stated in its place, at the CUF a run generates with (the state's
+        normative curve, or the client's)."""
+        if spec.price_kind != "ppa" or spec.source not in lcoe.UTILITY:
+            return None
         o = sc_in.sources.get(spec.id, SourceScenario())
+        g = lcoe.default_utility(spec.source)
+
+        def pick(v: Decimal | int | None, d: SourcedValue) -> SourcedValue:
+            return d if v is None else _stated(Decimal(str(v)), d.unit, str(d.label))
+
+        cuf = (
+            _stated(o.cuf_pct, Unit.PERCENT, "CUF")
+            if o.cuf_pct
+            else _assumed(
+                str(generation.annual_cuf(generation.curve_for(spec.source, facts.state))),
+                Unit.PERCENT,
+                f"normative {spec.source} curve for {facts.state} (packages/profiles/cuf)",
+                "CUF",
+            )
+        )
+        return lcoe.GenerationCost(
+            capex_inr_per_kw=pick(o.capex_inr_per_kw, g.capex_inr_per_kw),
+            om_pct_of_capex=pick(o.om_pct_of_capex, g.om_pct_of_capex),
+            cuf_pct=cuf,
+            degradation_pct=pick(o.degradation_pct, g.degradation_pct),
+            life_years=pick(o.life_years, g.life_years),
+            discount_pct=g.discount_pct,
+        )
+
+    def ppa(
+        spec: landed_cost.SourceSpec, ownership: str
+    ) -> tuple[SourcedValue, tuple[SourcedValue, ...], list[SourcedValue], list[str]]:
+        """A PPA source's price at the generator bus, its source-specific additions, the inputs the
+        price is built from (a plant of the consumer's own) and what to say about it."""
+        o = sc_in.sources.get(spec.id, SourceScenario())
+        plant = plant_of(spec)
+        if ownership == "captive" and plant is not None:
+            said = [
+                "your own plant: no tariff is paid, so the price is the plant's levelised cost — its "
+                "capital cost × capital recovery factor + O&M, over the energy of an average year of "
+                "its life. A plan costs the same plant as capital at year 0, in payback and IRR"
+            ]
+            if o.price_inr_per_kwh is not None:
+                said.append(
+                    f"the tariff stated (₹{o.price_inr_per_kwh}/kWh) is not used for a plant of your own; "
+                    "state its capital cost and O&M instead"
+                )
+            own = lcoe.lcoe(plant)
+            return (
+                derive(own.value.quantize(Decimal("0.0001")), Unit.INR_PER_KWH, [own], label=OWN_LCOE),
+                (),
+                [
+                    plant.capex_inr_per_kw,
+                    plant.om_pct_of_capex,
+                    plant.cuf_pct,
+                    plant.degradation_pct,
+                    plant.life_years,
+                    plant.discount_pct,
+                ],
+                said,
+            )
         if o.price_inr_per_kwh is not None:
             v = _stated(o.price_inr_per_kwh, Unit.INR_PER_KWH, "PPA tariff")
         else:
             val, note = DEFAULT_PRICE[spec.id]
             v = _assumed(val, Unit.INR_PER_KWH, f"{note}; change it to your quote", "PPA tariff")
-        if spec.id == "group_captive" or (assume_equity and ownership == "group_captive"):
-            eq = (
-                _stated(o.equity_cost_inr_per_kwh, Unit.INR_PER_KWH, "Equity cost")
-                if o.equity_cost_inr_per_kwh is not None
-                else _assumed(
-                    "0.25",
-                    Unit.INR_PER_KWH,
-                    "26% equity in the generating company, carried over its life, per kWh consumed",
-                    "Equity cost (group captive)",
-                )
-            )
-            return v, (eq,)
-        return v, ()
+        if ownership != "group_captive":
+            return v, (), [], []
+        if o.equity_cost_inr_per_kwh is not None:
+            return v, (_stated(o.equity_cost_inr_per_kwh, Unit.INR_PER_KWH, "Equity cost"),), [], []
+        if plant is None:  # not a plant ergPLAN has a benchmark for: the tariff alone, and said so
+            return v, (), [], ["the cost of your equity in this plant is not included: state it per kWh"]
+        # the equity outlay (equity share × the plant's capital cost) carried over the plant's life,
+        # per kWh generated, brought to the meter by the losses; the per-kWh view of the outlay a run
+        # holds at year 0
+        share = (
+            _stated(o.equity_share_pct, Unit.PERCENT, "Equity share")
+            if o.equity_share_pct is not None
+            else lcoe.default_equity_share()
+        )
+        at_bus = lcoe.equity_cost_per_kwh(plant, share)
+        kept = landed_cost.evaluate(
+            spec,
+            ctx,
+            landed_cost.Scenario(price=v, **common(spec, ownership, ())),  # type: ignore[arg-type]
+            oa_rows,
+            waivers,
+            None,
+        ).delivered
+        eq = derive(
+            (at_bus.value / (kept.value if kept is not None else Decimal(1))).quantize(Decimal("0.0001")),
+            Unit.INR_PER_KWH,
+            [at_bus, *([kept] if kept is not None else [])],
+            label=EQUITY_LABEL,
+        )
+        return (
+            v,
+            (eq,),
+            [
+                plant.capex_inr_per_kw,
+                share,
+                plant.cuf_pct,
+                plant.degradation_pct,
+                plant.life_years,
+                plant.discount_pct,
+            ],
+            [
+                f"captive with {share.value}% equity: your outlay is {share.value}% of the plant's capital "
+                "cost for the capacity you take (the plant's own debt and equity split is not modelled); "
+                "here it is carried over the plant's life as a cost per kWh at the meter (outlay × "
+                "capital recovery factor ÷ the plant's yearly energy). A plan holds the same outlay as "
+                "capital at year 0, in payback and IRR, and does not charge it again per kWh"
+            ],
+        )
 
     def common(
         spec: landed_cost.SourceSpec, ownership: str, extra: tuple[SourcedValue, ...]
@@ -354,6 +468,7 @@ def landed(
         reason = None
         pre_gaps: list[str] = []
         pre_used: list[str] = []
+        built_from: list[SourcedValue] = []
         if spec.price_kind == "grid":
             prices = dict(cards)
             reason = None if cards else "no approved tariff for this connection"
@@ -392,7 +507,7 @@ def landed(
             v = lcoe.lcos(st)
             plant = landed_cost.SOURCE_BY_ID[OA_BESS_PLANT]
             plant_own = ownership_of(plant)
-            p_price, p_extra = ppa(plant, plant_own)
+            p_price, p_extra, _built, _said = ppa(plant, plant_own)
             pwf = landed_cost.evaluate(
                 plant,
                 ctx,
@@ -460,8 +575,9 @@ def landed(
             else:
                 reason = "the thermal plant's variable cost is not stated"
         else:  # ppa
-            v, extra = ppa(spec, ownership)
+            v, extra, built_from, said = ppa(spec, ownership)
             prices = {n: v for n in slot_names}
+            notes += said
         scn_common = common(spec, ownership, extra)
         src_ctx = {**ctx, "connection": spec.connection, "source": spec.source, "ownership": ownership}
         settlement = next((r for r in settlements if matches(r.scope, src_ctx)), None)
@@ -502,6 +618,7 @@ def landed(
                 gaps=gaps,
                 notes=list(dict.fromkeys(notes)),
                 rules_used=list(dict.fromkeys(used)),
+                inputs=built_from,
             )
         )
     lim_ctx = {**ctx}

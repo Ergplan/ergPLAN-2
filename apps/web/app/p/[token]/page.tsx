@@ -11,7 +11,7 @@ import type { DispatchOut } from "@/lib/runs";
 import { uniqueRefs } from "@/lib/cost";
 import type { Ref, SourcedValue } from "@/lib/intake";
 import { Citations, type PlanOut } from "@/lib/plan";
-import { crore, mw, mwh } from "@/lib/runs";
+import { crore, mw, mwh, paybackHeadline } from "@/lib/runs";
 
 export const metadata = { title: "Your green power plan · jouleWise" };
 
@@ -54,6 +54,8 @@ export default async function LivePlan({ params, searchParams }: { params: Promi
     : [null, null];
   const years = s?.lifecycle ? Number(s.lifecycle.analysis_years?.value ?? 25) : 25;
   const labels = Object.fromEntries((s?.sizes ?? []).map((z) => [z.id, z.label]));
+  // payback and IRR are on the capital of the client's own, labelled so, with the reason when there is none
+  const head = s ? paybackHeadline(s) : null;
   return (
     <div className={`ep-public__inner${printing ? " ep-print" : ""}`}>
       {printing && <script dangerouslySetInnerHTML={{ __html: "document.documentElement.dataset.theme='light'" }} />}
@@ -81,11 +83,15 @@ export default async function LivePlan({ params, searchParams }: { params: Promi
                 {s.sizes.map((z) => (
                   <tr key={z.id}><td>{z.label}{z.exchange && <div className="ep-small eg-muted">bought in {Number(z.exchange.hours_bought).toLocaleString("en-IN")} hours at ₹{Number(z.exchange.avg_landed.value).toFixed(2)}/kWh landed · {Number(z.exchange.share_of_load.value).toFixed(1)}% of your use</div>}</td><td className="num">{(z.kind === "btm_bess" || z.kind === "oa_bess") ? `${mw(z.kw)} MW / ${mw(z.kwh)} MWh` : z.exchange ? `${mwh(z.delivered_kwh)} MWh · up to ${mw(z.kw)} MW` : `${mw(z.kw)} MW`}</td><td>{C(z.exchange ? [z.delivered_kwh, z.exchange.avg_landed] : [z.kw], 2)}</td></tr>
                 ))}
-                <tr><td>Payback</td><td className="num">{s.payback_years ? `${Number(s.payback_years.value).toFixed(1)} years` : "—"}</td><td>{s.payback_years && C([s.payback_years], 1)}</td></tr>
-                <tr><td>IRR</td><td className="num">{s.irr_pct ? `${Number(s.irr_pct.value).toFixed(1)}%` : "—"}</td><td /></tr>
+                {head?.assets.map((a) => (
+                  <tr key={a.label}><td>Capital of your own: {a.label} <span className="eg-muted ep-small">({a.kind})</span></td><td className="num">{a.capex}</td><td>{s.owned_capital && C([s.owned_capital.total], 1)}</td></tr>
+                ))}
+                <tr><td>{head?.label}</td><td className="num">{head?.payback}</td><td>{s.payback_years && C([s.payback_years], 1)}</td></tr>
+                <tr><td>{head?.label.replace("Payback", "IRR")}</td><td className="num">{head?.irr}</td><td /></tr>
                 <tr><td>Grid CO₂ a year</td><td className="num">{Math.round(Number(s.emissions.before_t.value)).toLocaleString("en-IN")} → {Math.round(Number(s.emissions.after_t.value)).toLocaleString("en-IN")} t</td><td>{C([s.emissions.factor], 1)}</td></tr>
               </tbody>
             </table>
+            <p className="eg-muted ep-small">{head?.basis}{head?.absent && head.absent !== head.basis ? ` ${head.absent}` : ""}</p>
             <Levies levies={s.levies} />
             {s.notes.map((n) => <p key={n} className="eg-muted ep-small">{n}</p>)}
             {s.sizes.some((z) => z.gaps.length > 0) && (

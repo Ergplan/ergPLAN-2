@@ -61,7 +61,11 @@ export function hhmm(block: number): string {
 }
 
 export type SlotWaterfall = { slot: string; lines: SourcedValue[]; total: SourcedValue };
-export type LandedSource = { id: string; label: string; available: boolean; reason: string | null; by_slot: SlotWaterfall[]; gaps: string[]; notes: string[]; rules_used: string[] };
+export type LandedSource = { id: string; label: string; available: boolean; reason: string | null; by_slot: SlotWaterfall[]; gaps: string[]; notes: string[]; rules_used: string[];
+  // what the price is built from where it is not a quote: a plant of the client's own (capital, O&M, CUF,
+  // degradation, life, discount rate) or their equity in one; each an assumption or the client's figure
+  inputs?: SourcedValue[];
+};
 export type LandedOut = {
   connection_id: string; as_of: string; month: number; slots: { name: string; start: string; end: string }[];
   avoided: { slot: string; rate: SourcedValue }[]; sources: LandedSource[];

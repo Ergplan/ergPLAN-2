@@ -5,7 +5,7 @@ import { RefChips } from "@/components/cost/RefChips";
 import { inr, num } from "@/lib/evaluate";
 import type { Ref, SourcedValue } from "@/lib/intake";
 import type { Chain } from "@/lib/audit";
-import { levyRows, type DispatchOut, type LevyOut, type LifecycleOut, type MonthMix, type RunOut, type SizeOut, type SummaryOut } from "@/lib/runs";
+import { levyRows, paybackHeadline, type DispatchOut, type LevyOut, type LifecycleOut, type MonthMix, type RunOut, type SizeOut, type SummaryOut } from "@/lib/runs";
 
 export const MIX_COLORS = ["#f5b544", "#4fb3d9", "#7fc97f", "#c084fc", "#f472b6", "#94a3b8", "#fb923c"];
 const V = (x: SourcedValue | null | undefined) => (x ? Number(x.value) : 0);
@@ -42,13 +42,7 @@ export function Summary({ s, years }: { s: SummaryOut; years: number }) {
           <span className="eg-stat__foot">{inr(lc.nominal_saving?.value)} undiscounted</span>
         </div>
       )}
-      {lc?.capex && Number(lc.capex.value) > 0 && (
-        <div className="eg-stat">
-          <span className="eg-stat__label">Capital and payback</span>
-          <span className="eg-stat__value">{inr(lc.capex.value)}</span>
-          <span className="eg-stat__foot">{lc.simple_payback_years ? `pays back in ${Number(lc.simple_payback_years.value).toFixed(1)} years` : "no payback in the period"}{lc.irr_pct ? ` · IRR ${Number(lc.irr_pct.value).toFixed(1)}%` : ""}</span>
-        </div>
-      )}
+      <OwnedCapitalStat s={s} />
       <div className="eg-stat">
         <span className="eg-stat__label">Green share of consumption</span>
         <span className="eg-stat__value">{green.toFixed(0)}%</span>
@@ -59,6 +53,52 @@ export function Summary({ s, years }: { s: SummaryOut; years: number }) {
         <span className="eg-stat__value">{num(co2)} t</span>
         <span className="eg-stat__foot">at {Number(s.emissions.factor.value).toFixed(2)} t/MWh <RefChips refs={uniq(s.emissions.factor.source_refs)} max={1} /></span>
       </div>
+    </div>
+  );
+}
+
+// What a source's cost line is, in words: a plant of the client's own has a yearly cost of capital and
+// O&M and pays only the open-access charges per kWh; an equity outlay is carried yearly; the rest is energy.
+export function costLineWords(head: string, cid: string, s: Pick<SummaryOut, "owned_capital" | "sizes">): string {
+  const kind = s.owned_capital?.assets.find((a) => a.id === cid)?.kind;
+  const openAccess = !!s.sizes.find((z) => z.id === cid)?.ownership;
+  if (head === "fixed") return kind === "equity" ? "equity outlay (carried yearly: outlay × capital recovery factor)" : "plant (capital recovery and O&M, annualised)";
+  return kind === "plant" && openAccess ? "open-access charges on its energy (no tariff: your own plant)" : "energy";
+}
+
+// Payback and IRR are on the capital of the client's own, labelled so, with the capital asset by asset
+// and the saving it is measured against; a plan with no capital of its own says why there is none.
+function OwnedCapitalStat({ s }: { s: SummaryOut }) {
+  const h = paybackHeadline(s);
+  return (
+    <div className="eg-stat" data-testid="owned-capital">
+      <span className="eg-stat__label">{h.label}</span>
+      <span className="eg-stat__value">{h.capital ? h.payback : "—"}</span>
+      <span className="eg-stat__foot">
+        {h.capital ? <>IRR {h.irr} · on {h.capital} of your own capital{h.saving ? `, against ${h.saving} saved in year one before that capital` : ""} {s.owned_capital && <RefChips refs={uniq(s.owned_capital.total.source_refs)} max={1} />}</> : (h.absent ?? "No capital of your own in this plan.")}
+      </span>
+    </div>
+  );
+}
+
+// The same, in full, under the headline: each asset's capital and the words that define the figures.
+export function OwnedCapital({ s }: { s: SummaryOut }) {
+  const h = paybackHeadline(s);
+  const oc = s.owned_capital;
+  return (
+    <div className="ep-small" data-testid="owned-capital-detail">
+      {oc && oc.assets.length > 0 && (
+        <table className="ep-table ep-small">
+          <thead><tr><th>Capital of your own</th><th>What it is</th><th className="num">Year 0</th><th></th></tr></thead>
+          <tbody>
+            {oc.assets.map((a) => (
+              <tr key={a.id}><td>{a.label}</td><td>{a.words}</td><td className="num">{inr(a.capex.value)}</td><td><RefChips refs={uniq(a.capex.source_refs)} max={1} /></td></tr>
+            ))}
+            <tr className="ep-total"><td>Total</td><td></td><td className="num">{inr(oc.total.value)}</td><td></td></tr>
+          </tbody>
+        </table>
+      )}
+      <p className="eg-muted"><b>{h.label}.</b> {h.basis}{h.absent && h.absent !== h.basis ? ` ${h.absent}` : ""}</p>
     </div>
   );
 }
@@ -135,7 +175,7 @@ export function CostTable({ s, chain, print = false }: { s: SummaryOut; chain: C
         put(rest, LINE_LABEL[rest] ?? st.label.replace(/^Today: /, ""), "before", V(st.value), st.value.source_refs);
       } else {
         const [head, cid] = rest.split(".");
-        if (cid) put(rest, `${names[cid] ?? cid} — ${head === "fixed" ? "plant (capital recovery and O&M, annualised)" : "energy"}`, "after", V(st.value), st.value.source_refs);
+        if (cid) put(rest, `${names[cid] ?? cid} — ${costLineWords(head, cid, s)}`, "after", V(st.value), st.value.source_refs);
         else put(rest, LINE_LABEL[rest] ?? st.label.replace(/^With the plan: /, ""), "after", V(st.value), st.value.source_refs);
       }
     }
@@ -147,7 +187,7 @@ export function CostTable({ s, chain, print = false }: { s: SummaryOut; chain: C
     }
     for (const k of Object.keys(after).filter((x) => x.includes(":"))) {
       const [head, cid] = k.split(":");
-      put(k, `${names[cid] ?? cid} — ${head === "fixed" ? "plant (capital recovery and O&M, annualised)" : "energy"}`, "after", Number(after[k]), []);
+      put(k, `${names[cid] ?? cid} — ${costLineWords(head, cid, s)}`, "after", Number(after[k]), []);
     }
   }
   const order = (r: Row) => (r.key === "grid_energy" ? 0 : r.key === "demand" ? 1 : r.key === "excess_demand" ? 2 : 3);
@@ -199,7 +239,7 @@ export function Lifecycle({ lc, years, expanded = false }: { lc: LifecycleOut; y
         <div className="eg-stat"><span className="eg-stat__label">Lifecycle cost with the plan</span><span className="eg-stat__value">{inr(lc.pv_plan?.value)}</span><span className="eg-stat__foot">incl. capital and O&M</span></div>
         <div className="eg-stat"><span className="eg-stat__label">Net present value</span><span className="eg-stat__value">{inr(lc.npv?.value)}</span><span className="eg-stat__foot">at {num(lc.assumptions.discount_pct?.value, 1)}% discount</span></div>
         {lc.capex && Number(lc.capex.value) > 0 && (
-          <div className="eg-stat"><span className="eg-stat__label">Payback</span><span className="eg-stat__value">{lc.simple_payback_years ? `${Number(lc.simple_payback_years.value).toFixed(1)} y` : "—"}</span><span className="eg-stat__foot">{lc.discounted_payback_years ? `${Number(lc.discounted_payback_years.value).toFixed(1)} y discounted` : "not within the period, discounted"}{lc.irr_pct ? ` · IRR ${Number(lc.irr_pct.value).toFixed(1)}%` : ""}</span></div>
+          <div className="eg-stat"><span className="eg-stat__label">{lc.years[0]?.owned_saving ? "Payback on the owned capital" : "Payback on the plan as a whole"}</span><span className="eg-stat__value">{lc.simple_payback_years ? `${Number(lc.simple_payback_years.value).toFixed(1)} y` : "—"}</span><span className="eg-stat__foot">{lc.discounted_payback_years ? `${Number(lc.discounted_payback_years.value).toFixed(1)} y discounted` : "not within the period, discounted"}{lc.irr_pct ? ` · IRR ${Number(lc.irr_pct.value).toFixed(1)}%` : ""}</span></div>
         )}
       </div>
       <figure className="ep-lcchart" style={{ margin: "8px 0" }}>
@@ -219,15 +259,15 @@ export function Lifecycle({ lc, years, expanded = false }: { lc: LifecycleOut; y
           )}
           {[0, ...lc.years.filter((_, i) => i % 5 === 4).map((yr) => yr.year)].map((n, k) => <text key={k} x={x(n)} y={H - 4} fontSize={10} fill="currentColor" opacity={0.6} textAnchor="middle">{n}</text>)}
         </svg>
-        <figcaption className="eg-muted ep-small">Cumulative cash flow: the saving each year, less the capital at year 0 and at each replacement.</figcaption>
+        <figcaption className="eg-muted ep-small">Cumulative cash flow of the whole plan: the saving each year, less the capital of your own at year 0 and at each replacement.{lc.years.some((y) => y.owned_saving && y.owned_saving.value !== y.saving.value) ? " Payback and IRR count only the saving the owned capital brings (the column beside the saving), so they come later than this line's break-even." : ""}</figcaption>
       </figure>
       <div className="ep-scroll">
         <table className="ep-table ep-small ep-lc">
-          <thead><tr><th>Year</th><th className="num">Grid bill today</th><th className="num">Grid with the plan</th><th className="num">Contracted power</th><th className="num">O&M</th><th className="num">Capital</th><th className="num">Saving</th><th className="num">Cumulative</th></tr></thead>
+          <thead><tr><th>Year</th><th className="num">Grid bill today</th><th className="num">Grid with the plan</th><th className="num">Contracted power</th><th className="num">O&M</th><th className="num">Capital of your own</th><th className="num">Saving</th>{lc.years[0]?.owned_saving && <th className="num">of which on the owned capital</th>}<th className="num">Cumulative</th></tr></thead>
           <tbody>
-            {Number(lc.capex?.value ?? 0) > 0 && <tr><td>0</td><td colSpan={4}></td><td className="num">{inr(lc.capex?.value)}</td><td></td><td className="num">−{inr(lc.capex?.value)}</td></tr>}
+            {Number(lc.capex?.value ?? 0) > 0 && <tr><td>0</td><td colSpan={4}></td><td className="num">{inr(lc.capex?.value)}</td><td></td>{lc.years[0]?.owned_saving && <td></td>}<td className="num">−{inr(lc.capex?.value)}</td></tr>}
             {rows.map((yr) => (
-              <tr key={yr.year}><td>{yr.year}</td><td className="num">{inr(yr.bau.value)}</td><td className="num">{inr(yr.grid.value)}</td><td className="num">{inr(yr.contracted.value)}</td><td className="num">{inr(yr.om.value)}</td><td className="num">{Number(yr.capex.value) ? inr(yr.capex.value) : ""}</td><td className="num">{inr(yr.saving.value)}</td><td className="num">{inr(yr.cumulative.value)}</td></tr>
+              <tr key={yr.year}><td>{yr.year}</td><td className="num">{inr(yr.bau.value)}</td><td className="num">{inr(yr.grid.value)}</td><td className="num">{inr(yr.contracted.value)}</td><td className="num">{inr(yr.om.value)}</td><td className="num">{Number(yr.capex.value) ? inr(yr.capex.value) : ""}</td><td className="num">{inr(yr.saving.value)}</td>{yr.owned_saving && <td className="num">{inr(yr.owned_saving.value)}</td>}<td className="num">{inr(yr.cumulative.value)}</td></tr>
             ))}
           </tbody>
         </table>

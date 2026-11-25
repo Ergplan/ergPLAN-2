@@ -63,7 +63,14 @@ def test_the_chain_adds_up_to_the_plan(plan: dict[str, str]) -> None:
     oa = [s for s in c["sources"] if s["landed"]]
     assert oa, "an open-access source with its landed cost"
     for s in oa:
-        assert s["landed"][0]["kind"] == "price" and s["landed"][0]["editable"] == "price_inr_per_kwh"
+        first = s["landed"][0]
+        assert first["kind"] == "price"
+        if s["ownership"] == "captive":
+            # a plant of the client's own pays no tariff: its levelised cost is built from its capital
+            # and O&M, so there is no price for the client to state in its place
+            assert first["label"].startswith("Levelised cost of your own plant") and first["editable"] is None
+        else:
+            assert first["editable"] == "price_inr_per_kwh"
         total = sum((_d(st["value"]) for st in s["landed"]), Decimal(0))
         assert total == _d(s["landed_total"]) == _d(s["landed"][-1]["running"])
         for st in s["landed"]:

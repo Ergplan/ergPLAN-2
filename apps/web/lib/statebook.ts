@@ -20,7 +20,13 @@ export type BookRoute = {
   saving_avg: Sourced | null;
   gaps: string[];
   notes: string[];
+  // what a price that is built up, not quoted, rests on (a plant of the consumer's own; their equity in one)
+  inputs?: Sourced[];
 };
+
+// "Capital cost per kW 42,000 ₹": one input of a built-up price, as the book prints it.
+const INPUT_UNIT: Record<string, string> = { percent: "%", INR: " ₹", count: " years" };
+export const inputText = (x: Sourced): string => `${x.label ?? ""} ${Number(x.value).toLocaleString("en-IN")}${INPUT_UNIT[x.unit] ?? ""}`.trim();
 
 export type BookPoint = { text: string; ref: Ref | null };
 

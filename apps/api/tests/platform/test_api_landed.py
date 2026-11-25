@@ -32,13 +32,23 @@ def test_landed_cost_default_scenario(connection: str) -> None:  # noqa: F811
 
 
 def test_stated_price_and_ownership(connection: str) -> None:  # noqa: F811
-    sc = {"sources": {"oa_solar_intra": {"price_inr_per_kwh": "2.95", "ownership": "captive"}}}
+    # a tariff is paid by a plant taken with 26% equity (and by a third party's)
+    sc = {"sources": {"oa_solar_intra": {"price_inr_per_kwh": "2.95", "ownership": "group_captive"}}}
     d = client.get(f"/connections/{connection}/landed-cost", params={"scenario": json.dumps(sc)}).json()
     solar = next(s for s in d["sources"] if s["id"] == "oa_solar_intra")["by_slot"][0]
     assert (
         solar["lines"][0]["value"] == "2.95"
         and solar["lines"][0]["source_refs"][0]["kind"] == "client_stated"
     )
+    # a captive plant is the consumer's own: no tariff, so the quote is not used (and the card says
+    # so); the price is the plant's levelised cost, built on assumptions
+    sc = {"sources": {"oa_solar_intra": {"price_inr_per_kwh": "2.95", "ownership": "captive"}}}
+    d = client.get(f"/connections/{connection}/landed-cost", params={"scenario": json.dumps(sc)}).json()
+    card = next(s for s in d["sources"] if s["id"] == "oa_solar_intra")
+    first = card["by_slot"][0]["lines"][0]
+    assert first["label"].startswith("Levelised cost of your own plant")
+    assert first["value"] != "2.95" and {r["kind"] for r in first["source_refs"]} == {"assumption"}
+    assert any("the tariff stated (₹2.95/kWh) is not used" in n for n in card["notes"])
 
 
 def test_landed_cost_errors(connection: str) -> None:  # noqa: F811
