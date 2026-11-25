@@ -24,6 +24,7 @@ APP_TABLES = [
     "audit_messages",
     "working_lines",
     "workings",
+    "signin_attempts",
     "auth_sessions",
     "login_tokens",
     "users",
@@ -69,6 +70,9 @@ def migrated() -> None:
 
 @pytest.fixture(autouse=True)
 def clean_db() -> Iterator[None]:
+    from ergplan.platform import ratelimit
+
+    ratelimit.reset()  # each test starts with empty rate-limit windows
     yield
     eng = get_engine()
     with eng.begin() as c:

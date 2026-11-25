@@ -1,6 +1,7 @@
 """Stage 8 sign-in and access, in production mode: email link → session cookie; development headers
 are ignored; signed-out callers reach only the public routes; a client reaches only what they created;
-analysts reach everything; the shared plan opens logged out; security headers."""
+analysts reach everything; the shared plan opens logged out and opens only its own plan; security
+headers. The administrator's username and password (Stage 13) are in test_admin.py."""
 
 from __future__ import annotations
 
@@ -55,7 +56,8 @@ def test_sign_in_roles_and_logout(prod: list[tuple[str, str]]) -> None:
         "role": "analyst",
         "signed_in": True,
         "required": True,
-        "has_password": False,
+        "password_sign_in": False,
+        "warnings": [],
     }
     c = sign_in("ops@acme.in", prod)
     assert c.get("/auth/me").json()["role"] == "client"
@@ -224,56 +226,60 @@ def test_every_public_template_is_a_real_route() -> None:
     assert paths >= PUBLIC, sorted(PUBLIC - paths)
 
 
-def test_password_sign_in_set_change_and_analyst_adds_a_person(prod: list[tuple[str, str]]) -> None:
-    from ergplan.platform.routers import auth as auth_routes
+def test_a_share_link_opens_only_its_own_plan(
+    prod: list[tuple[str, str]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stage 13: two clients, two plans, two links. A link opens its own plan signed out, and gives
+    no way into the other plan or into anything behind sign-in; a made-up token opens nothing."""
+    restore_committed()
+    fake = FakeBillx()
+    monkeypatch.setattr(bill_store, "BillxClient", fake.client)
+    pdf = fake.register("b", msedcl_5mw())
+    conns, tokens = [], []
+    for email in ("first@acme.in", "second@other.in"):
+        c = sign_in(email, prod)
+        [bill] = c.post("/bills", files={"file": ("b.pdf", pdf, "application/pdf")}).json()
+        si = c.post("/intake/from-bills", json={"bill_ids": [bill["id"]]}).json()
+        conn = c.post("/sites", json={"intake": si}).json()["connection_id"]
+        conns.append(conn)
+        tokens.append(c.post(f"/connections/{conn}/share").json()["token"])
+    assert conns[0] != conns[1] and tokens[0] != tokens[1]
+    anon = TestClient(app, base_url="https://testserver")
+    for tok, conn, other in ((tokens[0], conns[0], conns[1]), (tokens[1], conns[1], conns[0])):
+        shared = anon.get(f"/p/{tok}")
+        assert shared.status_code == 200 and shared.json()["connection_id"] == conn
+        assert other not in shared.text  # nothing of the other plan comes with it
+        # the link is not a sign-in: the plans themselves, this one too, stay behind it
+        for path in (f"/connections/{conn}/plan", f"/connections/{other}/plan", f"/connections/{other}"):
+            assert anon.get(path).status_code == 401, path
+        assert anon.get(f"/p/{tok}", params={"view": "analyst"}).status_code == 403
+        assert "ergplan_session" not in anon.cookies
+    assert anon.get("/p/" + "x" * len(tokens[0])).status_code == 404
+    # signed in, the first client still cannot open the second's plan, with or without its own link
+    first = sign_in("first@acme.in", prod)
+    assert first.get(f"/connections/{conns[1]}/plan").status_code == 403
 
-    auth_routes._failures.clear()
-    c = sign_in("owner@joulewise.in", prod)  # first time: the emailed or operator link
-    assert c.get("/auth/me").json()["has_password"] is False
-    assert c.post("/auth/password", json={"password": "short"}).status_code == 422
-    assert c.post("/auth/password", json={"password": "green-power-2026"}).json()["has_password"] is True
-    # changing it needs the current password
-    assert c.post("/auth/password", json={"password": "another-pass-1"}).status_code == 403
-    assert (
-        c.post(
-            "/auth/password", json={"password": "another-pass-1", "current": "green-power-2026"}
-        ).status_code
-        == 200
+
+def test_the_older_per_person_password_routes_are_gone(prod: list[tuple[str, str]]) -> None:
+    """Stage 13: one administrator account is the only password. Nobody sets one for themselves or
+    for someone else, and a hash left by the older sign-in opens nothing."""
+    from ergplan.platform.passwords import hash_password
+
+    c = sign_in("owner@joulewise.in", prod)
+    assert c.post("/auth/password", json={"password": "green-power-2026"}).status_code in (404, 405)
+    assert c.post("/auth/users", json={"email": "plant@acme.in", "password": "first-pass-9"}).status_code in (
+        404,
+        405,
     )
-    c.post("/auth/logout")
-    fresh = TestClient(app, base_url="https://testserver")
-    assert (
-        fresh.post("/auth/login", json={"email": "Owner@joulewise.in", "password": "nope-nope"}).status_code
-        == 401
-    )
-    ok = fresh.post("/auth/login", json={"email": "owner@joulewise.in", "password": "another-pass-1"})
-    assert ok.status_code == 200 and ok.json()["role"] == "analyst" and "ergplan_session" in fresh.cookies
-    assert fresh.get("/rulebooks/versions").status_code == 200
-    # an analyst adds a client with a first password; a client cannot add people
-    added = fresh.post("/auth/users", json={"email": "plant@acme.in", "password": "first-pass-9"})
-    assert added.status_code == 201 and added.json() == {"email": "plant@acme.in", "role": "client"}
-    cl = TestClient(app, base_url="https://testserver")
-    assert (
-        cl.post("/auth/login", json={"email": "plant@acme.in", "password": "first-pass-9"}).json()["role"]
-        == "client"
-    )
-    assert cl.post("/auth/users", json={"email": "x@acme.in", "password": "whatever-1"}).status_code == 403
+    assert "has_password" not in c.get("/auth/me").json()
     with session_scope() as s:
-        u = s.get(User, "plant@acme.in")
-        assert u is not None and u.password_hash and "first-pass-9" not in u.password_hash
-
-
-def test_wrong_passwords_are_throttled(prod: list[tuple[str, str]]) -> None:
-    from ergplan.platform.routers import auth as auth_routes
-
-    auth_routes._failures.clear()
-    c = TestClient(app, base_url="https://testserver")
-    codes = [
-        c.post("/auth/login", json={"email": "who@acme.in", "password": f"guess-{i}"}).status_code
-        for i in range(11)
-    ]
-    assert codes[:10] == [401] * 10 and codes[10] == 429
-    auth_routes._failures.clear()
+        u = s.get(User, "owner@joulewise.in")
+        assert u is not None and u.password_hash is None
+        u.password_hash = hash_password("green-power-2026")  # as the older sign-in left it
+    fresh = TestClient(app, base_url="https://testserver")
+    r = fresh.post("/auth/login", json={"username": "owner@joulewise.in", "password": "green-power-2026"})
+    assert r.status_code == 403 and "switched off" in r.json()["detail"]
+    assert "ergplan_session" not in fresh.cookies
 
 
 def test_password_hashes_are_salted_and_checked_in_constant_time() -> None:

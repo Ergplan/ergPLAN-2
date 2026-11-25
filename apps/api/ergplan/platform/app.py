@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import RequestResponseEndpoint
 
 from ..core.settings import get_settings
 from ..db.base import session_scope
+from . import admin
 from .auth import guard, production
 from .routers import (
     audit,
@@ -36,8 +40,35 @@ from .routers import auth as auth_routes
 log = logging.getLogger("ergplan.app")
 
 
+def _log_to_the_console() -> None:
+    """ergplan's own lines at INFO (each sign-in attempt is one). uvicorn sets up only its own
+    loggers, so without a handler here an INFO line would go nowhere."""
+    own = logging.getLogger("ergplan")
+    if own.level == logging.NOTSET:
+        own.setLevel(logging.INFO)
+    if not own.handlers and not logging.getLogger().handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        own.addHandler(handler)
+
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """At start: the administrator's row matches what the server's environment holds (Stage 13)."""
+    try:
+        admin.ensure_at_start()
+    except SQLAlchemyError:
+        # the database is not there yet: the row is written at the first password sign-in instead
+        log.warning("the administrator account could not be checked at start; it is checked at sign-in")
+    yield
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="jouleWise | ergPLAN API", version="0.1.0", dependencies=[Depends(guard)])
+    _log_to_the_console()
+    app = FastAPI(
+        title="jouleWise | ergPLAN API", version="0.1.0", dependencies=[Depends(guard)], lifespan=_lifespan
+    )
+    admin.warn_if_weak()
     origins = [get_settings().ergplan_public_url]
     if production() and not origins[0].startswith("https://"):
         # a LAN server: the session cookie cannot be Secure and travels unencrypted on the network

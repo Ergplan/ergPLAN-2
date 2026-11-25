@@ -58,6 +58,7 @@ a.eg-btn { text-decoration: none; }
 .ep-attn td { background: var(--warning-soft); }
 .ep-note { font-size: 13px; margin: var(--space-3) 0 0; }
 .ep-error { color: var(--negative); font-size: 13px; }
+.ep-banner { color: var(--warning); border: 1px solid var(--warning); border-radius: 8px; font-size: 13px; margin: var(--space-4) 0; padding: 10px 14px; }
 .ep-warn { color: var(--warning); font-size: 13px; margin: var(--space-4) 0 0; padding-left: 18px; }
 .ep-facts { display: grid; gap: 2px; }
 .ep-fact { display: grid; grid-template-columns: 200px 1fr max-content; gap: 6px 16px; align-items: center; padding: 10px 0;

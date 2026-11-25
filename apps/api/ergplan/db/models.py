@@ -14,6 +14,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     Numeric,
@@ -502,8 +503,9 @@ class Explanation(Base):
 
 
 class User(Base):
-    """A person who signs in, by email and password or by email link. Role analyst (jouleWise) or
-    client. Only a scrypt hash of the password is stored (platform/passwords.py)."""
+    """A person who signs in. Clients and analysts by emailed link, keyed by their email; the one
+    administrator (Stage 13) by username and password, keyed by the lowercased username in `email`,
+    the only row with a `password_hash` (a salted scrypt hash, platform/passwords.py)."""
 
     __tablename__ = "users"
 
@@ -540,6 +542,28 @@ class AuthSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SignInAttempt(Base):
+    """One password sign-in attempt (Stage 13): when, from which address, and how it ended. Never
+    the password. `username` is the administrator's username when that was what was typed and
+    "(other)" for anything else (a password typed into the wrong box must not land here).
+    The fifth wrong attempt from an address carries `locked_until`; the address is refused until then.
+    Append-only; written by platform.admin."""
+
+    __tablename__ = "signin_attempts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    address: Mapped[str] = mapped_column(String(64))
+    username: Mapped[str] = mapped_column(String(254))
+    outcome: Mapped[str] = mapped_column(String(16))
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint("outcome in ('ok','wrong','locked','off')", name="signin_attempts_outcome"),
+        Index("ix_signin_attempts_address_at", "address", "at"),
+    )
 
 
 class Working(Base):

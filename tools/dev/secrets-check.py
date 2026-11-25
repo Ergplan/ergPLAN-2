@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """Fail when a file git tracks (or is about to track) looks like it holds a secret: API keys, private
 keys, tokens, or a filled-in .env. Rule 11: secrets by environment variable only. Run by the watcher
-and CI; prints the file and line (never the value)."""
+and CI; prints the file and line (never the value).
+
+Stage 13: where the server's own `.env` holds the administrator's password (ERGPLAN_ADMIN_PASSWORD;
+the file is the repository's `.env`, or the one ERGPLAN_SECRETS_ENV_FILE names; absent on CI and on a
+laptop without one, and then there is nothing to look for), that exact value must not appear in any
+file git tracks or would track, nor in the watcher's log and status. The value is read to be searched
+for and is never printed; only the file's name is."""
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -21,7 +28,8 @@ PATTERNS = {
     "private key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
 }
 ASSIGN = re.compile(
-    r"^(OPENAI_API_KEY|BILLX_TOKEN|ERGPLAN_SMTP_URL|TARIFF_ODER_TOKEN|BILLX_OPENAI_API_KEY|POSTGRES_PASSWORD)=(.+)$"
+    r"^(OPENAI_API_KEY|BILLX_TOKEN|ERGPLAN_SMTP_URL|TARIFF_ODER_TOKEN|BILLX_OPENAI_API_KEY|POSTGRES_PASSWORD"
+    r"|ERGPLAN_ADMIN_PASSWORD)=(.+)$"
 )
 ALLOWED_VALUES = {"", "change-me", "change-me-long-random", "dev-billx-token", "stub"}
 DB_URL = re.compile(r"^DATABASE_URL=\S+?://[^:/@]+:([^@]+)@")
@@ -35,8 +43,49 @@ def tracked() -> list[Path]:
     return [ROOT / p for p in out if p]
 
 
+ADMIN_PASSWORD = "ERGPLAN_ADMIN_PASSWORD"
+ENV_FILE_VARIABLE = "ERGPLAN_SECRETS_ENV_FILE"
+SHORTEST_SEARCHED = 6  # a shorter value would be "found" in ordinary text
+
+
+def admin_password() -> str:
+    """The administrator's password as the server's .env holds it, or "" (no file, no line, empty)."""
+    path = Path(os.environ.get(ENV_FILE_VARIABLE) or ROOT / ".env")
+    try:
+        lines = path.read_text(errors="ignore").splitlines()
+    except OSError:
+        return ""
+    value = ""
+    for line in lines:
+        name, sep, rest = line.strip().removeprefix("export ").partition("=")
+        if sep and name.strip() == ADMIN_PASSWORD:
+            value = rest.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+                value = value[1:-1]
+    return value
+
+
+def password_leaks(password: str, files: list[Path]) -> list[str]:
+    """The files that contain the password, by name only."""
+    needle = password.encode()
+    found = []
+    for p in files:
+        try:
+            if p.is_file() and needle in p.read_bytes():
+                found.append(f"{p.relative_to(ROOT)}: holds the administrator password of the server's .env")
+        except OSError:
+            continue
+    return found
+
+
 def main() -> int:
     bad = []
+    password = admin_password()
+    if len(password) >= SHORTEST_SEARCHED:
+        watcher = [ROOT / "tools" / "watch" / "watch.log", ROOT / "tools" / "watch" / "status.json"]
+        bad += password_leaks(password, [p for p in tracked() if p.name != ".env"] + watcher)
+    elif password:
+        print(f"secrets: the administrator password is under {SHORTEST_SEARCHED} characters; not searched for")
     for p in tracked():
         if p.suffix.lower() in SKIP_SUFFIXES or not p.is_file():
             continue

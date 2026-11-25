@@ -146,3 +146,10 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | In payback and IRR, a bought source's saving leaves out its share of the demand saving, the banking charge in ₹/kWh and the lapse payment | Next |
 | A drawal charge set as a percentage of the price is zero on a captive plant in a run (no price) but taken on the levelised cost on its card; the card uses life-average energy and the run the first year's, about 6% apart for solar | Next |
 | The rule book's markdown file does not print the route notes; the web view does | Next |
+| Rate-limit counts are held in the API process and lost on restart; move them to the database if the API ever runs more than one process | Next |
+| Behind the Cloudflare tunnel (`compose.remote.yaml`) every visitor has one address, so a lockout or rate limit there applies to all | Next |
+| The default trusted-proxy list covers all private ranges; where the API port is published to a LAN, set `ERGPLAN_TRUSTED_PROXIES` to the compose subnet. Production does not publish the port | Person |
+| `signin_attempts` is never pruned; hashes of the retired per-person passwords stay in `users` (inert) | Person (questions 17) |
+| An administrator username that is an email address can also sign in by emailed link | Person |
+| No browser test of the sign-in form or the weak-password banner | Next |
+| Password sign-in has not been exercised on the live address: the two variables are not in `.env` | Person (questions 16) |

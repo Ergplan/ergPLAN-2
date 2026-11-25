@@ -1,5 +1,5 @@
-"""Password hashing for email + password sign-in: scrypt from the standard library, a random salt per
-password, compared in constant time. Only the hash is stored (users.password_hash)."""
+"""Password hashing for the administrator's sign-in (Stage 13): scrypt from the standard library, a
+random salt per password, compared in constant time. Only the hash is stored (users.password_hash)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import hmac
 import secrets
 
 N, R, P = 2**14, 8, 1
-MIN_LENGTH = 8
 
 
 def hash_password(password: str) -> str:

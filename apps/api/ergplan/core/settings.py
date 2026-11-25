@@ -14,7 +14,7 @@ from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -34,6 +34,20 @@ class Settings(BaseSettings):
     ergplan_analyst_emails: str = ""  # comma-separated, also analysts
     ergplan_smtp_url: str = ""  # smtp[s]://user:password@host:port; empty: links go to the log
     ergplan_mail_from: str = "ergPLAN <no-reply@joulewise.in>"
+    # Stage 13: the one administrator account. Typed by the person into .env; both empty leaves
+    # password sign-in switched off (the emailed link stays). Never defaulted, logged or printed.
+    ergplan_admin_user: str = ""
+    ergplan_admin_password: SecretStr = SecretStr("")
+    # The proxies whose X-Forwarded-For is believed (Caddy and the web server on the compose network,
+    # or this machine): addresses or networks, comma-separated. A caller from anywhere else is
+    # known by the address it connected from, whatever header it sends.
+    ergplan_trusted_proxies: str = "127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    # Rate limits (platform/ratelimit.py): requests per window, per address on the sign-in routes and
+    # per signed-in account and address on bill upload. 0 switches a limit off.
+    ergplan_signin_rate_limit: int = 20
+    ergplan_signin_rate_window_s: int = 60
+    ergplan_upload_rate_limit: int = 60
+    ergplan_upload_rate_window_s: int = 600
     ergplan_resettle_tolerance_kwh: Decimal = Decimal("1")
     # the solve's budget (sizing takes half; each month's 15-minute dispatch at least 30 s): runs
     # are solved on the worker, and a mix of several sources needs minutes, not seconds

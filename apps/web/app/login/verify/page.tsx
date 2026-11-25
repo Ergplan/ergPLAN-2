@@ -12,16 +12,14 @@ export default function VerifyPage() {
     fetch("/api/auth/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) })
       .then(async (r) => {
         if (!r.ok) throw new Error();
-        const me = (await r.json()) as { email: string; role: string; has_password: boolean };
+        const me = (await r.json()) as { email: string; role: string };
         try {
           if (me.role === "analyst") localStorage.setItem("ergplan-analyst", me.email);
           else localStorage.removeItem("ergplan-analyst");
         } catch {
           /* storage may be unavailable */
         }
-        const dest = next.startsWith("/") ? next : "/";
-        // first sign-in by link: choose a password, then go on
-        window.location.replace(me.has_password ? dest : `/account?next=${encodeURIComponent(dest)}`);
+        window.location.replace(next.startsWith("/") ? next : "/");
       })
       .catch(() => setMsg("This link has expired or was already used. Ask for a new one."));
   }, []);

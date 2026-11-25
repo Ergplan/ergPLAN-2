@@ -26,6 +26,7 @@ from ...intake import bill_reading, bill_reads, defaults, measured_upload, profi
 from ...intake import bills as bill_store
 from ...intake.billx_client import BillxError, BillxUnavailable
 from ..auth import Caller, analyst, caller, owned_bills, owned_connection, production
+from ..ratelimit import upload_limit
 
 router = APIRouter(tags=["intake"])
 
@@ -79,7 +80,7 @@ def _bill_out(s: Any, b: Bill) -> BillOut:
     )
 
 
-@router.post("/bills", response_model=list[BillOut], status_code=201)
+@router.post("/bills", response_model=list[BillOut], status_code=201, dependencies=[Depends(upload_limit)])
 async def upload_bill(
     file: Annotated[UploadFile, File()],
     who: Annotated[Caller, Depends(caller)],
@@ -137,7 +138,7 @@ def _read_out(s: Any, read: BillRead) -> BillReadOut:
     )
 
 
-@router.post("/bill-reads", response_model=BillReadOut, status_code=202)
+@router.post("/bill-reads", response_model=BillReadOut, status_code=202, dependencies=[Depends(upload_limit)])
 async def start_bill_read(
     file: Annotated[UploadFile, File()],
     who: Annotated[Caller, Depends(caller)],

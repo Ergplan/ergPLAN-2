@@ -1,7 +1,9 @@
-"""Sign-in (Stage 8). By email and password (POST /auth/login), or by a one-time email link
-(POST /auth/request sends it, 15 minutes; POST /auth/verify turns it into a session). Either way the
-session is a cookie (30 days, HttpOnly, Secure on https). A signed-in person sets or changes their
-password with POST /auth/password; an analyst adds a person with a first password (POST /auth/users)."""
+"""Sign-in. Clients and analysts by a one-time emailed link (Stage 8: POST /auth/request sends it,
+15 minutes; POST /auth/verify turns it into a session). The one administrator by username and
+password (Stage 13: POST /auth/login; the account, its lockout and its log are platform/admin.py).
+Either way the session is a cookie (30 days, HttpOnly, SameSite=Lax, Secure on https). The three
+sign-in routes are rate-limited per address (platform/ratelimit.py). Nobody else has a password:
+the older per-person passwords (POST /auth/password, POST /auth/users) were retired in Stage 13."""
 
 from __future__ import annotations
 
@@ -10,15 +12,15 @@ import smtplib
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from ...core.settings import get_settings
 from ...db.base import session_scope
 from ...db.models import AuthSession, LoginToken, User
-from .. import mail
-from ..auth import COOKIE, Caller, analyst, caller, production, role_for, sha
-from ..passwords import MIN_LENGTH, hash_password, verify_password
+from .. import admin, mail
+from ..auth import COOKIE, Caller, caller, production, role_for, sha
+from ..ratelimit import client_address, signin_limit
 
 router = APIRouter(prefix="/auth", tags=["sign-in"])
 LINK_MINUTES = 15
@@ -44,43 +46,31 @@ class VerifyIn(BaseModel):
 
 
 class MeOut(BaseModel):
-    email: str | None
+    email: str | None  # the administrator: the username
     role: str
     signed_in: bool
     required: bool = False  # production: sign-in needed outside the shared plan
-    has_password: bool = False
+    password_sign_in: bool = False  # the server has an administrator account: show the password form
+    # for a signed-in analyst only: what is wrong with the server's sign-in set-up (a weak password)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class LoginIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    email: str = Field(pattern=r"^[^@\s]{1,64}@[^@\s]{1,189}\.[^@\s]{2,}$")
+    username: str = Field(min_length=1, max_length=254)
     password: str = Field(min_length=1, max_length=200)
 
 
-class PasswordIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    password: str = Field(min_length=MIN_LENGTH, max_length=200)
-    current: str | None = Field(default=None, max_length=200)
-
-
-class UserIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    email: str = Field(pattern=r"^[^@\s]{1,64}@[^@\s]{1,189}\.[^@\s]{2,}$")
-    password: str = Field(min_length=MIN_LENGTH, max_length=200)
-
-
-class UserOut(BaseModel):
-    email: str
-    role: str
-
-
-# failed password attempts per email in this process: more than FAIL_LIMIT in FAIL_WINDOW is refused
-FAIL_LIMIT = 10
-FAIL_WINDOW = timedelta(minutes=15)
-_failures: dict[str, list[datetime]] = {}
+def _me(email: str | None, role: str, signed_in: bool) -> MeOut:
+    return MeOut(
+        email=email,
+        role=role,
+        signed_in=signed_in,
+        required=production(),
+        password_sign_in=admin.enabled(),
+        warnings=admin.weak_reasons() if signed_in and role == "analyst" else [],
+    )
 
 
 def _start_session(s: Any, user: User, response: Response, now: datetime) -> MeOut:
@@ -99,7 +89,7 @@ def _start_session(s: Any, user: User, response: Response, now: datetime) -> MeO
         samesite="lax",
         path="/",
     )
-    return MeOut(email=user.email, role=user.role, signed_in=True, has_password=bool(user.password_hash))
+    return _me(user.email, user.role, True)
 
 
 def secure_cookie() -> bool:
@@ -123,7 +113,7 @@ def issue_link(email: str, next_path: str = "/plan/intake", actor: str | None = 
     return f"{get_settings().ergplan_public_url.rstrip('/')}/login/verify?token={token}&next={next_path}"
 
 
-@router.post("/request", response_model=RequestOut)
+@router.post("/request", response_model=RequestOut, dependencies=[Depends(signin_limit)])
 def request_link(body: RequestIn) -> RequestOut:
     email = body.email.strip().lower()
     if production() and not get_settings().ergplan_smtp_url:
@@ -144,7 +134,7 @@ def request_link(body: RequestIn) -> RequestOut:
     return RequestOut(sent=sent, dev_link=None if sent or production() else link)
 
 
-@router.post("/verify", response_model=MeOut)
+@router.post("/verify", response_model=MeOut, dependencies=[Depends(signin_limit)])
 def verify(body: VerifyIn, response: Response) -> MeOut:
     now = datetime.now(UTC)
     with session_scope(actor="auth") as s:
@@ -159,65 +149,48 @@ def verify(body: VerifyIn, response: Response) -> MeOut:
         return _start_session(s, user, response, now)
 
 
-@router.post("/login", response_model=MeOut)
-def login(body: LoginIn, response: Response) -> MeOut:
+@router.post("/login", response_model=MeOut, dependencies=[Depends(signin_limit)])
+def login(body: LoginIn, request: Request, response: Response) -> MeOut:
+    """The administrator signs in. Every attempt is recorded (never the password); the sixth after
+    five wrong ones from an address is refused for fifteen minutes, whatever it carries."""
     now = datetime.now(UTC)
-    email = body.email.strip().lower()
-    recent = [t for t in _failures.get(email, []) if now - t < FAIL_WINDOW]
-    if len(recent) >= FAIL_LIMIT:
-        raise HTTPException(429, "too many wrong passwords; wait 15 minutes or ask for a sign-in link")
+    address = client_address(request)
+    refusal: HTTPException | None = None
+    out: MeOut | None = None
     with session_scope(actor="auth") as s:
-        user = s.get(User, email)
-        if user is None or not verify_password(body.password, user.password_hash):
-            _failures[email] = [*recent, now]
-            raise HTTPException(401, "that email and password do not match")
-        _failures.pop(email, None)
-        return _start_session(s, user, response, now)
-
-
-@router.post("/password", response_model=MeOut)
-def set_password(body: PasswordIn, who: Annotated[Caller, Depends(caller)]) -> MeOut:
-    """Set or change the signed-in person's password (the current one is needed to change it)."""
-    if not who.signed_in:
-        raise HTTPException(401, "sign in first")
-    with session_scope(actor=who.actor) as s:
-        user = s.get(User, who.actor)
-        if user is None:  # development headers: a person not yet in users
-            user = User(email=who.actor, role=role_for(who.actor))
-            s.add(user)
-        if user.password_hash and not verify_password(body.current or "", user.password_hash):
-            raise HTTPException(403, "the current password is not right")
-        user.password_hash = hash_password(body.password)
-        return MeOut(email=user.email, role=user.role, signed_in=True, has_password=True)
-
-
-@router.post("/users", response_model=UserOut, status_code=201)
-def add_user(body: UserIn, who: Annotated[Caller, Depends(analyst)]) -> UserOut:
-    """An analyst adds a person (or resets their password) and tells them the first password."""
-    email = body.email.strip().lower()
-    with session_scope(actor=who.actor) as s:
-        user = s.get(User, email)
-        if user is None:
-            user = User(email=email, role=role_for(email))
-            s.add(user)
-        user.password_hash = hash_password(body.password)
-        return UserOut(email=user.email, role=user.role)
+        off = admin.off_reason()
+        if off is not None:
+            admin.record(s, address, body.username, "off", now)
+            refusal = HTTPException(403, off)
+        else:
+            admin.serialise(s, address)
+            until = admin.locked_until(s, address, now)
+            if until is not None:
+                admin.record(s, address, body.username, "locked", now)
+                wait = max(1, int((until - now).total_seconds()) + 1)
+                refusal = HTTPException(
+                    429,
+                    "too many wrong attempts from this address; sign-in is locked for fifteen minutes "
+                    f"from the fifth (about {max(1, round(wait / 60))} more)",
+                    headers={"Retry-After": str(wait)},
+                )
+            else:
+                user = admin.check_password(s, body.username, body.password)
+                if user is None:
+                    admin.record(s, address, body.username, "wrong", now)
+                    refusal = HTTPException(401, "that username and password do not match")
+                else:
+                    admin.record(s, address, body.username, "ok", now)
+                    out = _start_session(s, user, response, now)
+    if refusal is not None:  # raised after the attempt is committed
+        raise refusal
+    assert out is not None
+    return out
 
 
 @router.get("/me", response_model=MeOut)
 def me(who: Annotated[Caller, Depends(caller)]) -> MeOut:
-    has = False
-    if who.signed_in:
-        with session_scope() as s:
-            u = s.get(User, who.actor)
-            has = bool(u and u.password_hash)
-    return MeOut(
-        email=who.actor if who.signed_in else None,
-        role=who.role,
-        signed_in=who.signed_in,
-        required=production(),
-        has_password=has,
-    )
+    return _me(who.actor if who.signed_in else None, who.role, who.signed_in)
 
 
 @router.post("/logout", response_model=MeOut)
@@ -229,4 +202,4 @@ def logout(response: Response, who: Annotated[Caller, Depends(caller)]) -> MeOut
             ):
                 row.revoked_at = datetime.now(UTC)
     response.delete_cookie(COOKIE, path="/")
-    return MeOut(email=None, role="client", signed_in=False)
+    return _me(None, "client", False)

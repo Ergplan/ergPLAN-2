@@ -294,3 +294,12 @@ The person asked for one application from two: this repository's flow and engine
 - **Payback and IRR are on the owned capital** (rooftop, batteries, captive plant, equity outlay) against the saving that capital brings: the plan's saving less the saving of the sources bought by the unit (their set-off units at the grid rate of those blocks, less what is paid for them). The plan's saving, NPV and lifecycle costs stay the whole plan's and are shown separately. A plan with no capital of the consumer's own shows no payback or IRR and says why.
 - **The flat ₹0.25/kWh equity cost is gone.** The equity line of a landed-cost card is the outlay carried over the plant's life per kWh (about ₹0.78 for Uttar Pradesh solar); a run holds the outlay at year 0 and never charges it again per kWh.
 - **The treatment is pinned** (`runs.pins.capital.treatment = 2`, invariant 5). A run stored before this has no such pin and replays as it was solved (captive at a PPA tariff), to the paisa.
+
+## 25 Nov 2026 — one administrator password (Stage 13)
+
+- **One administrator account is the only password** (`ERGPLAN_ADMIN_USER`, `ERGPLAN_ADMIN_PASSWORD`, typed by the person into the server's `.env`). The per-person passwords of 1 Nov 2026 (`POST /auth/password`, `POST /auth/users`, the `/account` page) are retired; this supersedes that entry. Their stored hashes are left in place and nothing checks them: dropping them cannot be undone and is the person's to decide.
+- **Left empty, password sign-in is switched off** and the emailed link is the only way in. It is also off in production unless the public address is https.
+- The username is stored lowercased in `users.email`; no new column. Only a salted scrypt hash is stored; a changed password revokes the account's open sessions.
+- **Lockout by address, in the database** (`signin_attempts`): the fifth wrong attempt in fifteen minutes locks the address for fifteen minutes. The address is the last `X-Forwarded-For` entry, believed only from `ERGPLAN_TRUSTED_PROXIES` (Caddy), otherwise the peer.
+- **An attempt records the username only when it is the administrator's**, otherwise `(other)`, so a password typed into the wrong box is never stored or logged.
+- **Rate limits live in the API process**: 20 a minute per address on each sign-in route, 60 in ten minutes per account and address on bill upload (settings).

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { ErgOSMount } from "./ErgOSMount";
+import { signInWarning, type Me } from "../lib/signin";
 
 // The journey: inputs, results, the plan to share and audit. Detail pages (today's bill rebuilt,
 // landed costs per slot) are reached from the results.
@@ -48,7 +49,7 @@ export function Shell({ children }: { children: ReactNode }) {
     }
   }, [path]);
   // who is signed in; in production a signed-out visitor is sent to /login (the shared plan stays open)
-  const [me, setMe] = useState<{ email: string | null; role: string; signed_in: boolean; required: boolean } | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
@@ -61,7 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
         } catch {
           /* storage may be unavailable */
         }
-        const open = path.startsWith("/login") || path.startsWith("/account") || path.startsWith("/p/") || path.startsWith("/documents");
+        const open = path.startsWith("/login") || path.startsWith("/p/") || path.startsWith("/documents");
         if (m.required && !m.signed_in && !open) window.location.replace(`/login?next=${encodeURIComponent(path + window.location.search)}`);
       })
       .catch(() => undefined);
@@ -76,6 +77,7 @@ export function Shell({ children }: { children: ReactNode }) {
     window.location.replace("/login");
   }
   if (path.startsWith("/p/")) return <main className="ep-public">{children}</main>; // the shared plan: no rail
+  const weak = signInWarning(me); // Stage 13: a weak administrator password, shown to analysts on every screen
   const current = (href: string) => (path === href || path.startsWith(href + "/") ? "page" : undefined);
   return (
     <div className="ep-shell">
@@ -125,7 +127,6 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="eg-topbar__end">
             {me?.signed_in ? (
               <span className="ep-row ep-small"><span className="eg-muted">{me.email}{me.role === "analyst" ? " · jouleWise" : ""}</span>
-                <a className="eg-btn eg-btn--ghost eg-btn--sm" href="/account">Password</a>
                 <button className="eg-btn eg-btn--ghost eg-btn--sm" onClick={signOut}>Sign out</button></span>
             ) : me?.required ? <a className="eg-btn eg-btn--ghost eg-btn--sm" href="/login">Sign in</a> : null}
             <button className="eg-icon-btn eg-icon-btn--sm" aria-label="Switch theme" onClick={toggleTheme}>
@@ -133,6 +134,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+        {weak && <p className="ep-banner" role="alert">{weak}</p>}
         {children}
       </main>
       <ErgOSMount />

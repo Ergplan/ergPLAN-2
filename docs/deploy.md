@@ -137,3 +137,11 @@ postgres container; untar `data-<stamp>.tar.gz` at the repository root.
 
 `https://<hostname>/api/health` shows the migration head; sign in with a `@joulewise.in` address (analyst);
 open a shared plan from a private window (it opens without sign-in).
+
+## Switching the administrator's password sign-in on
+
+1. On the server, type `ERGPLAN_ADMIN_USER=` and `ERGPLAN_ADMIN_PASSWORD=` into `/work/ergPLAN-2/.env`: twelve characters or more, not the username with a suffix, and a username without "@".
+2. Restart the API: `tools/dev/vm.sh up -d api` (the migration runs at start).
+3. Check: `https://<host>/api/auth/me` shows `"password_sign_in": true`; the sign-in page shows the username and password form; the API log has no weak-password line; `python3 tools/dev/secrets-check.py` says OK.
+
+Left empty, or on a server not served over https, password sign-in stays off and the emailed link is the only way in. Five wrong attempts lock that address for fifteen minutes; attempts are in the table `signin_attempts` and in the API log under `ergplan.signin`.

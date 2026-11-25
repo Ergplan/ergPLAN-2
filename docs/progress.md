@@ -8,8 +8,8 @@ One line per stage. Times are UTC. Questions and the readings taken are in `docs
 | 11 | A.2 full-test findings | Done 25 Nov 20:15 | Findings 1, 2, 3, 4, 5, 8 to 12 fixed, each with a test (`0b6bbfd`, `f6b8c03`); 6 and 7 are with the analyst (questions 5, 6) |
 | 11 | A.3 rerun | Done 25 Nov | Uttar Pradesh test, slow tests and CI read; the figure-by-figure table is in the stage report |
 | 12 | — | Not started | Register figures to stored pages (unchanged) |
-| 13 | B | In progress since 25 Nov 20:40 | Administrator sign-in; the two variables are not in `.env`, so password sign-in stays switched off |
-| 14 | C | Not started | Tariffs from the ARR Network, as drafts |
+| 13 | B | Built 25 Nov, tagged `stage-13-built` | Administrator sign-in built and tested; **switched off on the live server** until the two variables are typed into `.env` (questions 16). Report: `docs/stage-reports/stage-13.md` |
+| 14 | C | In progress since 25 Nov 22:00 | Tariffs from the ARR Network, as drafts. Its JSON API has no tariff figures; the tables are read from its order pages |
 | 15 | D | Not started | Profiles, answers, transition plan |
 | 16 | E | Not started | MCP server |
 | 17 | F | Not started | Multi-state tests |
