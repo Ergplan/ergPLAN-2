@@ -9,7 +9,7 @@ One line per stage. Times are UTC. Questions and the readings taken are in `docs
 | 11 | A.3 rerun | Done 25 Nov | Uttar Pradesh test, slow tests and CI read; the figure-by-figure table is in the stage report |
 | 12 | — | Not started | Register figures to stored pages (unchanged) |
 | 13 | B | Built 25 Nov, tagged `stage-13-built` | Administrator sign-in built and tested; **switched off on the live server** until the two variables are typed into `.env` (questions 16). Report: `docs/stage-reports/stage-13.md` |
-| 14 | C | In progress since 25 Nov 22:00 | Tariffs from the ARR Network, as drafts. Its JSON API has no tariff figures; the tables are read from its order pages |
+| 14 | C | In progress since 25 Nov 22:00 | Importer built; Uttar Pradesh both tariff years imported as drafts in test (twelve bills rebuilt in the sandbox). Four workers on Maharashtra; Telangana, Andhra Pradesh, Punjab, Haryana; Gujarat, Madhya Pradesh, Bihar; Chhattisgarh, Odisha, Uttarakhand, Tamil Nadu. Then: merge, import into the live database as drafts, report |
 | 15 | D | Not started | Profiles, answers, transition plan |
 | 16 | E | Not started | MCP server |
 | 17 | F | Not started | Multi-state tests |
