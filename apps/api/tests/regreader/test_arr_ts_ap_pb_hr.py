@@ -296,6 +296,17 @@ def test_andhra_tables_under_running_text_headings_are_not_mapped() -> None:
 # ------------------------------------------------------------------ the imports, their golden cases, a month
 
 
+# the cases of packages/rulebooks/golden/ts/tg_discoms-tariff_schedule.yaml (the approved version's)
+_APPROVED_CASES = [
+    "HT-I(A) 11 kV energy",
+    "HT-I(A) 132 kV energy",
+    "HT-I(A) 220 kV energy",
+    "HT-I(A) 33 kV energy",
+    "HT-I(A) billed in kVAh",
+    "HT-I(A) demand",
+]
+
+
 @pytest.mark.usefixtures("jurisdictions")
 def test_imports_are_drafts_with_green_golden_cases_and_rerun_unchanged() -> None:
     windows = {}
@@ -306,6 +317,12 @@ def test_imports_are_drafts_with_green_golden_cases_and_rerun_unchanged() -> Non
             for v in o.versions:
                 assert v.action == "proposed" and v.family == "tariff_schedule"
                 total = int(v.golden.split("/")[1])
+                if o.order.order_id == 187:
+                    # the approved FY 2026-27 rulebook's own cases run against this draft and fail: they
+                    # ask for HT-I(A) without a rate block, which the draft's rows carry ('Industry
+                    # General', as the appendix prints it), so the approval gate refuses the draft as it is
+                    assert v.golden == "34/40" and sorted(v.golden_failing) == _APPROVED_CASES, v
+                    continue
                 assert v.golden == f"{total}/{total}" and total >= 10 and not v.golden_failing, (state, v)
         again = _import(state)
         assert [v.action for o in again for v in o.versions] == ["unchanged"] * sum(
