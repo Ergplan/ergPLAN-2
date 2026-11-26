@@ -372,3 +372,77 @@ def test_the_landed_cost_is_affine_in_the_price(discom: str, source: str, commit
     slope = b - a
     for p in ("0.5", "6.25", "12"):
         assert abs(at(p) - (a + slope * (Decimal(p) - 3))) < Decimal("0.000001"), p
+
+
+def test_sldc_operating_charge_per_unit_is_a_landed_line() -> None:
+    """Gujarat's register: 'SLDC scheduling and operating charge · GJ' at ₹0.05/kWh. An approved
+    per-unit SLDC row is added to the landed cost as it stands, not grossed up by the losses
+    (Stage 17: the row was left out of the sum)."""
+    ref = {"kind": "register", "note": "as entered"}
+    rows = [
+        RuleView(
+            id="s",
+            family="oa_charge",
+            version_id="v",
+            jurisdiction_id="GJ",
+            scope={"connection": ["intra_state"]},
+            source_ref=ref,
+            body={"component": "sldc_operating", "basis": "inr_per_kwh", "value": "0.05"},
+        ),
+        RuleView(
+            id="l",
+            family="oa_charge",
+            version_id="v",
+            jurisdiction_id="GJ",
+            scope={"connection": ["intra_state"]},
+            source_ref=ref,
+            body={"component": "stu_losses", "basis": "percent_in_kind", "value": "3.37"},
+        ),
+    ]
+    sc = lc.Scenario(price=sv("3.10", Unit.INR_PER_KWH), on=date(2026, 11, 1))
+    wf = lc.evaluate(lc.SOURCE_BY_ID["oa_solar_intra"], {"voltage_kv": Decimal(33)}, sc, rows, [])
+    sldc = next(x for x in wf.lines if "SLDC" in str(x.label) or x.value == Decimal("0.05"))
+    assert sldc.value == Decimal("0.05")
+    # 3.10 / (1 − 0.0337) + 0.05: the loss grosses up the price only
+    assert _r4(wf.total.value) == _r4(Decimal("3.10") / Decimal("0.9663") + Decimal("0.05"))
+
+
+def test_banking_charge_in_kind_does_not_gross_up_the_drawal_charges() -> None:
+    """Stage 17 (Punjab, 10% in kind): the energy lost to the banking charge is generated and carried
+    but never drawn, so the cross-subsidy surcharge (on the units drawn) is not grossed up by it."""
+    ref = {"kind": "order", "document_id": "d", "page": 241, "quote": "q"}
+    rows = [
+        RuleView(
+            id="c",
+            family="oa_charge",
+            version_id="v",
+            jurisdiction_id="pspcl",
+            scope={"connection": ["intra_state"]},
+            source_ref=ref,
+            body={"component": "cross_subsidy_surcharge", "basis": "inr_per_kwh", "value": "0.86"},
+        ),
+        RuleView(
+            id="t",
+            family="oa_charge",
+            version_id="v",
+            jurisdiction_id="pspcl",
+            scope={"connection": ["intra_state"]},
+            source_ref=ref,
+            body={"component": "stu_losses", "basis": "percent_in_kind", "value": "2.19"},
+        ),
+    ]
+    settlement = RuleView(
+        id="b",
+        family="settlement",
+        version_id="v",
+        jurisdiction_id="PB",
+        scope={},
+        source_ref={"kind": "register", "note": "as entered"},
+        body={"banking": {"allowed": True, "charge": {"kind": "in_kind_percent", "value": "10"}}},
+    )
+    sc = lc.Scenario(price=sv("3.10", Unit.INR_PER_KWH), ownership="third_party", on=date(2026, 11, 1))
+    wf = lc.evaluate(lc.SOURCE_BY_ID["oa_solar_intra"], {"voltage_kv": Decimal(11)}, sc, rows, [], settlement)
+    bank = next(x for x in wf.lines if "Banking" in str(x.label))
+    carried = Decimal("3.10") / Decimal("0.9781")  # the price and the loss
+    assert _r4(bank.value) == _r4(carried * (1 / Decimal("0.9") - 1))
+    assert _r4(wf.total.value) == _r4(carried / Decimal("0.9") + Decimal("0.86"))

@@ -98,6 +98,11 @@ DRAWAL_COMPONENTS = (
     "grid_support_charge",
     "exchange_fee",
     "trading_margin",
+    # the load despatch centres' operating and scheduling charges, per unit scheduled (a per-MW
+    # basis is a capacity charge, below): approved rows for eight states were left out of the sum
+    "sldc_operating",
+    "sldc_scheduling",
+    "rldc_operating",
 )
 CAPACITY_BASES = ("inr_per_mw_month", "inr_per_kw_month", "inr_per_mw_day")
 ISTS_COMPONENTS = ("ists_transmission", "ists_losses")
@@ -408,6 +413,7 @@ def evaluate(
         used.append(r.id)
 
     # 4. drawal charges
+    before_drawal = len(lines)
     for comp in DRAWAL_COMPONENTS:
         r = by_comp.get(comp)
         if r is None:
@@ -452,7 +458,9 @@ def evaluate(
             c = _sv(
                 settlement, "/banking/charge/value", Decimal(str(ch["value"])), Unit.PERCENT, "Banking charge"
             )
-            so_far = sum((x.value for x in lines), Decimal(0))
+            # energy lost in kind is generated and carried but never drawn: the drawal charges
+            # (cross-subsidy surcharge and the like) fall on the units drawn, so they are not grossed up
+            so_far = sum((x.value for x in lines[:before_drawal]), Decimal(0))
             lines.append(
                 derive(
                     so_far * (1 / (1 - c.value / HUNDRED) - 1),
