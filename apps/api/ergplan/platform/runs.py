@@ -16,7 +16,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from ..core.settings import get_settings
@@ -27,7 +27,6 @@ from ..db.models import (
     Asset,
     Connection,
     LoadProfile,
-    PricePoint,
     PriceVintage,
     Run,
     RunResult,
@@ -38,7 +37,7 @@ from ..engine import avoided_cost, landed_cost, lcoe, lifecycle, tariff_eval
 from ..engine import levies as elevies
 from ..engine import scope as escope
 from ..engine.tariff_eval import slot_classes, slot_of
-from ..intake import generation, profile_synthesis
+from ..intake import generation, price_series, profile_synthesis
 from ..optimizer import model as om
 from ..optimizer.highs_solve import Solution, SolveFailed, solve
 from ..optimizer.resettle import INR, Resettled, resettle, status_quo
@@ -201,43 +200,32 @@ def own_plant(source: str, cs: CandidateSpec, cuf: SourcedValue | None) -> lcoe.
 def _iex_prices(
     s: Session,
     segment: str,
-    vintage_id: str | None,
+    vintage_pin: str | list[str] | None,
     months: list[int],
     slots_of: dict[int, list[str]],
     tod_for: Any,
-) -> tuple[dict[tuple[int, str], SourcedValue], str, dict[int, dict[int, Decimal]]] | None:
-    """Mean clearing price per (month, ToD slot) from a vintage (the latest live one unless pinned),
-    and the mean clearing price per (month, 15-minute block of the day, 1–96) in INR/kWh: the
-    optimizer buys block by block at the second, the slot means carry the citations."""
-    q = select(PriceVintage).where(PriceVintage.segment == segment)
-    q = (
-        q.where(PriceVintage.id == vintage_id)
-        if vintage_id
-        else q.where(PriceVintage.superseded_by.is_(None))
-    )
-    v = s.scalars(q.order_by(PriceVintage.date_to.desc())).first()
-    if v is None:
+) -> tuple[dict[tuple[int, str], SourcedValue], list[str], dict[int, dict[int, Decimal]]] | None:
+    """Mean clearing price per (month, ToD slot), and the mean clearing price per (month, 15-minute
+    block of the day, 1–96) in INR/kWh: the optimizer buys block by block at the second, the slot
+    means carry the citations. Each month is read from the live vintage whose data for it is newest
+    (`intake.price_series`), or from the vintages the run pinned; the ids read are returned."""
+    got = price_series.month_block_means(s, segment, price_series.pinned_ids(vintage_pin))
+    if got is None:
         return None
-    rows = s.execute(
-        select(func.extract("month", PricePoint.day), PricePoint.block, func.avg(PricePoint.mcp_inr_per_mwh))
-        .where(PricePoint.vintage_id == v.id)
-        .group_by(func.extract("month", PricePoint.day), PricePoint.block)
-    ).all()
-    by: dict[int, dict[int, Decimal]] = defaultdict(dict)
-    for mo, blk, p in rows:
-        by[int(mo)][int(blk)] = Decimal(str(p))
+    by = got.inr_per_kwh
     out: dict[tuple[int, str], SourcedValue] = {}
     for mo in months:
         tod = tod_for(mo)
+        v = got.vintage_of.get(mo)
         for name in slots_of[mo]:
             blocks = [
                 b
                 for b in by.get(mo, {})
                 if tod is None or (slot_of(tod, mo, (b - 1) * 15) or {}).get("name") == name
             ]
-            if not blocks:
+            if not blocks or v is None:
                 continue
-            mean = sum((by[mo][b] for b in blocks), ZERO) / len(blocks) / 1000
+            mean = sum((by[mo][b] for b in blocks), ZERO) / len(blocks)
             out[(mo, name)] = _sv(
                 mean.quantize(Decimal("0.0001")),
                 Unit.INR_PER_KWH,
@@ -249,8 +237,7 @@ def _iex_prices(
                 ),
                 f"IEX {segment.upper()} MCP",
             )
-    per_block = {mo: {b: x / 1000 for b, x in row.items()} for mo, row in by.items()}
-    return out, v.id, per_block
+    return out, got.vintage_ids, {mo: dict(row) for mo, row in by.items()}
 
 
 def assemble(
@@ -259,7 +246,7 @@ def assemble(
     spec: ScenarioSpec,
     reader: Reader,
     profile_id: str | None = None,
-    vintage_pins: dict[str, str] | None = None,
+    vintage_pins: dict[str, Any] | None = None,
     bill_pins: dict[str, Any] | None = None,
     treatment: int = CAPITAL_TREATMENT,
 ) -> Assembled:
@@ -627,8 +614,8 @@ def assemble(
             )
             if got is None:
                 raise RunError(f"no {str(src.iex_segment).upper()} prices loaded")
-            prices, vid, mcp_block = got
-            vintages.append(vid)
+            prices, vids, mcp_block = got
+            vintages += vids
             oa_shape: list[float] | None = [hours * 1.0] * n
             mx = cs.max_mw * 1000 if cs.max_mw else cd_kva
             cuf_sv = None
@@ -1759,19 +1746,26 @@ def execute(run_id: str) -> str:
                 spec,
                 reader,
                 profile_id=pins.get("load_profile_id") if run.replay_of else None,
-                vintage_pins=pins.get("price_vintages_by_segment") if run.replay_of else None,
+                vintage_pins=(
+                    pins.get("price_vintages_by_segment_all") or pins.get("price_vintages_by_segment")
+                )
+                if run.replay_of
+                else None,
                 # a run made before the bill pins existed replays with no levies, as it was solved
                 bill_pins=(pins.get("bills") or {"levies": []}) if run.replay_of else None,
                 # a run made before the captive plant carried its capital replays as it was solved
                 treatment=capital_treatment(pins) if run.replay_of else CAPITAL_TREATMENT,
             )
             used_versions = sorted(reader.used)
-            vint_by_seg = {
-                seg: vid
-                for seg, vid in s.execute(
-                    select(PriceVintage.segment, PriceVintage.id).where(PriceVintage.id.in_(a.vintages))
-                ).all()
-            }
+            vint_by_seg: dict[str, str] = {}
+            vints_by_seg: dict[str, list[str]] = {}  # every vintage read, per market (Stage 18)
+            for seg, vid in s.execute(
+                select(PriceVintage.segment, PriceVintage.id)
+                .where(PriceVintage.id.in_(a.vintages))
+                .order_by(PriceVintage.id)
+            ).all():
+                vint_by_seg[seg] = vid
+                vints_by_seg.setdefault(seg, []).append(vid)
         sol = solve(a.problem, st.ergplan_optimizer_time_limit_s, st.ergplan_optimizer_mip_gap)
         rs = resettle(a.problem, sol, st.ergplan_resettle_tolerance_kwh)
         summary = summarise(a, sol, rs)
@@ -1797,6 +1791,7 @@ def execute(run_id: str) -> str:
                 "load_profile_version": a.profile.version,
                 "price_vintages": a.vintages,
                 "price_vintages_by_segment": vint_by_seg,
+                "price_vintages_by_segment_all": vints_by_seg,
                 "solver": sol.solver,
                 "resolution_min": run.resolution_min,
                 "as_of": a.as_of.isoformat(),
