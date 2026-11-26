@@ -1,0 +1,25 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 176,
+  "commission": "AERC",
+  "title": "AERC Tariff Order March 6, 2026: True-up FY2024-25, APR FY2025-26, Revised ARR FY2026-27 and Tariff FY2026-27 for APDCL (Petition 20/2025)",
+  "url": "https://www.apdcl.org/website/docs/acts_and_rules/TariffOrderMarch26.pdf",
+  "sha256": "db6b0e319ec1b7b87e2b55b92dc630b9cc4cc12e6030e18a531ea67997e1f5e0",
+  "pages": 285,
+  "pages_without_text": 0,
+  "arr_year": "FY2026-27",
+  "years_decided": [
+   "FY2026-27"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "session discovery agent 2026-11-14: fetched from the licensee's or commission's own site (https://www.apdcl.org (site search result; linked under acts_and_rules docs, page not confirmed)); %PDF and SHA-256 checked, text layer checked",
+  "fetched_on": "2026-11-14T00:00:00.000Z",
+  "read_status": "downloaded",
+  "utilities": [
+   "APDCL"
+  ]
+ }
+}

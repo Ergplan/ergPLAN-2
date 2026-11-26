@@ -85,6 +85,8 @@ def unit_of(text: str) -> Unit | None:
     'Paise per unit', '% of Energy Charges'. None when it names none of core/units.py's rates."""
     t = _norm(text)
     words = set(re.findall(r"[a-z]+", t))
+    if "mth" in words:
+        words.add("month")  # 'Rs/kVA/mth' (HPERC)
     paise, rupee = bool(_PAISE.search(t)), bool(_RUPEE.search(t))
     slashed = _p_slash(t)
     if slashed is not None and not rupee:
@@ -363,13 +365,15 @@ def trailing_rate(text: str) -> tuple[str, Rate] | None:
 _OF_NORMAL = re.compile(
     r"^(?:(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?)?normal\s+rate(?:\s+of\s+energy\s+charges?)?\.?$"
 )
+# AERC: '80% of Normal Energy Charges', 'Normal Energy Charges'
+_OF_NORMAL_CHARGES = re.compile(r"^(?:(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?)?normal\s+energy\s+charges?\.?$")
 
 
 def of_normal_pct(text: str) -> Decimal | None:
     """A time-of-day rate printed as a share of the normal rate, as a signed adjustment:
     '80% normal rate of energy charges' → -20, '120% of normal rate of energy charges' → 20,
     'Normal rate of energy charges' → 0. None for anything else (two shares in one cell included)."""
-    m = _OF_NORMAL.match(_norm(text))
+    m = _OF_NORMAL.match(_norm(text)) or _OF_NORMAL_CHARGES.match(_norm(text))
     if not m:
         return None
     return Decimal(m.group(1)) - Decimal(100) if m.group(1) else Decimal(0)

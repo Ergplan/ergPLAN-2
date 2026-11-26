@@ -1,0 +1,28 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 23,
+  "commission": "JERC-GOA-UT",
+  "title": "True-up for FY 2023-24, Annual Performance Review for FY 2024- 25, Aggregate Revenue Requirement (ARR) and Determination of Retail Tariff for MYT Control Period FY 2025-26 to FY 2029-30",
+  "url": "https://jercuts.gov.in/wp-content/uploads/2025/09/ED-Goa_TARIFF_ORDER_True-up-for-the-FY-2023-24-APR-for-FY-2024-25-and-ARR-and-Determination-of-Retail-Tariff-for-FY-2025-25-to-FY-2029-30.-D-O-O-30_09_2025.pdf",
+  "sha256": "8c2b13e3b240a0d46c88a6bbf4567d40e028c08da5a91294c970bde2966b2293",
+  "pages": 256,
+  "pages_without_text": 0,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2023-24",
+   "FY2024-25",
+   "FY2025-26",
+   "FY2029-30"
+  ],
+  "kind": "myt_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "discovery profile jerc-goa-ut-discovery v1",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "GOA-ED"
+  ]
+ }
+}

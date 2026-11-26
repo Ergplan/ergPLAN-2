@@ -55,6 +55,7 @@ _GENERIC_TITLE = re.compile(
     re.I,
 )
 _GENERIC_DESCRIPTOR = {"", "metered", "description", "charges", "base rate", "particulars", "rate"}
+_GENERIC_DESCRIPTOR |= {"for all consumption", "for all consumption."}  # AERC: the one rate of a category
 _FIXED = re.compile(r"\b(fixed|demand)\s+charges?\b", re.I)
 _ENERGY = re.compile(r"\benergy\s+charges?\b", re.I)
 _SLABBED = re.compile(r"\b(consumption\s+range|slab|units?\s+consumed)\b", re.I)
@@ -184,6 +185,7 @@ def _one_column(columns: tuple[str, ...], pattern: re.Pattern[str], what: str) -
     hits = [i for i, c in enumerate(columns) if pattern.search(c)]
     if len(hits) > 1:
         approved = [i for i in hits if _APPROVED.search(columns[i]) and not _NOT_APPROVED.search(columns[i])]
+        approved = _per_capacity(columns, approved)
         if len(approved) != 1:
             raise _Skip(f"{len(hits)} {what} columns and not exactly one headed approved")
         hits = approved
@@ -255,7 +257,7 @@ def _category_column(columns: tuple[str, ...]) -> int | None:
 
 
 def _slab_guard(descriptor: str) -> None:
-    if _CONSUMPTION_RANGE.search(descriptor):
+    if _CONSUMPTION_RANGE.search(descriptor) or arr_rates.is_slab(descriptor):
         raise _Skip("a rate for one consumption slab: the tariff_schedule family holds one rate per row")
 
 
@@ -838,12 +840,18 @@ def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None
     entries: list[_Entry] = []
     tables, undated, _ = _year_runs(tables)
     misfiled = _misfiled(tables)
+    continued, odd = _continued_years(tables), _odd_headings(tables)
     for t in tables:
         try:
             by_year = None if t.as_text else _year_entries(src, t)
             if by_year is not None:
                 entries += _or_table_skip(by_year[0], by_year[1], out)
                 continue
+            own = None if t.as_text else _own_category_entries(src, t, continued)
+            if own is not None:
+                entries += _or_table_skip(own[0], own[1], out)
+                continue
+            t = _titled_category(t) or t
             if t.category is None:
                 raise _Skip("not printed under a tariff category (a summary or billing-rate table)")
             if t.table_id in undated:
@@ -851,6 +859,8 @@ def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None
             if t.as_text:
                 raise _Skip("rate lines read from running text, not from a ruled table")
             _heading_guard(t)
+            _odd_heading_guard(t, odd)
+            _running_head_guard(t)
             _filing_guard(t, misfiled)
             _table_guard(t, src.order, _NOT_APPROVED_SCHEDULE)
             entries += _schedule_entries(src, t, out)
@@ -901,6 +911,8 @@ def _schedule_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None
                 )
             )
             continue
+        _title_load_band(e)
+        _clause_title(e)
         block = _rate_block(e.table, e.descriptor, e.band) if e.block is None else (e.block[:200] or None)
         if e.qualifier:
             block = " · ".join(x for x in (block, e.qualifier) if x)[:200]
@@ -947,7 +959,7 @@ def _keep_unambiguous(rows: list[tuple[Any, dict[str, Any]]], family: str, out: 
         key = [row["scope"], row["body"].get("component"), row.get(JURISDICTION_KEY)]
         seen[json.dumps(key, sort_keys=True)].append(row)
     for group in seen.values():
-        if len(group) == 1:
+        if len(group) == 1 or _printed_once(group):
             out.by_family[family].append(group[0])
             continue
         pages = sorted({r["source_ref"]["page"] for r in group})
@@ -984,7 +996,8 @@ def _tod_slots(t: SectionTable) -> list[dict[str, Any]]:
     )
     if any(_NOT_APPROVED.search(c) and not _APPROVED.search(c) for c in t.columns):
         raise _Skip("claimed, existing or proposed figures, not the commission's approved rate")
-    v_cols = _adjustment_columns(t, [i for i in range(len(t.columns)) if i != h_col])
+    beside = [i for i in range(len(t.columns)) if i != h_col and not _serial_column(t, i)]
+    v_cols = _adjustment_columns(t, beside)
     if len(v_cols) != 1:
         raise _Skip(f"table shape not recognised (columns: {', '.join(t.columns)[:120]})")
     slots = []
@@ -1013,6 +1026,8 @@ def _tod_slots(t: SectionTable) -> list[dict[str, Any]]:
 
 def _tod_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None:
     parts: list[tuple[SectionTable, list[dict[str, Any]], list[Row]]] = []
+    odd = _odd_headings(tables)
+    optional = any(_OPTIONAL.search(t.title) for t in tables)
     for t in tables:
         try:
             if t.category is None:
@@ -1020,6 +1035,8 @@ def _tod_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None:
             if t.as_text:
                 raise _Skip("slots read from running text, not from a ruled table")
             _table_guard(t, src.order, _NOT_APPROVED_SCHEDULE)
+            _odd_heading_guard(t, odd)
+            _optional_guard(t, optional)
             slots = _tod_slots(t)
         except _Skip as why:
             out.unmapped.append(Unmapped(t.name(), "tod_slots", str(why)))
@@ -1143,6 +1160,9 @@ def _single_rate(src: Source, t: SectionTable, pattern: str, component: str, lab
     for r in hits:
         heading = r.cells[unit_col] if unit_col is not None and unit_col < len(r.cells) else t.columns[col]
         got = arr_rates.rate(r.cells[col], heading=heading) or arr_rates.rate(r.cells[col], heading=t.title)
+        if got is None and len(hits) == 1:
+            # the unit in the one row's own name: 'Additional Surcharge (Rs/kWh)'
+            got = arr_rates.rate(r.cells[col], heading=_particulars(t, r))
         if got is not None and got.unit != Unit.PERCENT:
             rated.append((r, got))
     if len(rated) != 1:
@@ -1153,7 +1173,7 @@ def _single_rate(src: Source, t: SectionTable, pattern: str, component: str, lab
 
 def _by_category_rows(src: Source, t: SectionTable, component: str, short: str) -> list[dict[str, Any]]:
     """A surcharge tabulated per category and voltage ('HV-2 (Supply at 11 kV) | … | 0.38')."""
-    col = _approved_value_column(t)
+    col = _headed_column(t, component) or _approved_value_column(t)
     drafts: list[tuple[Row, arr_rates.Rate, str | None, dict[str, Any] | None, str]] = []
     for r in t.rows:
         if len(r.cells) <= col or arr_rates.is_blank(r.cells[col]):
@@ -1196,13 +1216,14 @@ def _by_category_rows(src: Source, t: SectionTable, component: str, short: str) 
 
 def _loss_rows(src: Source, t: SectionTable) -> list[dict[str, Any]]:
     rows = []
+    col = _loss_column(t)
     for r in t.rows:
-        if len(r.cells) < 2:
+        if len(r.cells) < 2 or col >= len(r.cells) or _TOTAL_ROW.match(_particulars(t, r)):
             continue
-        got = arr_rates.rate(r.cells[-1], heading=t.columns[-1])
+        got = arr_rates.rate(r.cells[col], heading=t.columns[col])
         if got is None or got.unit != Unit.PERCENT:
-            raise _Skip(f"loss not read as a percentage: '{r.cells[-1][:60]}'")
-        name = r.cells[0]
+            raise _Skip(f"loss not read as a percentage: '{r.cells[col][:60]}'")
+        name = _particulars(t, r)
         scope: dict[str, Any] = {"connection": list(OA_CONNECTIONS)}
         if re.search(r"inter[- ]?state", name, re.I):
             component = "ists_losses"
@@ -1211,9 +1232,16 @@ def _loss_rows(src: Source, t: SectionTable) -> list[dict[str, Any]]:
         else:
             component = "wheeling_losses"
             band = _band(name)
-            if band is None:
+            level = None if band else _supply_level(name)
+            if level and sum(1 for c in r.cells if re.fullmatch(r"\s*\d+(\.\d+)?\s*%\s*", c)) != 1:
+                level = None  # a loss per licensee or per year beside it: the level's own is not read
+            if band is None and not level:
                 raise _Skip(f"a loss row names no voltage: '{name[:60]}'")
-            scope["voltage_kv"] = band
+            if band is None and level:
+                # a supply level as printed ('LT'), as _loss_rows_by_level keeps it
+                scope["rate_block"] = " & ".join(x.upper() for x in level)
+            else:
+                scope["voltage_kv"] = band
         rows.append(_oa_row(src, t, r, component, got, _plain(name), scope))
     if not rows:
         raise _Skip("no row states a value")
@@ -1276,6 +1304,8 @@ def _oa_rows(src: Source, tables: list[SectionTable], out: Mapped) -> None:
                 got = _loss_rows_by_level(src, t, out) or _loss_rows(src, t)
             elif _COMPUTATION.search(title):
                 raise _Skip("an input to the surcharge computation, not a charge payable")
+            elif (by_voltage := _wheeling_by_voltage(src, t)) is not None:
+                got = by_voltage
             elif re.search(r"wheeling\s+charges?", title, re.I) and not re.search(r"\bARR\b", title):
                 got = [_single_rate(src, t, r"wheeling\s+charges?", "wheeling", "Average wheeling charge")]
             elif re.search(r"transmission\s+charges?", title, re.I):
@@ -1981,3 +2011,362 @@ def map_order(src: Source, sections: dict[str, list[SectionTable]]) -> Mapped:
                 Unmapped(t.name(), section, "no ergPLAN family for this section") for t in tables
             ]
     return out
+
+
+# ------------------------------------------------------------------ JERC, JSERC, HPERC and AERC shapes
+
+# a first column headed 'Category' or 'Consumer Category': each row names its own category
+_CATEGORY_HEAD = re.compile(r"^\s*(consumer\s+)?categor(y|ies)\s*$", re.I)
+# the code a row starts with ('HTS', 'DS-HT', 'HTS- II', 'LTAS - I (Small Farmers) …', 'EHTS-III')
+_ROW_CODE = re.compile(r"^\s*([A-Z]{2,6}(?:\s*[-–]\s*(?:[IVX]{1,4}|\d{1,2}|HT|LT)\b)?)(?=\s|\(|$)")
+_FC_HEAD = re.compile(r"\b(fixed|demand)\s+charges?\b|\bFC\b", re.I)
+_VC_HEAD = re.compile(r"\b(energy|variable)\s+charges?\b|\bVC\b", re.I)
+_TABLE_CAPTION = re.compile(r"\btable\s*[-–]?\s*\d", re.I)
+_MONEY_WORD = re.compile(r"(?<![a-z])(rs|inr|rupees?|paise|paisa)(?![a-z])|₹", re.I)
+
+
+def _row_code(cell: str) -> str | None:
+    """The category code a row names, in one spelling ('HTS- II' → 'HTS-II'); None for a name, a
+    slab or a bare supply level ('Rural', '0-500', 'HT')."""
+    m = _ROW_CODE.match(cell)
+    if not m or m.group(1).strip().lower() in _LEVELS:
+        return None
+    return re.sub(r"\s*[-–]\s*", "-", m.group(1).strip())
+
+
+def _table_year(t: SectionTable) -> str | None:
+    if t.fiscal_year:
+        return t.fiscal_year
+    years = _years_named(t.title)
+    return next(iter(years)) if len(years) == 1 else None
+
+
+def _continued_years(tables: list[SectionTable]) -> dict[str, str]:
+    """Tables that carry on, over a page break, a table whose rows name their own categories: same
+    columns, the same or the next page, and a heading of their own that is no caption (the order's
+    running head, or a row label the site took for one). They are for the tariff year of the table
+    they continue. Table id → year."""
+    out: dict[str, str] = {}
+    prev: SectionTable | None = None
+    for t in tables:
+        same = prev is not None and t.columns == prev.columns
+        if prev is not None and same and t.columns and _CATEGORY_HEAD.match(t.columns[0]):
+            year = _table_year(prev) or out.get(prev.table_id)
+            last = max([prev.page, *(r.page for r in prev.rows)])
+            own = _TABLE_CAPTION.search(t.title) or _years_named(t.title) or _TABLE_CAPTION.search(t.label)
+            if year and not own and 0 <= min([t.page, *(r.page for r in t.rows)]) - last <= 1:
+                out[t.table_id] = year
+        prev = t
+    return out
+
+
+def _group_columns(t: SectionTable, cols: list[int], year: str) -> tuple[int | None, int] | None:
+    """Of a charge's columns, the one that prints the unit (cells of words with 'Rs', no figure) and
+    the one that prints the order's year's figure. None when the columns are not of that shape."""
+    dated = {i: _years_named(t.columns[i]) for i in cols if _years_named(t.columns[i])}
+    plain = [i for i in cols if i not in dated]
+
+    def wordy(i: int) -> bool:
+        cells = [r.cells[i] for r in t.rows if i < len(r.cells) and not arr_rates.is_blank(r.cells[i])]
+        return bool(cells) and all(_MONEY_WORD.search(c) and not re.search(r"\d", c) for c in cells)
+
+    units = [i for i in plain if wordy(i)]
+    if len(units) > 1:
+        return None
+    unit = units[0] if units else None
+    if dated:
+        mine = [i for i, years in dated.items() if years == {year}]
+        if len(mine) != 1 or len(plain) - len(units) > 0:
+            raise _Skip(
+                "set side by side for several years, and not exactly one column of the charge is for "
+                f"the order's year ({year})"
+            )
+        return unit, mine[0]
+    values = [i for i in plain if i != unit]
+    return (unit, values[0]) if len(values) == 1 else None
+
+
+def _own_category_entries(
+    src: Source, t: SectionTable, continued: dict[str, str]
+) -> tuple[list[_Entry], list[Unmapped]] | None:
+    """A schedule whose first column names each row's category ('Category | Fixed Charge Unit | Fixed
+    Charge Rate | Energy Charge Unit | Energy Charge Rate' with 'HTS | Rs/kVA/Month | 400 | Rs/kVAh |
+    6.40'; JERC's 'Categories | FC | FY 2025-26 FC | … | VC | FY 2025-26 VC …' with the unit in a
+    column of its own; 'Consumer Category | Fixed Charge | Energy Charge' with 'HTS-IV (Industries)
+    Demand Based | Rs. 450.00/kVA … per month | Rs. 6.25/kVAh'). The category is the code the row
+    starts with, not the heading the site filed the table under (which the site takes from the
+    page's lines and is often the last row of the table before). A row that names no code (a slab, a
+    sub-category such as 'Rural') is not mapped. None when the table is not of this shape."""
+    if not t.columns or not _CATEGORY_HEAD.match(t.columns[0]):
+        return None
+    fc = [i for i, c in enumerate(t.columns) if i > 0 and _FC_HEAD.search(c)]
+    vc = [i for i, c in enumerate(t.columns) if i > 0 and _VC_HEAD.search(c) and i not in fc]
+    if not fc or not vc or not any(_row_code(r.cells[0]) for r in t.rows if r.cells):
+        return None
+    year = _table_year(t) or continued.get(t.table_id)
+    f, e = _group_columns(t, fc, src.order.arr_year), _group_columns(t, vc, src.order.arr_year)
+    if f is None or e is None:
+        return None
+    if f[0] is None and e[0] is None and t.category is not None and year is None:
+        return None  # rates with their units in the cells, under a heading: the plain shape reads it
+    if year and year != src.order.arr_year:
+        raise _Skip(f"the table is for {year}; the order's tariff year is {src.order.arr_year}")
+    if any(_years_named(t.columns[i]) for i in (f[1], e[1])):
+        year = src.order.arr_year
+    if year is None and t.category is None and f[0] is None and e[0] is None:
+        raise _Skip("rows that name their categories, in a table that names no tariff year")
+    _table_guard(replace(t, fiscal_year=year), src.order, _NOT_APPROVED_SCHEDULE)
+    heads = " ".join(t.columns)
+    if _NOT_APPROVED_SCHEDULE.search(heads) and not _APPROVED.search(heads):
+        raise _Skip("claimed, existing or proposed figures, not the commission's approved rate")
+    entries: list[_Entry] = []
+    skipped: list[Unmapped] = []
+    for r in t.rows:
+        if not r.cells or all(arr_rates.is_blank(c) for c in r.cells[1:]):
+            continue  # a heading row ('LTIS-I', its slabs below)
+        name = f"{t.name()} · row '{_quote(r.cells)[:80]}'"
+        try:
+            if max(f[1], e[1], *(x for x in (f[0], e[0]) if x is not None)) >= len(r.cells):
+                raise _Skip("the row has fewer cells than the table has columns")
+            code = _row_code(r.cells[0])
+            if arr_rates.is_slab(r.cells[0]) or _CONSUMPTION_RANGE.search(r.cells[0]):
+                raise _Skip(_SLAB_ROW)
+            if code is None:
+                raise _Skip("the row names no category code (a sub-category of the heading above)")
+            fixed, energy = _cell_rate(t, r, *f), _cell_rate(t, r, *e)
+            cols = [0, *(x for x in (f[0], f[1], e[0], e[1]) if x is not None)]
+            quote = [r.cells[i] for i in cols]
+            lead = [t.columns[f[1]], t.columns[e[1]]] if year and f[0] is not None else []
+            ref = _ref(src, t, r.page, [*lead, *quote], [])
+            entry = _Entry(t, code, r.cells[0], block="")
+            entry.fixed, entry.energy = (fixed, ref), (energy, ref)
+            entries.append(entry)
+        except _Skip as why:
+            skipped.append(Unmapped(name, "tariff_schedule", str(why)))
+    return entries, skipped
+
+
+def _cell_rate(t: SectionTable, r: Row, unit: int | None, value: int) -> arr_rates.Rate:
+    """The rate of one cell, its unit from the row's unit cell or else the cell and its heading."""
+    cell = r.cells[value]
+    if arr_rates.is_blank(cell):
+        raise _Skip("no fixed or no energy charge is printed for the row")
+    if unit is not None:
+        got = arr_rates.rate(cell, heading=r.cells[unit])
+    else:
+        got = arr_rates.rate(cell, heading=t.columns[value])
+    if got is None:
+        shown = f"{cell} {r.cells[unit]}" if unit is not None else cell
+        raise _Skip(f"rate not read: '{shown[:60]}'")
+    return got.in_rupees()
+
+
+_APPROVED_TARIFF_FOR = re.compile(
+    r"\bapproved\s+tariffs?\s+(?:for|of)\s+(?:the\s+)?(?P<name>.+?)(?:\s+category)?\s*(?::\s*(?P<part>.+))?$",
+    re.I,
+)
+
+
+def _titled_category(t: SectionTable) -> SectionTable | None:
+    """A table printed under no category heading whose caption names the category it approves
+    ('Existing and Approved Tariff for Large Industrial Power Supply Category', HPERC): the table
+    as one filed under that category (its caption adds nothing the rows do not print). The
+    approved columns are told from the existing ones as before. None for any other table."""
+    if t.category is not None or not t.label:
+        return None
+    m = _APPROVED_TARIFF_FOR.search(t.title)
+    if not m or not any(re.match(r"\s*approved\b", c, re.I) for c in t.columns):
+        return None
+    name = _plain(m.group("name"))
+    if not name or re.search(r"\b(revenue|projected|ABR|average|period)\b", name, re.I):
+        return None
+    return replace(t, category=name, title=name)  # what follows a colon the rows print again
+
+
+def _per_capacity(columns: tuple[str, ...], approved: list[int]) -> list[int]:
+    """Of several approved fixed-charge columns, the one per kVA or kW of demand, where the others
+    are per connection ('Approved Fixed Charges (Rs/con/month)' beside 'Approved Demand Charge
+    (Rs/kVA/month)'): the demand charge is the one the family holds."""
+    if len(approved) < 2:
+        return approved
+    per = [i for i in approved if arr_rates.unit_of(columns[i]) in DEMAND_BASIS]
+    return per if len(per) == 1 else approved
+
+
+def _odd_headings(tables: list[SectionTable]) -> set[str]:
+    """Headings that do not name a category in an order where nearly every heading does (by a code or
+    the word category: 'HT Category V (C): HT-II Industries'): the site took them from the text
+    between the tables ('Secondary Education Council (AHSEC)', a line of the applicability clause),
+    so the category of the tables under them is not known."""
+    heads = {t.category for t in tables if t.category}
+    named = {h for h in heads if _NAMES_CATEGORY.search(h) or _CODED_CATEGORY.match(h) or _coded(h)}
+    if len(heads) < 6 or len(named) < 0.8 * len(heads):
+        return set()
+    return heads - named
+
+
+def _odd_heading_guard(t: SectionTable, odd: set[str]) -> None:
+    if t.category in odd:
+        raise _Skip(
+            f"printed under '{str(t.category)[:60]}', which names no category where the order's other "
+            "headings do: the category is not known"
+        )
+
+
+_OPTIONAL = re.compile(r"\boption(al|ally)\b", re.I)
+
+
+def _optional_guard(t: SectionTable, some_optional: bool) -> None:
+    """A time-of-day tariff the order makes optional for the consumer ('ToD tariff for Domestic shall
+    be optionally applicable') is not every consumer's tariff: a tod_slots row would apply it to all.
+    In an order that makes some of its ToD tables optional, a table the site gives no caption of its
+    own (it starts on a new page) is not read either: the sentence that says which it is stands on
+    the page before."""
+    if _OPTIONAL.search(t.title):
+        raise _Skip("the order makes this time-of-day tariff optional for the consumer")
+    if some_optional and not t.label and t.title == t.category:
+        raise _Skip(
+            "no caption of its own (the table starts on a new page): the sentence before it, which says "
+            "whether the time-of-day tariff is optional, is not read"
+        )
+
+
+_SERIAL_COLUMN = re.compile(r"^s[lr]?\.?\s*(no\.?)?$", re.I)
+
+
+def _serial_column(t: SectionTable, i: int) -> bool:
+    """A column of serial numbers ('Sl.' | '1', '2', '3')."""
+    if not _SERIAL_COLUMN.match(t.columns[i].strip()):
+        return False
+    return all(i >= len(r.cells) or re.fullmatch(r"\s*\d{0,2}\.?\s*", r.cells[i]) for r in t.rows)
+
+
+_TITLE_LOAD = re.compile(r"^\s*(?:(?:contract(?:ed)?\s+)?(?:load|demand)\s+)?(?P<band>.+?)\.?\s*$", re.I)
+
+
+def _title_load_band(e: _Entry) -> None:
+    """A table captioned by a band of load ('Load above 50 kVA and up to 150 kVA.', AERC HT-I
+    Industries): the band is the row's scope of contract demand, not the name of a rate block."""
+    if e.block is not None or e.scope_extra or e.band:
+        return
+    m = _TITLE_LOAD.match(e.table.title)
+    load = arr_rates.load_band(m.group("band")) if m else None
+    if load is None:
+        return
+    e.scope_extra = {load[0]: load[1]}
+    e.block = _rate_block(replace(e.table, title=e.table.category or ""), e.descriptor, e.band) or ""
+
+
+def _printed_once(group: list[dict[str, Any]]) -> bool:
+    """Rows of the same scope that print the same cells with the same values on different pages: a
+    schedule the order prints twice (JERC: in the chapter on tariff design and again as the tariff
+    schedule). They cannot disagree, so the first is kept with its own page. (A table the site reads
+    twice on one page stays out, as before.)"""
+    first = group[0]
+    pages = {r["source_ref"]["page"] for r in group}
+    return len(pages) == len(group) and all(
+        r["body"] == first["body"]
+        and r["source_ref"]["quote"] == first["source_ref"]["quote"]
+        and r.get(JURISDICTION_KEY) == first.get(JURISDICTION_KEY)
+        for r in group[1:]
+    )
+
+
+def _headed_column(t: SectionTable, component: str) -> int | None:
+    """The one column headed by the charge itself ('CSS', 'Cross Subsidy Surcharge (Rs./kWh)') in a
+    table that works it out from other columns ('ABR (T) | APPC (C) | Losses (L) | … | CSS')."""
+    if component != "cross_subsidy_surcharge" or any(_years_named(r.cells[0]) for r in t.rows if r.cells):
+        return None  # rows by tariff year ('FY 2025-26 | LT Level | …'), not by category
+    cols = [
+        i
+        for i, c in enumerate(t.columns)
+        if i > 0 and re.fullmatch(r"\s*(css|cross[- ]?subsidy\s+surcharge)\s*(\([^()]*\))?\s*", c, re.I)
+    ]
+    return cols[0] if len(cols) == 1 else None
+
+
+_TOTAL_ROW = re.compile(r"^\s*(grand\s+)?total\b", re.I)
+
+
+def _loss_column(t: SectionTable) -> int:
+    """The column of a loss table that holds the loss: the last, or else the one column headed as a
+    loss whose every figure is a percentage ('Voltage Level | Dist. loss level | Sales (MU) | … |
+    Tech Loss (MU)')."""
+    rows = [r for r in t.rows if r.cells and not _TOTAL_ROW.match(_particulars(t, r))]
+
+    def percent(i: int) -> bool:
+        cells = [r.cells[i] for r in rows if len(r.cells) > (i if i >= 0 else len(r.cells) + i)]
+        heading = t.columns[i] if t.columns else ""
+        return bool(cells) and all(
+            (got := arr_rates.rate(c, heading=heading)) is not None and got.unit == Unit.PERCENT
+            for c in cells
+        )
+
+    if not t.columns or percent(-1):
+        return -1
+    lossy = [i for i, c in enumerate(t.columns) if i > 0 and re.search(r"\bloss", c, re.I) and percent(i)]
+    return lossy[0] if len(lossy) == 1 else -1
+
+
+_WHEELING_HEAD = re.compile(r"\bwheeling\s+(tariff|charges?)\b", re.I)
+
+
+def _wheeling_by_voltage(src: Source, t: SectionTable) -> list[dict[str, Any]] | None:
+    """Wheeling charges approved per supply voltage ('Voltage Categories | ARR | Sales | Wheeling Tariff
+    (Rs./kWh)' with 'LT | … | 2.06', '11 kV | … | 0.65', '33 kV and above | … | 0.25'). None when the
+    table is not of this shape (the one-figure tables are read as before)."""
+    if not _WHEELING_HEAD.search(t.title) or re.search(r"\bARR\b", t.title):
+        return None
+    cols = [i for i, c in enumerate(t.columns) if i > 0 and _WHEELING_HEAD.search(c) and arr_rates.unit_of(c)]
+    if len(cols) != 1 or len(t.rows) < 2:
+        return None
+    col = cols[0]
+    named = [(r, _particulars(t, r)) for r in t.rows if len(r.cells) > col]
+    try:
+        if not named or not all(_supply_level(n) or _band(n) for _, n in named):
+            return None
+    except _Skip:
+        return None
+    rows: list[dict[str, Any]] = []
+    for r, n in named:
+        got = arr_rates.rate(r.cells[col], heading=t.columns[col])
+        if got is None:
+            raise _Skip(f"rate not read: '{r.cells[col][:60]}'")
+        scope: dict[str, Any] = {"connection": list(OA_CONNECTIONS)}
+        band = _band(n)
+        if band:
+            scope["voltage_kv"] = band
+        else:
+            scope["consumer_kind"] = _supply_level(n)
+        rows.append(_oa_row(src, t, r, "wheeling", got, f"Wheeling charge · {_plain(n)}", scope))
+    bands = disjoint([r["scope"].get("voltage_kv") for r in rows])
+    for row, b in zip(rows, bands, strict=True):
+        if b:
+            row["scope"]["voltage_kv"] = b
+    return rows
+
+
+_CLAUSE = re.compile(r"^\s*applicability\s*$|[,;]|[.:]\s*$", re.I)
+
+
+def _clause_title(e: _Entry) -> None:
+    """A caption that is a line of the category's applicability clause ('Applicability', 'Government
+    Corporations, Municipalities, Town Committees and Panchayats.', AERC) names no rate block: the
+    row's block is what its own cells name."""
+    if e.block is not None or not _CLAUSE.search(e.table.title):
+        return
+    e.block = _rate_block(replace(e.table, title=e.table.category or ""), e.descriptor, e.band) or ""
+
+
+_RUNNING_HEAD = re.compile(r"\bregulatory\s+commission\b", re.I)
+
+
+def _running_head_guard(t: SectionTable) -> None:
+    """A table the site captions with the commission's name ('Joint Electricity Regulatory Commission
+    (JERC)') is a table carried over a page: that is the page's running head, and the heading the
+    site files it under is the last line it read on the page before, not the table's category."""
+    if _RUNNING_HEAD.search(t.title):
+        raise _Skip(
+            "captioned by the order's running head (a table carried over from the page before): "
+            "the category above it is not known"
+        )
