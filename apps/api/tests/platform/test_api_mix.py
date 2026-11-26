@@ -19,6 +19,7 @@ from ergplan.optimizer.scenarios import ScenarioSpec
 from ergplan.platform import runs as svc
 from ergplan.platform.app import app
 from ergplan.rulebook.repository import approved_rules
+from tests.engine import exchange_fixture
 from tests.platform.test_api_plan import _truncate
 from tests.platform.test_api_runs import CL, make_site, msedcl_5mw
 
@@ -62,6 +63,9 @@ def site() -> Iterator[dict[str, str]]:
         site_id, conn = make_site(mp, msedcl_5mw(), {})
         with session_scope(actor="t") as s:
             iex_loader.store(s, iex_loader.parse(dam_csv(), "DAM_15min.csv"), "DAM_15min.csv", "t")
+        # Stage 18: an exchange source is offered only under an approved exchange-purchase rule;
+        # a fixture rule (schedule by block) is approved in the test database
+        exchange_fixture.approve("MH", exchange_fixture.BY_BLOCK)
         yield {"site": site_id, "conn": conn}
     finally:
         mp.undo()

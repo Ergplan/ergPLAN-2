@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from ergplan.db.base import session_scope
 from ergplan.intake import iex_loader
 from ergplan.platform.app import app
+from tests.engine import exchange_fixture
 from tests.intake.helpers import result
 from tests.platform.test_api_mix import dam_csv
 from tests.platform.test_api_plan import _truncate
@@ -35,6 +36,9 @@ def test_a_up_mix_at_fifteen_minutes(monkeypatch: pytest.MonkeyPatch, kinds: lis
             iex_loader.store(s, iex_loader.parse(dam_csv(), "DAM_15min.csv"), "DAM_15min.csv", "t")
             rtm = dam_csv().replace(b"3600.00", b"3300.00")
             iex_loader.store(s, iex_loader.parse(rtm, "RTM_15min.csv", segment="rtm"), "RTM_15min.csv", "t")
+        # Stage 18: an exchange source is offered only under an approved exchange-purchase rule;
+        # a fixture rule (schedule by block) is approved in the test database
+        exchange_fixture.approve("UP", exchange_fixture.BY_BLOCK)
         sources: list[dict[str, Any]] = [
             {"kind": k, "ownership": "captive"} if not k.startswith("iex_") else {"kind": k} for k in kinds
         ]

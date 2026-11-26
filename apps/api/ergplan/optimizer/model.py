@@ -78,6 +78,9 @@ class Candidate:
     min_size_kw: float = 0.0  # a regulatory minimum if built (binary)
     dispatchable: bool = False  # an OA purchase scheduled block by block (exchange), not must-take
     delivered_share: float = 1.0  # energy at the meter per unit injected (after losses)
+    # dispatchable only: the rule requires the same schedule in every block of each window of this
+    # many hours counted from the first block (24: one flat block over the day); 0: block by block
+    uniform_hours: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -459,6 +462,20 @@ def build(p: Problem) -> pyo.ConcreteModel:
         for t in T:
             if c.shape[t] > 0:
                 add(m.x[c.id, t] <= c.shape[t] * m.cap[c.id])
+        per = round(c.uniform_hours / h) if c.uniform_hours > 0 else 0
+        if per > 1:
+            # a uniform schedule: every block of a window holds what its first block holds (in kW,
+            # so per unit of the block's shape); a block the source cannot serve holds nothing,
+            # and then neither does the rest of its window
+            for start in range(0, n, per):
+                window = range(start, min(n, start + per))
+                if any(c.shape[t] <= 0 for t in window):
+                    for t in window:
+                        if c.shape[t] > 0:
+                            add(m.x[c.id, t] == 0)
+                    continue
+                for t in window[1:]:
+                    add(m.x[c.id, t] * c.shape[start] == m.x[c.id, start] * c.shape[t])
 
     # settlement (sizing mode: the bank may not take energy the rule would set off directly — see guard)
     oa_by = {c.id: c for c in oa}

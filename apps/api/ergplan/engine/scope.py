@@ -70,10 +70,11 @@ def exchange_verdict(
     on: date,
     chain: Sequence[str],
     iex_segment: str | None = None,
+    state_name: str | None = None,
 ) -> exchange.Verdict:
     """The state's verdict on buying on the power exchange through open access, for this
     connection (Stage 18): feasible, feasible with conditions, not practical, or not yet sourced.
     `rows` are the `exchange_purchase` rows the caller may read: approved ones for a client
     (`rulebook.repository.approved_rules`), a draft's only in the analyst's sandbox."""
     row = first(rows, context(c, on, source="iex", iex_segment=iex_segment), chain)
-    return exchange.verdict(c.state, row, c.contract_demand_kva, c.voltage_kv)
+    return exchange.verdict(state_name or c.state, row, c.contract_demand_kva, c.voltage_kv)

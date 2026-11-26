@@ -34,6 +34,7 @@ from ..db.models import (
     Site,
 )
 from ..engine import avoided_cost, landed_cost, lcoe, lifecycle, tariff_eval
+from ..engine import exchange as eexchange
 from ..engine import levies as elevies
 from ..engine import scope as escope
 from ..engine.tariff_eval import slot_classes, slot_of
@@ -46,6 +47,7 @@ from ..rulebook.models import RuleView
 from ..rulebook.repository import Reader
 from ..rulebook.scope import matches
 from ..rulebook.service import jurisdiction_chain
+from . import exchange_plan
 from .routers.cost import _facts, _kvah_factor, _rules_for, bill_levies
 from .routers.landed import DEFAULT_PRICE
 
@@ -101,6 +103,10 @@ class CandMeta:
     capital_words: str | None = None  # what the capital is, in words, beside its figure
     # what the capital per kW (or per kWh) rests on: the capital cost, and the equity share
     capital_inputs: list[SourcedValue] = field(default_factory=list)
+    # an exchange source (Stage 18): the state's verdict it is offered under, and the deviation risk
+    # priced into its energy cost, INR per kWh at the meter for each block (None: nothing priced)
+    exchange: eexchange.Verdict | None = None
+    deviation: list[Decimal] | None = None
 
 
 @dataclass
@@ -138,6 +144,11 @@ class Assembled:
     # owned capital. 1: runs made before 25 Nov 2026 (captive at a PPA tariff, no capital), kept so
     # they replay as they were solved
     capital_treatment: int = 2
+    # exchange sources (Stage 18): the verdict for each one asked for, offered or left out, as the
+    # result carries it; how they were treated (pinned); the deviation assumed, when one was priced
+    exchange: list[dict[str, Any]] = field(default_factory=list)
+    exchange_pins: dict[str, Any] = field(default_factory=dict)
+    exchange_deviation: SourcedValue | None = None
 
 
 def _f(x: Decimal | float) -> float:
@@ -249,6 +260,7 @@ def assemble(
     vintage_pins: dict[str, Any] | None = None,
     bill_pins: dict[str, Any] | None = None,
     treatment: int = CAPITAL_TREATMENT,
+    exchange_pins: dict[str, Any] | None = None,
 ) -> Assembled:
     """`bill_pins` (a replay): what the original run read from the client's bills — the levies and
     the kVAh factor and power factor — used instead of reading the bills again. `treatment` (a
@@ -258,6 +270,14 @@ def assemble(
         raise RunError("connection not found")
     site = s.get(Site, conn.site_id)
     assert site is not None
+    # exchange sources (Stage 18): offered only where the state's approved rule allows, scheduled
+    # as it requires and carrying the deviation risk it creates. A replay of a run made before
+    # that (no pin) takes them as that run did: offered, block by block, no deviation priced
+    xpins = dict(exchange_plan.PINS) if exchange_pins is None else dict(exchange_pins)
+    dev_pct = exchange_plan.deviation_pct(xpins)
+    xpins.setdefault("deviation_pct", str(dev_pct.value))
+    exchange_out: list[dict[str, Any]] = []
+    deviation_used = False
     q = select(LoadProfile).where(LoadProfile.connection_id == conn.id)
     q = q.where(LoadProfile.id == profile_id) if profile_id else q.order_by(LoadProfile.version.desc())
     lp = s.scalars(q).first()
@@ -599,6 +619,14 @@ def assemble(
         meta.rule = own_rule
         cost_prices: dict[tuple[int, str], SourcedValue] = {}
         own_inputs: list[SourcedValue] = []
+        if src.price_kind == "iex" and xpins.get("gate"):
+            xv = exchange_plan.verdict_for(s, facts, as_of, reader, src.iex_segment)
+            exchange_out.append(exchange_plan.verdict_json(xv, cs.kind, meta.label))
+            if not xv.offers:
+                # feasibility before price: no approved rule, or the rule bars it (invariant 2, rule 13)
+                notes.append(exchange_plan.left_out_note(meta.label, xv))
+                continue
+            meta.exchange = xv
         if own_rule is None:
             # no approved settlement rule for this ownership in the state: the simulator sets off
             # in the same block with no banking, which the plan must say (rule 13)
@@ -814,6 +842,14 @@ def assemble(
                     iex_rates.append(ab[0] * (sum(qs, ZERO) / len(qs)) + ab[1])
                 else:  # no clearing price for this block in the file: the slot's mean
                     iex_rates.append(energy.get((b.month.month, b.slot), ZERO))
+            terms = meta.exchange.deviation if meta.exchange is not None else None
+            if terms is not None and terms.priced:
+                # the deviation risk the rule creates, per kWh scheduled, on top of the landed cost
+                meta.deviation = [
+                    eexchange.deviation_adder(terms, iex_rates[t], rate_d[t], dev_pct.value) for t in range(n)
+                ]
+                iex_rates = [x + d for x, d in zip(iex_rates, meta.deviation, strict=True)]
+                deviation_used = True
             energy_d[cid] = iex_rates
             block_rates = [_f(x) for x in iex_rates]
         else:
@@ -832,6 +868,9 @@ def assemble(
                 min_size_kw=min_oa_kw[0] if min_oa_kw and src.price_kind != "iex" else 0.0,
                 dispatchable=src.price_kind == "iex",
                 delivered_share=_f(keep),
+                uniform_hours=_f(meta.exchange.schedule.uniform_hours)
+                if meta.exchange is not None and meta.exchange.schedule is not None
+                else 0.0,
             )
         )
         if min_oa_kw and src.price_kind != "iex":
@@ -1023,6 +1062,9 @@ def assemble(
         levies=levy_uses,
         thermal_duty=duty_own if thermals else None,
         capital_treatment=treatment,
+        exchange=exchange_out,
+        exchange_pins=xpins,
+        exchange_deviation=dev_pct if deviation_used else None,
     )
 
 
@@ -1198,6 +1240,7 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
                     ins,
                 ),
             }
+            row["exchange"].update(_exchange_detail(a, m, series, ins))
         if m.spec.kind != "rooftop_pv":
             for key, label, src in (
                 ("banked_kwh", "Banked (after the charge in kind)", rs.result.deposit_kwh),
@@ -1291,11 +1334,75 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
             "prices": a.vintages,
             "profile_ref": a.profile_ref.model_dump(mode="json"),
         },
+        # exchange sources asked for (Stage 18): the state's verdict for each, offered or left out,
+        # with its conditions and their citations (absent when none was asked for)
+        **({"exchange": a.exchange} if a.exchange else {}),
         "sensitivities": [],
         # a plan the search could not prove the cheapest says so wherever its notes are shown
         "notes": [*a.notes, *filter(None, [unproven_note(sol.status, sol.gap)])],
         "monthly": monthly,
     }
+
+
+def _exchange_detail(
+    a: Assembled, m: CandMeta, series: list[float], ins: list[SourcedValue]
+) -> dict[str, Any]:
+    """What a result says of an exchange source beyond its size: the verdict it is offered under,
+    the schedule checked against the rule (the solver never has the last word), the deviation risk
+    priced, and when it was bought against the grid's rate in those blocks."""
+    v = m.exchange
+    if v is None:  # a replay of a run made before Stage 18: its result as it was, nothing added
+        return {}
+    p = a.problem
+    ex = om.exact_of(p)
+    kwh = [Decimal(f"{x:.3f}") for x in series]
+    when = exchange_plan.when_bought(
+        kwh,
+        [b.month.month for b in p.blocks],
+        [b.hour % 24 for b in p.blocks],  # BlockMeta.hour counts from the start of the year
+        ex.energy[m.cid],
+        ex.rate,
+    )
+
+    def sv(v: Decimal, unit: Unit, label: str, q: str = "0.001") -> dict[str, Any]:
+        return derive(_q(v, q), unit, ins, label=label).model_dump(mode="json")
+
+    out: dict[str, Any] = {
+        "words": when["words"],
+        "by_month": [
+            {
+                "month": r["month"],
+                "name": r["name"],
+                "kwh": sv(r["kwh"], Unit.KWH, f"Bought in {r['name']}"),
+                "avg_landed": sv(r["avg_landed"], Unit.INR_PER_KWH, "Average landed cost", "0.0001"),
+                "avg_grid": sv(
+                    r["avg_grid"], Unit.INR_PER_KWH, "The DISCOM's rate in the same blocks", "0.0001"
+                ),
+                "saved": sv(r["saved"], Unit.INR, "Saved against the DISCOM's rate", "0.01"),
+            }
+            for r in when["by_month"]
+        ],
+        "by_hour_kwh": [
+            sv(x, Unit.KWH, f"Bought in the hour starting {h:02d}:00")
+            for h, x in enumerate(when["by_hour_kwh"])
+        ],
+    }
+    if v.schedule is not None:
+        cand = next(c for c in p.candidates if c.id == m.cid)
+        per_kw = cand.delivered_share * p.hours  # kWh at the meter per kW scheduled, in a block
+        try:
+            eexchange.check_schedule(v.schedule, [x / per_kw for x in series], p.hours, tol_kw=0.05)
+        except eexchange.ScheduleRefused as e:
+            raise RunError(f"{m.label}: the schedule solved is not one the rule allows: {e}") from e
+    out["verdict"] = exchange_plan.verdict_json(v, m.spec.kind, m.label)
+    cost = exchange_plan.deviation_cost(kwh, m.deviation, [*ins, *filter(None, [a.exchange_deviation])])
+    if cost is not None and a.exchange_deviation is not None:
+        out["deviation"] = {
+            "cost": cost.model_dump(mode="json"),
+            "assumed_pct": a.exchange_deviation.model_dump(mode="json"),
+            "refs": [r.model_dump(mode="json") for r in (v.deviation.refs if v.deviation else ())],
+        }
+    return out
 
 
 def _levies(
@@ -1755,6 +1862,8 @@ def execute(run_id: str) -> str:
                 bill_pins=(pins.get("bills") or {"levies": []}) if run.replay_of else None,
                 # a run made before the captive plant carried its capital replays as it was solved
                 treatment=capital_treatment(pins) if run.replay_of else CAPITAL_TREATMENT,
+                # a run made before exchange sources were gated replays as it was solved
+                exchange_pins=(pins.get("exchange") or {"gate": 0}) if run.replay_of else None,
             )
             used_versions = sorted(reader.used)
             vint_by_seg: dict[str, str] = {}
@@ -1806,6 +1915,9 @@ def execute(run_id: str) -> str:
                 # how capital is treated (`Assembled.capital_treatment`); absent on a run made
                 # before 25 Nov 2026 and on its replays
                 **({"capital": {"treatment": a.capital_treatment}} if a.capital_treatment >= 2 else {}),
+                # how exchange sources were treated and the deviation assumed (Stage 18); absent on a
+                # run made before it and on its replays
+                **({"exchange": a.exchange_pins} if a.exchange_pins.get("gate") else {}),
             }
             run.solver = {
                 "status": sol.status,
