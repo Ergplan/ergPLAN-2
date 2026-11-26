@@ -222,10 +222,12 @@ def _until_answered(key: str, site: Site, conns: list[Connection]) -> str:
     )
 
 
-def _every_bill_prints_power_factor(session: Session, conns: list[Connection]) -> bool:
-    """True when every month the site's synthesised profiles were built from carries a power factor
-    of its own (the bill's), so a stated one would be used nowhere."""
+def _every_bill_prints_power_factor(session: Session, conns: list[Connection]) -> str | None:
+    """How the bills give a power factor when every month the site's synthesised profiles were built
+    from carries one of its own (printed, or the bill's kWh over its kVAh: Stage 17), so a stated one
+    would be used nowhere; None otherwise."""
     found = False
+    paths: set[str] = set()
     for c in conns:
         last = session.scalars(
             select(LoadProfile)
@@ -234,17 +236,27 @@ def _every_bill_prints_power_factor(session: Session, conns: list[Connection]) -
         ).first()
         months = (((last.method or {}).get("inputs") or {}).get("months") or []) if last else []
         if any("power_factor" not in m for m in months):
-            return False
+            return None
+        for m in months:
+            pf = m.get("power_factor")
+            ref = (pf.get("source_ref") or {}) if isinstance(pf, dict) else {}
+            paths.add(str(ref.get("field_path") or ""))
         found = found or bool(months)
-    return found
+    if not found:
+        return None
+    if paths == {"energy.power_factor"}:
+        return "printed on every bill"
+    if paths == {"energy.kvah"}:
+        return "every bill's kWh over its kVAh"
+    return "on every bill (printed, or its kWh over its kVAh)"
 
 
-def _known(key: str, site: Site, power_factor_on_bills: bool = False) -> str | None:
-    """A value already typed with the site's inputs (or printed on every bill), which need not be
-    asked again."""
+def _known(key: str, site: Site, power_factor_on_bills: str | None = None) -> str | None:
+    """A value already typed with the site's inputs (or on every bill), which need not be asked
+    again."""
     prov = (site.provenance or {}).get(key) or {}
     if key == "power_factor" and power_factor_on_bills:
-        return "printed on every bill"
+        return power_factor_on_bills
     if key == "roof_sqm" and site.roof_sqm is not None:
         return store.words(key, site.roof_sqm)
     if key == "land_acres" and site.land_acres is not None:

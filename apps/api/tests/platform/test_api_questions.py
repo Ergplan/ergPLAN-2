@@ -24,6 +24,7 @@ AN = {"X-Ergplan-Actor": "analyst@joulewise.in", "X-Ergplan-Role": "analyst"}
 CL = {"X-Ergplan-Actor": "client@acme.in", "X-Ergplan-Role": "client"}
 SYNTHESIS_ONLY = ["shifts", "weekly_off", "seasonal_shutdowns", "large_loads"]
 ALL = [*SYNTHESIS_ONLY, "power_factor", "expansion", "roof_sqm", "land_acres", "contract_demand_kva"]
+OPEN = [k for k in ALL if k != "power_factor"]  # the fixture bills give it (kWh over kVAh)
 
 
 @pytest.fixture
@@ -71,12 +72,14 @@ def test_the_questions_are_listed_in_plain_words(site: tuple[str, str]) -> None:
     sid, _ = site
     d = client.get(f"/sites/{sid}/questions").json()
     assert d["site_id"] == sid and d["measured"] is False
-    assert [q["key"] for q in d["questions"]] == ALL and d["outstanding"] == ALL
+    # the bills print kWh and kVAh: their ratio is the power factor, so it is not outstanding (Stage 17)
+    assert [q["key"] for q in d["questions"]] == ALL and d["outstanding"] == OPEN
     for q in d["questions"]:
         assert q["question"].endswith("?") and q["unit"] and q["why"] and q["used_for"]
         assert q["asked"] is True and q["answer"] is None and q["until_answered"]
         assert "_" not in q["label"] and "_" not in q["question"] and "_" not in q["until_answered"]
     by = {q["key"]: q for q in d["questions"]}
+    assert by["power_factor"]["known_from_inputs"] == "every bill's kWh over its kVAh"
     assert (
         by["shifts"]["until_answered"]
         == "The operating pattern chosen with the inputs (Two-shift manufacturing)."
@@ -189,7 +192,6 @@ def test_each_shaping_answer_makes_a_version_that_still_matches_the_bills(site: 
     # what is not outstanding any more
     assert client.get(f"/sites/{sid}/questions").json()["outstanding"] == [
         "shifts",
-        "power_factor",
         "expansion",
         "roof_sqm",
         "land_acres",
@@ -223,7 +225,7 @@ def test_a_measured_file_replaces_the_synthesis(site: tuple[str, str]) -> None:
     by = {q["key"]: q for q in d["questions"]}
     for key in SYNTHESIS_ONLY:
         assert by[key]["asked"] is False and "measured 15-minute file" in by[key]["not_asked"]
-    assert d["outstanding"] == ["power_factor", "expansion", "roof_sqm", "land_acres", "contract_demand_kva"]
+    assert d["outstanding"] == ["expansion", "roof_sqm", "land_acres", "contract_demand_kva"]
     # an answer makes a new version, and it is the measured series again, with the answer pinned
     out = _put(sid, "roof_sqm", "8000")
     assert out["profiles"][0]["version"] == 4 and out["profiles"][0]["provenance"] == "measured"
