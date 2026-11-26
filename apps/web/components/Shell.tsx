@@ -62,7 +62,8 @@ export function Shell({ children }: { children: ReactNode }) {
         } catch {
           /* storage may be unavailable */
         }
-        const open = path.startsWith("/login") || path.startsWith("/p/") || path.startsWith("/documents");
+        // the calculator asks the API itself, which decides whether a visitor may use it (Stage 19)
+        const open = path.startsWith("/login") || path.startsWith("/p/") || path.startsWith("/documents") || path.startsWith("/calculator");
         if (m.required && !m.signed_in && !open) window.location.replace(`/login?next=${encodeURIComponent(path + window.location.search)}`);
       })
       .catch(() => undefined);
@@ -108,6 +109,10 @@ export function Shell({ children }: { children: ReactNode }) {
           <Link className="eg-nav__item" href="/bills" aria-current={current("/bills")}>
             <span data-icon="receipt" data-size="19"></span>
             Your bills
+          </Link>
+          <Link className="eg-nav__item" href="/calculator" aria-current={current("/calculator")}>
+            <span data-icon="calc" data-size="19"></span>
+            Landed-cost calculator
           </Link>
           <div className="eg-overline eg-nav__group">jouleWise</div>
           {ANALYST.map((a) => (
