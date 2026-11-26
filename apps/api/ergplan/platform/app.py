@@ -15,6 +15,9 @@ from starlette.middleware.base import RequestResponseEndpoint
 
 from ..core.settings import get_settings
 from ..db.base import session_scope
+from ..mcp import oauth as mcp_oauth
+from ..mcp import server as mcp_server
+from ..mcp import uploads as mcp_uploads
 from . import admin
 from .auth import guard, production
 from .routers import (
@@ -126,6 +129,9 @@ def create_app() -> FastAPI:
     app.include_router(questions_routes.router)  # Stage 15: what the bills do not say
     app.include_router(exchange.router)
     app.include_router(transition.router)
+    app.include_router(mcp_oauth.router)  # Stage 16: the MCP connector's OAuth
+    app.include_router(mcp_uploads.router)
+    app.include_router(mcp_server.router)
     return app
 
 
