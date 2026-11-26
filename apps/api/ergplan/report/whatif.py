@@ -81,7 +81,15 @@ def evaluate(s: Session, run: Run, w: WhatIf) -> dict[str, Any]:
         raise WhatIfFailed("every source is switched off")
     spec = spec.model_copy(update={"candidates": cands, "resolution_min": 60, "as_of": w.as_of or spec.as_of})
     # the capital treatment of the run being changed, so the two savings compare like with like
-    a = svc.assemble(s, sc, spec, Reader(), treatment=svc.capital_treatment(run.pins))
+    a = svc.assemble(
+        s,
+        sc,
+        spec,
+        Reader(),
+        treatment=svc.capital_treatment(run.pins),
+        # the generation profiles of the run being changed, not those uploaded since
+        generation_pins=(run.pins or {}).get("generation_profiles") or {},
+    )
     sizes = {z["kind"]: z for z in rr.summary["sizes"]}
     cap: dict[str, float] = {}
     bkw: dict[str, float] = {}

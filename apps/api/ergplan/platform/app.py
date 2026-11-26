@@ -22,6 +22,7 @@ from .routers import (
     cost,
     documents,
     evaluate,
+    generation,
     intake,
     landed,
     mix,
@@ -118,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(mix.router)
     app.include_router(evaluate.router)
     app.include_router(statebooks.router)
+    app.include_router(generation.router)
     return app
 
 

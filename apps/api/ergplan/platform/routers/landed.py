@@ -24,7 +24,7 @@ from ...engine import levies as elevies
 from ...engine import scope as escope
 from ...engine.gaps import GAPS
 from ...engine.tariff_eval import slot_of
-from ...intake import generation, site_intake
+from ...intake import generation, generation_profiles, site_intake
 from ...rulebook import repository
 from ...rulebook.models import RuleView
 from ...rulebook.scope import matches
@@ -327,6 +327,14 @@ def landed(
             or "third_party"
         )
 
+    # the generation profiles supplied for the connection's site (Stage 15): a run generates with
+    # them in place of the library curve, so the plant's CUF here is theirs too
+    conn_row = s.get(Connection, connection_id) if connection_id else None
+    supplied = generation_profiles.in_use(s, conn_row.site_id) if conn_row is not None else {}
+
+    def own_cuf(source: str) -> SourcedValue | None:
+        return generation_profiles.supplied_cuf(source, "open_access", facts.state, supplied)
+
     def plant_of(spec: landed_cost.SourceSpec) -> lcoe.GenerationCost | None:
         """The plant behind a solar, wind or hybrid source, were it the consumer's own: the benchmark
         with whatever the client stated in its place, at the CUF a run generates with (the state's
@@ -339,7 +347,7 @@ def landed(
         def pick(v: Decimal | int | None, d: SourcedValue) -> SourcedValue:
             return d if v is None else _stated(Decimal(str(v)), d.unit, str(d.label))
 
-        cuf = (
+        cuf = own_cuf(spec.source) or (
             _stated(o.cuf_pct, Unit.PERCENT, "CUF")
             if o.cuf_pct
             else _assumed(
