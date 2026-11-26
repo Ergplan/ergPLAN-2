@@ -129,7 +129,8 @@ def test_from_bills_site_connection_profile(billx: FakeBillx) -> None:
     sep = next(m for m in prof["months"] if m["month"] == "2026-09-01")
     assert sep["energy_kwh"]["value"] == "1972620.000" and sep["energy_kwh"]["unit"] == "kWh"
     assert sep["energy_kwh"]["source_refs"][0]["kind"] == "bill"
-    assert sep["max_kw"]["value"] == "3250.000"
+    # the recorded 3,250 kVA times the bill's kWh / kVAh, the bill printing no power factor (Stage 17)
+    assert Decimal(sep["max_kw"]["value"]) == (Decimal(3250) * 1972620 / 2059020).quantize(Decimal("0.001"))
     apr = next(m for m in prof["months"] if m["month"] == "2026-04-01")
     assert apr["extrapolated"] and apr["energy_kwh"]["source_refs"][0]["kind"] == "assumption"
     csv = client.get(f"/connections/{out['connection_id']}/profile.csv")

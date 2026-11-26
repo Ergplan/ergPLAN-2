@@ -604,7 +604,10 @@ def _bill_power_factor(v: dict[str, bill_store.BillValue]) -> Fact[Decimal] | No
     pf = kwh.dec / kvah.dec
     if pf < Decimal("0.3"):
         return None
-    return Fact(value=pf, provenance="bill", ref=kvah.ref.model_copy(update={"note": "kWh / kVAh as billed"}))
+    return Fact(value=pf, provenance="bill", ref=kvah.ref.model_copy(update={"note": PF_FROM_KVAH}))
+
+
+PF_FROM_KVAH = "kWh / kVAh as billed"  # the note of a power factor worked from the bill's two registers
 
 
 def from_bills(session: Session, bill_ids: list[str], overrides: dict[str, Any] | None = None) -> SiteIntake:
