@@ -152,3 +152,15 @@ def test_production_sign_in_and_open_access(prod: pytest.MonkeyPatch) -> None:
     # the open-access visitor is an analyst: may read drafts (never approve them)
     d = c.get("/tariffs/msedcl", params={**ON, "drafts": "true"})
     assert d.status_code == 200 and any(r["status"] == "draft" for r in d.json()["rows"])
+
+
+def test_the_rule_book_screens_show_drafts_to_analysts_only() -> None:
+    """Invariant 2: a draft reaches only the analysts, on the rule-book screens as on this tab."""
+    restore_committed()
+    vid = absurd_draft()
+    listed = {v["id"] for v in client.get("/rulebooks/versions", headers=AN).json()}
+    assert vid in listed
+    for who in (CL, {}):
+        assert vid not in {v["id"] for v in client.get("/rulebooks/versions", headers=who).json()}
+        assert client.get(f"/rulebooks/versions/{vid}", headers=who).status_code == 404
+    assert client.get(f"/rulebooks/versions/{vid}", headers=AN).json()["version"]["status"] == "draft"

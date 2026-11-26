@@ -201,4 +201,4 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | Stage 12: Gujarat's cited orders could not be obtained (gercin.org sends no intermediate certificate), Haryana's additional-surcharge order neither (herc.gov.in did not answer); Rajasthan's register rows cite nothing; 65 listed figures still rest on the register; on the live server Chhattisgarh's stored order copy differs from the one read in the build, so only 1 of its 11 figures is grounded there | Person (the orders) / next round |
 | Stage 12's eight drafts need the analyst's approval, state by state; per-DISCOM surcharge and wheeling (Bihar, Odisha) and voltage-banded surcharge (Chhattisgarh) are not in the rule family as imported | Analyst |
 | Bihar's ToD draft is now picked up (the platform sets `consumer_kind`); approved Odisha and Chhattisgarh open-access rows scoped by `consumer_kind` now apply to new plans in those states, as their scope says | Closed 26 Nov |
-
+| The DISCOM tariffs tab shows `min_units_per_kva_month` in kWh; `core/units.py` has no kWh-per-kVA unit | Next round |

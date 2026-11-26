@@ -16,7 +16,7 @@ from ...db.base import session_scope
 from ...db.models import Jurisdiction, Rule, RulebookVersion, RuleTest, RuleTestRun
 from ...rulebook import golden, service
 from ...rulebook.schemas import FAMILIES, UnknownFamily, family_schema
-from ..auth import Caller, analyst, named_analyst
+from ..auth import Caller, analyst, caller, named_analyst
 
 router = APIRouter(prefix="/rulebooks", tags=["rulebooks"])
 Analyst = Annotated[Caller, Depends(analyst)]
@@ -224,8 +224,13 @@ def families() -> dict[str, Any]:
 
 @router.get("/versions", response_model=list[VersionOut])
 def versions(
-    jurisdiction: str | None = None, family: str | None = None, status: str | None = None
+    who: Annotated[Caller, Depends(caller)],
+    jurisdiction: str | None = None,
+    family: str | None = None,
+    status: str | None = None,
 ) -> list[VersionOut]:
+    """Every version for an analyst; the approved and superseded ones only for anyone else, since a
+    draft reaches only the analysts (invariant 2)."""
     with session_scope() as s:
         q = select(RulebookVersion).order_by(
             RulebookVersion.jurisdiction_id, RulebookVersion.family, RulebookVersion.version.desc()
@@ -236,6 +241,8 @@ def versions(
             q = q.where(RulebookVersion.family == family)
         if status:
             q = q.where(RulebookVersion.status == status)
+        if not _sees_drafts(who):
+            q = q.where(RulebookVersion.status != "draft")
         out = []
         for v in s.scalars(q):
             n = len(list(s.scalars(select(Rule.id).where(Rule.rulebook_version_id == v.id))))
@@ -244,9 +251,16 @@ def versions(
 
 
 @router.get("/versions/{vid}", response_model=VersionDetail)
-def version(vid: str) -> VersionDetail:
+def version(vid: str, who: Annotated[Caller, Depends(caller)]) -> VersionDetail:
     with session_scope() as s:
+        v = s.get(RulebookVersion, vid)
+        if v is not None and v.status == "draft" and not _sees_drafts(who):
+            raise HTTPException(404, "rulebook version not found")  # a draft reaches analysts only
         return _detail(s, vid)
+
+
+def _sees_drafts(who: Caller) -> bool:
+    return who.role == "analyst" and who.signed_in
 
 
 @router.post("/versions", response_model=VersionDetail, status_code=201)

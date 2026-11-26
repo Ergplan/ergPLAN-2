@@ -361,4 +361,5 @@ The person asked for one application from two: this repository's flow and engine
 - **A run with no plan in time completes with today's supply**, labelled as such and never recommended, rather than failing. Runs made before 26 Nov replay with live site reads and without `consumer_kind`.
 - **The rule book states the landed-cost screen's upper bound** (every unit banked) beside its own landed cost before banking.
 - **Ended MCP sign-ins are deleted a day after their last token ends; a client 30 days after registration once it has no tokens.** Only unusable rows are deleted.
+- **The DISCOM tariffs tab (the person's request)** shows approved rules only by default (invariant 2); drafts for analysts, through `rulebook.sandbox`; no number computed, every figure restates a rule field in the regulation's unit; behind sign-in like every screen (open to all while `ERGPLAN_OPEN_ACCESS` is on). Building it found that `GET /rulebooks/versions` and `/versions/{id}` handed draft rows to any signed-in client; they now show drafts to analysts only.
 

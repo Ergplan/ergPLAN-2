@@ -141,7 +141,7 @@ def test_regreader_direct_creates_a_draft(monkeypatch: pytest.MonkeyPatch) -> No
     )
     assert r.status_code == 201, r.text
     assert r.json()["accepted"] == 1 and r.json()["version_id"]
-    v = client.get(f"/rulebooks/versions/{r.json()['version_id']}").json()
+    v = client.get(f"/rulebooks/versions/{r.json()['version_id']}", headers=AN).json()
     assert v["version"]["origin"] == "regreader_direct" and v["rows"][0]["source_ref"]["page"] == 1
     assert client.get(f"/regreader/locate/{d['id']}?topic=rate_schedule").status_code == 200
     assert (
