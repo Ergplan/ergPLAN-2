@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # Stage 16: the MCP connector's address (what the person adds in Claude). Empty: the public
     # address followed by /mcp. Its scheme and host are also the OAuth issuer's.
     ergplan_mcp_url: str = ""
+    # hosts an MCP connector may send the sign-in back to over https (comma-separated); http only to
+    # this machine. Claude's own hosts by default, so a client someone else registers cannot
+    # collect the administrator's grant at an address of their choosing
+    ergplan_mcp_redirect_hosts: str = "claude.ai,claude.com"
     ergplan_resettle_tolerance_kwh: Decimal = Decimal("1")
     # the solve's budget (sizing takes half; each month's 15-minute dispatch at least 30 s): runs
     # are solved on the worker, and a mix of several sources needs minutes, not seconds

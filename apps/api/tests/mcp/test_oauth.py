@@ -366,6 +366,19 @@ def test_registration_checks_the_metadata_and_is_rate_limited(
 ) -> None:
     c = h.client()
     assert c.post("/oauth/register", json={"redirect_uris": ["http://evil.example/cb"]}).status_code == 400
+    # https only to Claude's own hosts: a client someone else registers cannot collect the grant at
+    # an address of its choosing (ERGPLAN_MCP_REDIRECT_HOSTS widens the list)
+    assert c.post("/oauth/register", json={"redirect_uris": ["https://evil.example/cb"]}).status_code == 400
+    assert (
+        c.post("/oauth/register", json={"redirect_uris": ["https://claude.ai.evil.example/cb"]}).status_code
+        == 400
+    )
+    assert (
+        c.post(
+            "/oauth/register", json={"redirect_uris": ["https://claude.com/api/mcp/auth_callback"]}
+        ).status_code
+        == 201
+    )
     assert c.post("/oauth/register", json={"redirect_uris": []}).status_code == 400
     assert (
         c.post(

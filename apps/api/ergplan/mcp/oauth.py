@@ -216,14 +216,18 @@ def _error(
 
 
 def redirect_allowed(uri: str) -> bool:
-    """https anywhere, or http to this machine (a local client such as Claude Code); no fragment."""
+    """https to a host of `ERGPLAN_MCP_REDIRECT_HOSTS` (Claude's own, by default), or http to this
+    machine (a local client such as Claude Code); no fragment."""
     try:
         p = urlsplit(uri)
     except ValueError:
         return False
     if p.fragment or not p.netloc or len(uri) > 2000:
         return False
-    return p.scheme == "https" or (p.scheme == "http" and p.hostname in _LOOPBACK)
+    hosts = {h.strip().lower() for h in get_settings().ergplan_mcp_redirect_hosts.split(",") if h.strip()}
+    return (p.scheme == "https" and (p.hostname or "").lower() in hosts) or (
+        p.scheme == "http" and p.hostname in _LOOPBACK
+    )
 
 
 def _strings(v: Any, default: list[str]) -> list[str] | None:
@@ -248,7 +252,9 @@ async def register(request: Request) -> JSONResponse:
     bad = [u for u in uris if not redirect_allowed(u)]
     if bad:
         return _error(
-            "invalid_redirect_uri", f"a redirect URI is https, or http to localhost: {bad[0][:200]}"
+            "invalid_redirect_uri",
+            "a redirect URI is https to Claude (ERGPLAN_MCP_REDIRECT_HOSTS), or http to localhost: "
+            + bad[0][:200],
         )
     grants = _strings(body.get("grant_types"), ["authorization_code"])
     if grants is None or "authorization_code" not in grants or any(g not in GRANT_TYPES for g in grants):
