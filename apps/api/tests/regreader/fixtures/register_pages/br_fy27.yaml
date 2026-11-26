@@ -1,0 +1,70 @@
+# Lines copied from the stored BERC tariff order for FY 2026-27 (NBPDCL & SBPDCL, 18.03.2026,
+# document 440bde3d-24ac-5a3c-b337-1b728e648cb4), PDF pages 510 to 520, printed pages 484 to 494:
+# the open-access chapter, trimmed to the lines around the figures the State Regulation Master
+# cites. Each entry is one page of the fixture PDF, headed by the page number the order prints.
+pages:
+  - printed: 484
+    lines:
+      - "Table 8.7: Wheeling charges for 33 kV voltage level approved for FY 2026-27 for NBPDCL and SBPDCL"
+      - "Sl. No Particulars Unit NBPDCL SBPDCL"
+      - "Wheeling charges for 33 kV voltage"
+      - "level (item 3/1) Rs/kWh 0.52 0.53"
+      - "Table 8.8: Wheeling charges for 11 kV voltage level approved for FY 2026-27 for NBPDCL and SBPDCL"
+      - "3 Loss in 33 kV (3.36%) MU 12.00 57.83"
+      - "Wheeling charges for 11 kV voltage level"
+      - "(item 6/4) Rs/kWh 0.53 0.57"
+      - "The Commission approves wheeling charges for 33 kV voltage level at 52"
+      - "paisa/kWh and 53 paisa/kWh for NBPDCL and SBPDCL respectively."
+      - "The Commission approves wheeling charges for 11 kV voltage level at 53"
+      - "paisa/kWh and 57 paisa/kWh for NBPDCL and SBPDCL respectively."
+  - printed: 485
+    lines:
+      - "8.3.1 Transmission Charges"
+      - "The Commission has approved Rs. 2518.18 Crore (Rs. 2186.08 Crore for BSPTCL"
+  - printed: 486
+    lines:
+      - "Table 8.9: Monthly Transmission Charges applicable to Long/Medium term Open"
+      - "Access consumers as approved for FY 2026-27"
+      - "Rs/MW/Month 155677"
+      - "Thus, the Transmission Charges shall be Rs. 155677/MW/Month for"
+      - "long/medium term open access consumers. In addition to above transmission"
+      - "charges, transmission losses of 2.56 % shall be reduced in kind from the energy"
+      - "input into the state transmission system."
+  - printed: 487
+    lines:
+      - "Rs. /MWh 294.77"
+  - printed: 488
+    lines:
+      - "Table 8.11: Transmission Charges applicable to open access consumer are at different voltage levels"
+      - "Wheeling charges of 33"
+      - "kV plus losses of 33 kV"
+      - "network (Loss @ 3.36%)"
+      - "shall be payable."
+      - "Losses for 33 and 11 kV"
+      - "shall also be payable"
+      - "(Cumulative loss"
+      - "@8.19%)"
+  - printed: 489
+    lines:
+      - "energy delivered into transmission system as 49184.41 MUs, the SLDC"
+      - "charges works out to 0.68 Paise/kWh."
+      - "8.6. Cross Subsidy Surcharge"
+  - printed: 490
+    lines:
+      - "Table 8.13: Cross Subsidy Surcharge for FY 2026-27"
+  - printed: 491
+    lines:
+      - "Table 8.15: Workout of Cross-subsidy Surcharge at different voltage for FY 2026-27"
+      - "1 For 440/220/132kV consumers 1.77 1.68"
+      - "2 For 33kV consumers 1.77 1.68"
+      - "3 For 11kV consumers 1.77 1.68"
+  - printed: 492
+    lines:
+      - "Provided also that such additional surcharges shall not be levied in case"
+  - printed: 493
+    lines:
+      - "Additional surcharge for open access cannot be determined in absence of"
+  - printed: 494
+    lines:
+      - "Therefore, the Commission is not determining any Additional Surcharge for all"
+      - "the rate for Reactive Energy charges is fixed at 5 paise/kVARh w.e.f."

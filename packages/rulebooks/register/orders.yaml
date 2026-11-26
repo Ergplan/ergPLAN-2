@@ -1,0 +1,349 @@
+# The orders jouleWise's State Regulation Master (erg-plan-2.0.json) cites, and where each is in
+# ergPLAN's document library. Read by `python -m ergplan.regreader.register_pages` (Stage 12),
+# which looks for each register figure on the cited page of the stored PDF and, where the text
+# layer prints it, proposes a DRAFT whose ref opens that page. Nothing here is a figure.
+#
+# orders[].cites      the register's citation as it begins (the longest match wins, per state)
+# orders[].documents  the PDFs of the order by SHA-256, searched in this order; the document id is
+#                     core/ids.py's uuid5 of the hash, the same on every server
+# orders[].obtained   false: not in the library; `why` says what is missing and `url_public` where
+#                     the regulator publishes it (or where to look)
+# figures[]           what the citation alone does not say, written by a person from the stored
+#                     page: the pages to read when the register names none (as the order prints
+#                     them), text the quoted line must contain when the figure is printed more than
+#                     once, or why a figure cannot be grounded. A figure is never written here.
+orders:
+  # ------------------------------------------------------------------ Andhra Pradesh
+  - key: ap-rsto-fy27
+    state: AP
+    cites: ["APERC RSTO FY27"]
+    title: "Retail Supply Tariffs FY 2026-27 - Order on Tariff for Retail Sale of Electricity during FY 2026-27 & DISCOMs' True up/Down and Performance Review FY 2024-25, 25th March 2026"
+    regulator: APERC
+    order_date: 2026-03-25
+    url_public: https://aperc.gov.in/upload/RSTO_FY2026-27.pdf
+    documents: [b7269314529443e99fab5df63e23e46fdd5de4403178275cdd4cda7d091ddc0a]
+  - key: ap-wheeling-myt
+    state: AP
+    cites: ["APERC Wheeling MYT O.P.74-76/2023"]
+    title: "APERC order on the distribution (wheeling) business MYT, O.P. Nos. 74 to 76 of 2023, 27-09-2024"
+    regulator: APERC
+    order_date: 2024-09-27
+    url_public: https://aperc.gov.in/upload/MYTOrderforWheelingBusinessforthe5thControlPeriodFY202425toFY202829.pdf
+    documents: [7f406e2e965c05e651be724673934983d6a9a42d4577d2b49cd48a09938a1b26]
+  - key: ap-transmission-myt
+    state: AP
+    cites: ["APERC Transmission MYT O.P.77/2023"]
+    title: "APERC transmission MYT order for APTRANSCO, O.P. No. 77 of 2023, 06-08-2024"
+    regulator: APERC
+    order_date: 2024-08-06
+    url_public: https://aperc.gov.in/upload/TransmissionTarifforderfortheperiodFY202425toFY202829.pdf
+    documents: [28d3dc033dd727bb6f290e1a42c983cd86964c9dbe730a065f4454aeda4ba47d]
+  - key: ap-sldc-myt
+    state: AP
+    cites: ["APERC SLDC MYT O.P.78/2023"]
+    title: "APERC SLDC MYT order, O.P. No. 78 of 2023, 27-08-2024"
+    regulator: APERC
+    order_date: 2024-08-27
+    url_public: https://aperc.gov.in/upload/MYTOrderronSLDCschargesforthe5thControlPeriod270824.pdf
+    documents: [2406d615f7268c49e14ba1331d5319895a2e5092d7d0e99fba42ff53e18fc2fb]
+  - key: ap-geoa
+    state: AP
+    cites: ["APERC GEOA"]
+    title: "APERC Green Energy Open Access Regulation No. 3 of 2024"
+    regulator: APERC
+    kind: regulation
+    url_public: https://aperc.gov.in/
+    obtained: false
+    why: the register cites the regulation through a comparison spreadsheet, not a page; the regulation is not in the library
+  - key: ap-slide
+    state: AP
+    cites: ["Exempted - adopted from slide"]
+    title: "A presentation slide (OA_Solar_4State_Comparison spreadsheet)"
+    kind: not_an_order
+    obtained: false
+    why: the register's source is a slide in a comparison spreadsheet, not an order or regulation
+  # ------------------------------------------------------------------ Bihar
+  - key: br-to-fy27
+    state: BR
+    cites: ["BERC TO FY27", "BERC TO NBPDCL/SBPDCL FY27"]
+    title: "Tariff Order of DISCOMS (NBPDCL & SBPDCL) for FY 2026-27"
+    regulator: BERC
+    order_date: 2026-03-18
+    url_public: https://berc.co.in/images/pdf/tariff-order/2026-27/DISCOMs_FO_TARIFF_CN_50_51_DT_180326.pdf
+    documents: [a247053b586fd8909e14b00280d24e0d39357b94bdb36e7b670f21e5aa794537]
+  # ------------------------------------------------------------------ Chhattisgarh
+  - key: cg-to-fy27
+    state: CG
+    cites: ["CSERC TO CSPDCL FY27"]
+    title: "Tariff Order for CSPDCL for FY 2026-30 and retail tariff for FY 2026-27 (order, and its tariff schedule)"
+    regulator: CSERC
+    order_date: 2026-06-15
+    url_public: https://cserc.gov.in/upload/./upload_terrif_order/16-07-2026_1784180584.pdf
+    documents:
+      - 7c77f6d68eb43a622ab905baa9c136e79975017d048e53b7ecd395f0ea1d5fd8
+      - fd43a2261ae7950057138a47ca429fb69919d04b637b64d1262d46190065ebf9
+  # ------------------------------------------------------------------ Gujarat
+  - key: gj-dgvcl-fy27
+    state: GJ
+    cites: ["GERC DGVCL TO FY27"]
+    title: "GERC Tariff Order: Truing up for FY 2024-25 and Revised ARR & Tariff for FY 2026-27, DGVCL (Case No. 2581 of 2025, 25.03.2026)"
+    regulator: GERC
+    order_date: 2026-03-25
+    url_public: https://gercin.org/wp-content/uploads/2026/03/DGVCL-2581-2025-Tariff-Order-for-FY-2026-27-dtd.-25.03.2026.pdf
+    obtained: false
+    why: gercin.org fails certificate verification (it does not send its intermediate certificate); not downloaded with checks off
+  - key: gj-as-05-2026
+    state: GJ
+    cites: ["GERC AS Order 05/2026"]
+    title: "GERC order on additional surcharge, Order No. 05 of 2026, 10-09-2026"
+    regulator: GERC
+    order_date: 2026-09-10
+    url_public: https://gercin.org/order-category/other-orders/
+    obtained: false
+    why: gercin.org fails certificate verification; the order's PDF link could not be read
+  - key: gj-getco-myt
+    state: GJ
+    cites: ["GERC GETCO MYT Case 2419/2024"]
+    title: "GERC MYT order for GETCO, Case No. 2419 of 2024, 29-03-2025"
+    regulator: GERC
+    order_date: 2025-03-29
+    url_public: https://gercin.org/
+    obtained: false
+    why: gercin.org fails certificate verification; the order's PDF link could not be read (a third-party mirror was not used)
+  # ------------------------------------------------------------------ Haryana
+  - key: hr-to-fy27
+    state: HR
+    cites: ["HERC TO FY27", "HERC TO UHBVN/DHBVN FY27"]
+    title: "Commission's Order in HERC Petition 94 & 95 of 2025: True-up FY2024-25, Mid-Year Review FY2025-26 and ARR of FY2026-27, UHBVNL and DHBVNL (25.03.2026)"
+    regulator: HERC
+    order_date: 2026-03-25
+    url_public: https://uhbvn.org.in/staticContent/documents/HERC/2026/02_APR_2025_26_01GC.pdf
+    documents: [799a4a6c948fb968028bde549b74287ac69b5667ac33688b5bff45a081d783a7]
+  - key: hr-as-2026
+    state: HR
+    cites: ["HERC AS order Pet.05&06/2026"]
+    title: "HERC order on additional surcharge, HERC/Petition Nos. 05 and 06 of 2026, 30-04-2026"
+    regulator: HERC
+    order_date: 2026-04-30
+    url_public: https://herc.gov.in/
+    obtained: false
+    why: herc.gov.in did not answer from this build's network (ports 80 and 443 time out)
+  # ------------------------------------------------------------------ Madhya Pradesh
+  - key: mp-rst-fy27
+    state: MP
+    cites: ["MPERC RST FY27"]
+    title: "MPERC ARR and Retail Supply Tariff Order for FY 2026-27 (Petition No. 140 of 2025, 26.03.2026)"
+    regulator: MPERC
+    order_date: 2026-03-26
+    url_public: https://mperc.in/uploads/petition_order_document/MPERC_Pno_140_2025_State_DISCOMs_ARR_RST__ORDER_FY_2026_27_FINAL_ORDER.pdf
+    documents: [77ffe9d2e48277354348b32ab3a90d74639a4b406757ae8e658197bd79f91afb]
+  - key: mp-mpptcl-myt
+    state: MP
+    cites: ["MPERC MPPTCL MYT P.54/2024"]
+    title: "MPERC MYT order for MPPTCL, Petition No. 54 of 2024, 20-03-2025"
+    regulator: MPERC
+    order_date: 2025-03-20
+    url_public: https://mperc.in/uploads/petition_order_document/MPERC_PNo_54_2024_Final_Order_20_03_2025.pdf
+    documents: [d9d4b9a932f6fe2ca9d9604a6a3e57c09b81e1c051f115c2140c7cc8c9cc710a]
+  - key: mp-sldc
+    state: MP
+    cites: ["MPERC SLDC P.134/2025"]
+    title: "MPERC order for MP SLDC, Petition No. 134 of 2025, 09-03-2026"
+    regulator: MPERC
+    order_date: 2026-03-09
+    url_public: https://mperc.in/uploads/petition_order_document/MPERC_PNo_134_2025_Final_Order_09_03_2026.pdf
+    documents: [f95c2b1c6606e84a4f1a1291846795c385b698aec96e7c21130f38e2467d739d]
+  # ------------------------------------------------------------------ Odisha
+  - key: od-discom-fy27
+    state: OD
+    cites: ["OERC DISCOM TO FY27"]
+    title: "OERC: Aggregate Revenue Requirement, Wheeling Tariff & Retail Supply Tariff for the FY 2026-27 (four DISCOMs, 24.03.2026)"
+    regulator: OERC
+    order_date: 2026-03-24
+    url_public: https://www.orierc.org/CuteSoft_Client/writereaddata/upload/DISCOM_TARIFF_ORDER_FY_2026-27.pdf
+    documents: [d58d281787d4dd34e7b895add2e7cb37dbf3b9e8d5f1a1ea208dc57ceffde0ab]
+  - key: od-optcl-fy27
+    state: OD
+    cites: ["OERC OPTCL TO FY27 Case 121/2025"]
+    title: "OERC transmission tariff order for OPTCL, FY 2026-27, Case No. 121 of 2025, 24-03-2026"
+    regulator: OERC
+    order_date: 2026-03-24
+    url_public: https://www.orierc.org/CuteSoft_Client/writereaddata/upload/OPTCL_TARIFF_ORDER_FY_2026-27.pdf
+    documents: [d32f8634b5b2cca794c78decce4db058324b942608e73e8a99587f6214acc69c]
+  - key: od-sldc-fy27
+    state: OD
+    cites: ["OERC SLDC Case 119/2025"]
+    title: "OERC order for the Odisha SLDC, FY 2026-27, Case No. 119 of 2025, 24-03-2026"
+    regulator: OERC
+    order_date: 2026-03-24
+    url_public: https://www.orierc.org/CuteSoft_Client/writereaddata/upload/SLDC_TARIFF_ORDER_FY_2026-27.pdf
+    documents: [eb9ef14e0e059b2eed76fa586517dcdef8f7735f0c64802c0d899f12fd468804]
+  # ------------------------------------------------------------------ Tamil Nadu
+  - key: tn-to-6-2025
+    state: TN
+    cites: ["TNERC T.O. 6/2025", "TNERC Order 6 of 2024 / TO 6 of 2025"]
+    title: "TNPDCL Tariff Order, 2025 - TNERC T.O. No. 6 of 2025 dt 30-06-2025, Determination of Tariff for Distribution for FY 2025-26"
+    regulator: TNERC
+    order_date: 2025-06-30
+    url_public: https://www.tnerc.tn.gov.in/Orders/files/TO-Order%20No6300620252131.pdf
+    documents: [efc5a4600d4319bc81565a0001540fd2f5f5301461f9e61d5ec0f345acdf31c4]
+  - key: tn-to-6-2024
+    state: TN
+    cites: ["TNERC Order 6 of 2024"]
+    title: "TANGEDCO Tariff Order, 2024 - TNERC T.O. No. 6 of 2024 dt 15-07-2024 (suo motu, from 01-07-2024)"
+    regulator: TNERC
+    order_date: 2024-07-15
+    url_public: https://tnerc.tn.gov.in/Orders/files/TO-Order%20No%206150720240650.pdf
+    documents: [8e6cc00dc1eeb5fcd92bcb033c88b005667f0a7145b1270c14f05ff2be80ec9d]
+  - key: tn-8-2022
+    state: TN
+    cites: ["TNERC Order 8/2022", "TNERC T.O. 8 of 2022"]
+    title: "TNERC Order No. 8 of 2022 in T.P. No. 2 of 2022 (transmission tariff), 09-09-2022"
+    regulator: TNERC
+    order_date: 2022-09-09
+    url_public: https://tnerc.tn.gov.in/Orders/files/TO-Order%20No%20100920220048.pdf
+    documents: [0a9d8484b82bed60fa3f005395a5ad46dfea1342cc29c362ab59de21db191a4b]
+  - key: tn-as-news
+    state: TN
+    cites: ["TNERC ~30-Apr-2025 (Mercom)"]
+    title: "A news report (Mercom), not an order"
+    kind: not_an_order
+    obtained: false
+    why: the register's source is a news report; it says itself that the FY 2026-27 figure was not found
+  - key: tn-tax-act
+    state: TN
+    cites: ["TN Tax on Consumption or Sale of Electricity Act 2003"]
+    title: "Tamil Nadu Tax on Consumption or Sale of Electricity Act, 2003"
+    kind: regulation
+    obtained: false
+    why: a state Act cited by name through a comparison spreadsheet; the Act is not in the library
+  - key: tn-geoa
+    state: TN
+    cites: ["TNERC GEOA Regs 2025"]
+    title: "TNERC Green Energy Open Access Regulations, 2025"
+    regulator: TNERC
+    kind: regulation
+    obtained: false
+    why: the regulation is not in the library
+  # ------------------------------------------------------------------ Uttarakhand
+  - key: uk-upcl-fy27
+    state: UK
+    cites: ["UERC UPCL TO FY27"]
+    title: "UERC Tariff Order of UPCL for FY 2026-27 (True up FY 2024-25, APR FY 2025-26, ARR FY 2026-27; 30.03.2026)"
+    regulator: UERC
+    order_date: 2026-03-30
+    url_public: https://cdnbbsr.s3waas.gov.in/s3cf05968255451bdefe3c5bc64d550517/uploads/2026/03/202603311394829151.pdf
+    documents: [1a9299178035d9e9460733256419710b2c3d5d7cc98b3703be60130aea99eb91]
+  - key: uk-ptcul-fy27
+    state: UK
+    cites: ["UERC PTCUL TO FY27 Pet.92/2025"]
+    title: "UERC Tariff Order of PTCUL for FY 2026-27, Petition No. 92 of 2025, 30-03-2026"
+    regulator: UERC
+    order_date: 2026-03-30
+    url_public: https://cdnbbsr.s3waas.gov.in/s3cf05968255451bdefe3c5bc64d550517/uploads/2026/03/202603311775803083.pdf
+    documents: [1e22197b7d37ebe3283a2968d977b1740563e8017d3854f462e38e28e2add41f]
+  - key: uk-sldc-fy27
+    state: UK
+    cites: ["UERC SLDC TO FY27 Pet.91/2025"]
+    title: "UERC Tariff Order of SLDC Uttarakhand for FY 2026-27, Petition No. 91 of 2025, 30-03-2026"
+    regulator: UERC
+    order_date: 2026-03-30
+    url_public: https://cdnbbsr.s3waas.gov.in/s3cf05968255451bdefe3c5bc64d550517/uploads/2026/03/20260331423614067.pdf
+    documents: [d48d69ff6fd8288d046ee1931c5757ac9e981b9c65fef7353cb74ddcf45615e6]
+  - key: uk-as-2026
+    state: UK
+    cites: ["UERC AS order Pet.40/2026"]
+    title: "UERC order on additional surcharge, Petition No. 40 of 2026, 28-09-2026"
+    regulator: UERC
+    order_date: 2026-09-28
+    url_public: https://cdnbbsr.s3waas.gov.in/s3cf05968255451bdefe3c5bc64d550517/uploads/2026/09/202609291646920408.pdf
+    documents: [a0f347fd2540ec874acc701f12a989838ee3982ed170e33abd3b6c94038316f6]
+
+figures:
+  # ------------------------------------------------------------------ Andhra Pradesh
+  - {state: AP, component: cross_subsidy_surcharge, anchor: "HT II(A) |Industry 7.69"}
+  - {state: AP, component: additional_surcharge, anchor: "Commission has not determined the same"}
+  # ------------------------------------------------------------------ Bihar
+  - state: BR
+    component: cross_subsidy_surcharge
+    anchor: "For 33kV consumers 1.77 1.68"
+    differs: "Table 8.15 (printed page 491) approves Rs 1.77/kWh for NBPDCL and Rs 1.68/kWh for SBPDCL; the register applies SBPDCL's Rs 1.68 to the whole state"
+  - {state: BR, component: additional_surcharge, anchor: "not determining any Additional Surcharge"}
+  - state: BR
+    component: wheeling
+    voltage: "33"
+    anchor: "53 paisa/kWh for NBPDCL and SBPDCL"
+    differs: "the 33 kV wheeling charge is 52 paise/kWh for NBPDCL and 53 paise/kWh for SBPDCL (printed page 484); the register applies SBPDCL's figure to the whole state"
+  - state: BR
+    component: wheeling
+    voltage: "11"
+    why: "the register adds the 33 kV and 11 kV charges (0.53 + 0.57) for power drawn at 11 kV from a 33 kV or higher injection (Table 8.11); the sum is not printed. NBPDCL's 11 kV charge is 0.53 and SBPDCL's 0.57 (printed page 484)"
+  - {state: BR, component: wheeling, voltage: "132", why: "Table 8.11 says a transmission-connected consumer pays transmission charges and losses; it prints no nil wheeling charge"}
+  - {state: BR, component: wheeling, voltage: "220", why: "Table 8.11 says a transmission-connected consumer pays transmission charges and losses; it prints no nil wheeling charge"}
+  - {state: BR, component: stu_losses, order: br-to-fy27, pages: [486], anchor: "transmission losses of 2.56"}
+  - {state: BR, component: wheeling_losses, voltage: "33", order: br-to-fy27, pages: [488], anchor: "(Loss @ 3.36%)"}
+  - {state: BR, component: wheeling_losses, voltage: "11", order: br-to-fy27, pages: [488], anchor: "@8.19%)", previous: true}
+  # ------------------------------------------------------------------ Chhattisgarh
+  - state: CG
+    component: cross_subsidy_surcharge
+    pdf_pages: [187]
+    anchor: "For 33 kV consumers: Rs. 1.43 per kWh"
+    differs: "the order sets Rs 1.43/kWh at 33 kV, 11 kV and LT but Rs 1.23/kWh at 132 kV, 220 kV and above (Table 6-5, printed page 183; tariff schedule s.1.3 item 7); the register holds Rs 1.43 at every voltage"
+  - {state: CG, component: additional_surcharge, why: "the order and its tariff schedule do not mention an additional surcharge; the register's 'no AS determined' is an absence, which no page prints"}
+  - {state: CG, component: wheeling, pdf_pages: [28], previous: true}
+  - {state: CG, component: wheeling, voltage: "132", why: "the tariff schedule (s.1.3, item 3) gives wheeling at 33 kV and below 33 kV only; it prints no nil charge at EHV"}
+  - {state: CG, component: wheeling, voltage: "220", why: "the tariff schedule (s.1.3, item 3) gives wheeling at 33 kV and below 33 kV only; it prints no nil charge at EHV"}
+  - {state: CG, component: stu_losses, order: cg-to-fy27, pdf_pages: [28], anchor: "Transmission Losses of 3.29%"}
+  - {state: CG, component: wheeling_losses, order: cg-to-fy27, pdf_pages: [29], anchor: "Distribution Losses of 6% for the energy scheduled"}
+  - {state: CG, component: standby_charge, order: cg-to-fy27, pdf_pages: [29], anchor: "which is Rs. 11.93 per kWh"}
+  # ------------------------------------------------------------------ Haryana
+  - {state: HR, component: wheeling, voltage: "66", anchor: "i.e. Rs. 0.45 per Unit", previous: true}
+  - {state: HR, component: wheeling, voltage: "132", anchor: "i.e. Rs. 0.45 per Unit", previous: true}
+  - {state: HR, component: wheeling, voltage: "220", anchor: "i.e. Rs. 0.45 per Unit", previous: true}
+  # ------------------------------------------------------------------ Madhya Pradesh
+  - {state: MP, component: additional_surcharge, pdf_pages: [139], anchor: "determined the Additional Surcharge of Rs. 1.18"}
+  - state: MP
+    component: cross_subsidy_surcharge
+    pdf_pages: [136]
+    anchor: "HV-3.1: Industrial 8.30"
+    differs: "the order heads Table 96 'Category wise Cross Subsidy Surcharge as per above Illustrations' (printed page 136): HV-3.1 Industrial is Rs 1.49, the 20% ceiling, beside a computed Rs 3.31; whether the illustration is the leviable surcharge is the analyst's to confirm"
+  - {state: MP, component: wheeling, pdf_pages: [131, 132]}
+  - {state: MP, component: wheeling, voltage: "132", why: "Table 89 gives wheeling at 33 kV, 11 kV and LT only; it prints no nil charge at EHV"}
+  - {state: MP, component: wheeling, voltage: "220", why: "Table 89 gives wheeling at 33 kV, 11 kV and LT only; it prints no nil charge at EHV"}
+  # ------------------------------------------------------------------ Odisha
+  - state: OD
+    component: cross_subsidy_surcharge
+    anchor: "Surcharge for HT Consumer 56.42"
+    differs: "Table 45 (page 144) sets the HT surcharge per DISCOM: 56.42 paise TPCODL, 1.63 TPNODL, 17.26 TPWODL, 106.02 TPSODL; the register applies TPCODL's to the whole state"
+  - state: OD
+    component: wheeling
+    differs: "Table 46 (page 144) sets wheeling per DISCOM: 116.56 paise TPCODL, 180.86 TPNODL, 120.90 TPWODL, 197.32 TPSODL; the register applies TPCODL's to the whole state"
+  - {state: OD, component: wheeling, voltage: "132", why: "Table 47 (page 145) says the wheeling charge applies to HT consumers only; it prints no nil charge at EHT"}
+  - {state: OD, component: wheeling, voltage: "220", why: "Table 47 (page 145) says the wheeling charge applies to HT consumers only; it prints no nil charge at EHT"}
+  - {state: OD, component: additional_surcharge, pdf_pages: [146], anchor: "No additional surcharge over and above"}
+  - {state: OD, component: sldc_operating, why: "the register adds the SLDC's system operation charge 599.751 and market operation charge 166.597 (paras 70-71); the sum is not printed"}
+  - {state: OD, component: wheeling_losses, voltage: "11", order: od-discom-fy27, pdf_pages: [143], anchor: "HT loss as 7%"}
+  - {state: OD, component: wheeling_losses, voltage: "33", order: od-discom-fy27, pdf_pages: [143], anchor: "HT loss as 7%"}
+  - {state: OD, component: wheeling_losses, voltage: "132", order: od-discom-fy27, pdf_pages: [143], anchor: "nil for EHT"}
+  # ------------------------------------------------------------------ Tamil Nadu
+  - {state: TN, component: wheeling, pages: [19], anchor: "HT Rs./kWh 1.04"}
+  - {state: TN, component: wheeling, voltage: "132", why: "para 2.4.2 gives one HT wheeling charge; it prints no nil charge at 132 kV"}
+  - state: TN
+    component: stu_transmission
+    differs: "Table 6-8 (page 117) prints 6,035.61 for FY 2026-27 under a header that gives the unit as Rs. Crores; the register reads it as Rs/MW/day. The analyst should confirm the unit on the page"
+  - state: TN
+    component: reactive_energy_charge
+    why: "the register cites 17.50 paise/kVArh from this order but holds the charge as 0 (the rule family has no per-kVArh basis), so the page does not print the rule's figure"
+  # ------------------------------------------------------------------ Andhra Pradesh, fetched orders
+  - {state: AP, component: sldc_operating, why: "the register adds the operating charge 2,465.57/MW/month and one twelfth of the 18,618/MW/yr fee; the sum 4,017.07 is not printed"}
+  - {state: AP, component: wheeling, voltage: "132", why: "the register reads 'not applicable' for EHV from para 74(vi); checked on the cited pages only"}
+  - {state: AP, component: wheeling, voltage: "220", why: "the register reads 'not applicable' for EHV from para 74(vi); checked on the cited pages only"}
+  # ------------------------------------------------------------------ Madhya Pradesh, fetched orders
+  - {state: MP, component: stu_transmission, pdf_pages: [73]}
+  - {state: MP, component: sldc_operating, why: "the order sets a long-term open-access charge for users other than renewable sources; the register's 0 for renewable energy is its own reading, which no page prints as a figure"}
+  - {state: AP, component: wheeling, voltage: "11", anchor: "11 kV (Rs./KWH)"}
+  - {state: OD, component: stu_transmission, anchor: "Rs.5760.00/MW/day"}
+  # ------------------------------------------------------------------ Uttarakhand
+  - {state: UK, component: sldc_operating, why: "the register divides the SLDC's 54,197/MW/yr by twelve; the monthly figure is not printed"}
+  - {state: UK, component: additional_surcharge, pdf_pages: [11]}
+  - {state: UK, component: wheeling_losses, order: uk-upcl-fy27, pages: [254], anchor: "distribution losses, i.e. 12.25%"}
