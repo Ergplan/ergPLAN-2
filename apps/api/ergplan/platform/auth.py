@@ -60,6 +60,13 @@ PUBLIC = {
     "/.well-known/oauth-authorization-server",
     "/.well-known/oauth-protected-resource",
     "/.well-known/oauth-protected-resource/mcp",
+    # Stage 19: the landed-cost calculator; its own `access` refuses a signed-out caller unless
+    # ERGPLAN_PUBLIC_CALCULATOR is on (platform/routers/calculator.py)
+    "/calculator",
+    "/calculator/options",
+    "/calculator/states",
+    "/calculator/states.csv",
+    "/calculator/statebooks/{book_id}/file",
 }
 
 

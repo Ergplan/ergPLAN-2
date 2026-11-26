@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...core.sourced import RefKind, SourcedValue, SourceRef, derive
-from ...core.units import Unit
+from ...core.units import Unit, convert
 from ...db.base import session_scope
 from ...db.models import Asset, Connection, PricePoint, PriceVintage
 from ...engine import avoided_cost, landed_cost, lcoe
@@ -208,7 +208,10 @@ def _iex_slot_prices(
         ]
         if not blocks:
             continue
-        mean = sum((by_block[b] for b in blocks), Decimal(0)) / len(blocks) / 1000
+        # Rs/MWh as stored → INR/kWh, by core.units only (rule 15)
+        mean = convert(
+            sum((by_block[b] for b in blocks), Decimal(0)) / len(blocks), Unit.INR_PER_MWH, Unit.INR_PER_KWH
+        )
         out[name] = SourcedValue(
             value=mean.quantize(Decimal("0.0001")),
             unit=Unit.INR_PER_KWH,
