@@ -114,6 +114,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <span data-icon="calc" data-size="19"></span>
             Landed-cost calculator
           </Link>
+          <Link className="eg-nav__item" href="/tariffs" aria-current={current("/tariffs")}><span data-icon="layers" data-size="19"></span>DISCOM tariffs</Link>
           <div className="eg-overline eg-nav__group">jouleWise</div>
           {ANALYST.map((a) => (
             <Link key={a.href} className="eg-nav__item" href={a.href} aria-current={current(a.href)}>

@@ -520,3 +520,12 @@ a.eg-btn { text-decoration: none; }
 .ep-calc__plant { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .ep-calc__routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
 .ep-calc__lines td { padding: 6px 8px; font-size: 13px; }
+/* Stage 19: the DISCOM tariffs tab */
+.ep-tariff__rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.ep-tariff__row { min-width: 0; }
+.ep-tariff__row--draft { border-style: dashed; border-color: var(--warning, #b54708); }
+.ep-tariff__figs td, .ep-tariff__figs th { padding: 6px 8px; font-size: 13px; vertical-align: top; }
+.ep-tariff__points { margin: 8px 0 0; padding-left: 18px; }
+.ep-tariff__diff { margin-top: var(--space-3); border-top: 1px solid var(--line); padding-top: var(--space-2); }
+.ep-calc__form label.ep-tariff__check { flex-direction: row; align-items: center; gap: 6px; }
+@media (max-width: 600px) { .ep-tariff__row.ep-panel { padding: var(--space-3); } .ep-tariff__figs td.num { white-space: nowrap; } }
