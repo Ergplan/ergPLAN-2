@@ -779,3 +779,79 @@ class TransitionPlan(Base):
     __table_args__ = (
         CheckConstraint("status in ('running','done','failed')", name="transition_plans_status"),
     )
+
+
+# ---------------------------------------------------------------- Stage 16: the MCP server's access
+
+
+class McpClient(Base):
+    """A connector registered by OAuth dynamic client registration (ergplan.mcp.oauth). Registering
+    grants nothing: every token still needs the administrator's password at the authorize step. Only
+    the SHA-256 of a client secret is kept (none for a public client, which proves itself by PKCE)."""
+
+    __tablename__ = "mcp_clients"
+
+    client_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    secret_sha256: Mapped[str | None] = mapped_column(String(64))
+    client_name: Mapped[str | None] = mapped_column(String(200))
+    redirect_uris: Mapped[list[str]] = mapped_column(JSONType)
+    grant_types: Mapped[list[str]] = mapped_column(JSONType)
+    auth_method: Mapped[str] = mapped_column(String(32))
+    registered_from: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "auth_method in ('none','client_secret_post','client_secret_basic')", name="mcp_clients_auth"
+        ),
+    )
+
+
+class McpToken(Base):
+    """An authorization code, access token or refresh token of the MCP connector (ergplan.mcp.oauth),
+    stored as its SHA-256 only. Every token descends from one administrator sign-in (`grant_id`):
+    revoking one, or reusing a spent code or refresh token, revokes the whole grant. `credential` is
+    the SHA-256 of the administrator's stored password hash when the grant was made, so a changed
+    password ends every grant."""
+
+    __tablename__ = "mcp_tokens"
+
+    token_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(8))
+    grant_id: Mapped[str] = mapped_column(String(36), index=True)
+    client_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("mcp_clients.client_id", name="mcp_tokens_client_fk"), index=True
+    )
+    actor: Mapped[str] = mapped_column(String(254))
+    credential: Mapped[str] = mapped_column(String(64))
+    scope: Mapped[str] = mapped_column(String(200))
+    resource: Mapped[str] = mapped_column(String(500))
+    redirect_uri: Mapped[str | None] = mapped_column(String(2000))  # a code's
+    code_challenge: Mapped[str | None] = mapped_column(String(128))  # a code's (S256)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # a spent code or refresh
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (CheckConstraint("kind in ('code','access','refresh')", name="mcp_tokens_kind"),)
+
+
+class McpUpload(Base):
+    """A one-time upload link handed out by an MCP tool when Claude cannot pass the file itself
+    (ergplan.mcp.uploads): the SHA-256 of the link's secret, the administrator it is bound to, what
+    the file is for (`kind`, `params`), and what became of it (`result`). Used once, short-lived."""
+
+    __tablename__ = "mcp_uploads"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    token_sha256: Mapped[str] = mapped_column(String(64), unique=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    actor: Mapped[str] = mapped_column(String(254))
+    params: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    error: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (CheckConstraint("kind in ('bill','generation')", name="mcp_uploads_kind"),)
