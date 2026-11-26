@@ -159,3 +159,16 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | Uttar Pradesh bills with supply before 22 Nov 2025 need the FY 2024-25 order (ARR Network orders 63 and 61), not imported | Next round |
 | The ARR importer does not map consumption slabs, per-BHP rates, subsidy columns, or schedules printed as running text (Uttar Pradesh HV-3, LMV-1, 2, 3, 5, 8, 11) | Next round |
 | No screen for the import; it runs by command or `POST /regreader/arr-network` | Next |
+| MSEDCL: the ARR Network holds only the stayed MYT order of 28 Mar 2025 and a barely read FY 2023-24 order; neither is imported, so MSEDCL bills before 1 Apr 2026 have no sourced tariff | ARR Network |
+| Andhra Pradesh: nothing imported (FY 2026-27 has no tables at the source; FY 2025-26 tables sit under headings that are not categories) | ARR Network / next round |
+| Telangana: ToD, surcharge, losses and transmission not imported; imported rows need the consumer's sub-schedule as rate block and read voltages as printed (nothing at 66 kV) | Next round / analyst |
+| Punjab: the FY 2024-25 order is not at the source; ToD, wheeling and green tariff tables are not headed approved | ARR Network |
+| Haryana, Tamil Nadu, Uttarakhand, Odisha: partial schedules only (Uttarakhand lacks RTS-5 industry; Odisha has no schedule); Tamil Nadu's 1 Jul 2026 revision is not sourced | ARR Network / next round |
+| Madhya Pradesh HV-2, 3, 4, 6 are not imported: two energy rates by load factor and the tariff_schedule family holds one; the drafts carry the order dates, though the tariff takes effect seven days after publication | Next (schema and engine) |
+| Gujarat: no previous-year order at the source; time-of-use adders, wheeling, surcharge and green tariff are in the order's text only; the draft says HTP-1 as the heading prints | Stage 12 / analyst |
+| Bihar: the 33 to 400 kV industrial rows are misfiled at the source; its ToD draft is scoped by `consumer_kind`, which plan evaluation does not set, so the row is not picked up yet | ARR Network / next |
+| Chhattisgarh HV-3 and HV-4 at 33 and 11 kV need the bill's load-factor block; Odisha's LT surcharge and wheeling rows come from the green-energy open-access table and carry no `source` scope; Uttarakhand's wheeling charge is the general one (embedded consumers pay less) | Analyst on approval |
+| Mumbai licensees: EHV and HT are scoped by rate block as printed, not by voltage; surcharges, transmission and open-access wheeling by level are not sourced | Analyst / next round |
+| Seven states at the source that are new to ergPLAN (Goa, Himachal Pradesh, Jharkhand, Puducherry, Assam, West Bengal, Delhi) are not imported | Next round |
+| The ARR importer does not read consumption slabs, per-HP or per-day rates, ToD printed as absolute rates, or any rule stated in an order's prose | Next round / Stage 12 |
+| Differences between order pages and register rows found by the import (Chhattisgarh, Odisha, Tamil Nadu, Bihar, Madhya Pradesh) are listed in `docs/stage-reports/stage-14.md`; no rule was changed | Analyst (questions 22) |
