@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { PlanBuilder } from "@/components/plan/PlanBuilder";
+import { TransitionPlanner } from "@/components/plan/TransitionPlanner";
 import { apiOrNull } from "@/lib/api";
 import type { PlanOut } from "@/lib/plan";
+import type { TransitionOut } from "@/lib/transition";
 
 // Share and audit: the client's plan as the shared page will show it, with the link and the PDF.
 export default async function ReportPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const { c } = await searchParams;
   const plan = c ? await apiOrNull<PlanOut>(`/connections/${c}/plan`) : null;
+  // the transition plan: null until the client asks for one
+  const transition = c ? await apiOrNull<TransitionOut>(`/connections/${c}/transition-plan`) : null;
   if (!c || !plan) {
     return (
       <section className="eg-card ep-panel">
@@ -24,6 +28,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         <p className="eg-muted ep-lede">{plan.client} · {plan.site} · {plan.discom.toUpperCase()}. Share a link that opens without a login, with voice what-if and a PDF; audit the chain of charges behind every landed cost. <Link href={`/results?c=${c}`}>Back to the full results</Link>.</p>
       </div>
       <PlanBuilder connectionId={c} initial={plan} />
+      <TransitionPlanner connectionId={c} initial={transition} />
     </>
   );
 }

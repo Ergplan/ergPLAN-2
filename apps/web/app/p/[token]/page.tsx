@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { RefChips } from "@/components/cost/RefChips";
 import { AnalystView } from "@/components/plan/AnalystView";
 import { Explain } from "@/components/plan/Explain";
+import { TransitionView } from "@/components/plan/TransitionView";
 import { WhatIf } from "@/components/plan/WhatIf";
 import { CostTable, DispatchChart, Levies, Lifecycle, Settlement, YearMix } from "@/components/results/parts";
 import { VoicePanel } from "@/components/voice/VoicePanel";
@@ -12,6 +13,7 @@ import { uniqueRefs } from "@/lib/cost";
 import type { Ref, SourcedValue } from "@/lib/intake";
 import { Citations, type PlanOut } from "@/lib/plan";
 import { crore, mw, mwh, paybackHeadline } from "@/lib/runs";
+import type { TransitionOut } from "@/lib/transition";
 
 export const metadata = { title: "Your green power plan · jouleWise" };
 
@@ -30,6 +32,8 @@ export default async function LivePlan({ params, searchParams }: { params: Promi
     );
   }
   const printing = print === "1";
+  // the transition plan of this connection, when one has been worked out (Stage 15)
+  const transition = await apiOrNull<TransitionOut>(`/p/${token}/transition-plan`);
   const cites = new Citations();
   // called as a function (not a component) so the notes are numbered while the page is built
   const C = (v: (SourcedValue | null | undefined)[], max = 3): ReactNode => {
@@ -190,6 +194,14 @@ export default async function LivePlan({ params, searchParams }: { params: Promi
           )}
           {!printing && d.token && <AnalystView token={d.token} />}
         </>
+      )}
+
+      {transition && transition.phases.length > 0 && (
+        <section className="eg-card ep-panel ep-report">
+          <h2 className="eg-card__title">Your transition plan, phase by phase</h2>
+          <p className="eg-card__sub">From today&apos;s bill to your target in steps you can act on: what each builds, costs and saves, the rule that holds it and what must be signed or applied for.</p>
+          <TransitionView plan={transition} />
+        </section>
       )}
 
       {printing && cites.notes.length > 0 && (
