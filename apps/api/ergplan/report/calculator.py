@@ -268,6 +268,7 @@ def consumer(s: Session, inp: CalculatorIn, on: date) -> escope.ConnectionFacts:
         category=cat,
         voltage_kv=inp.voltage_kv,
         connection_kind="ht",
+        consumer_kind=defaults.connection_kind(inp.voltage_kv),
         contract_demand_kva=inp.contract_demand_kva,
         rate_block=block,
     )
