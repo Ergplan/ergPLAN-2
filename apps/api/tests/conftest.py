@@ -35,6 +35,7 @@ APP_TABLES = [
     "scenarios",
     "bill_confirmations",
     "generation_profiles",
+    "site_answers",
     "load_profiles",
     "assets",
     "bills",

@@ -507,3 +507,10 @@ a.eg-btn { text-decoration: none; }
 .ep-fig__pop q, .ep-fig__pop em { display: block; color: var(--ink-muted); margin-top: 2px; }
 .ep-book .eg-card { overflow: visible; }
 .ep-book .eg-card:has(.ep-fig[open]) { z-index: 5; position: relative; }
+
+/* Stage 15: the questions about the plant */
+.ep-questions { display: flex; flex-direction: column; gap: var(--space-4); }
+.ep-question p { margin: 6px 0 0; max-width: 80ch; }
+.ep-q__rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; align-items: flex-start; }
+.ep-q__time { width: 130px; }
+.ep-q__num { width: 140px; }

@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db.models import LoadProfile
+from . import answers as site_answers
 from .profile_synthesis import encode
 
 
@@ -147,6 +148,9 @@ def store(session: Session, connection_id: str, m: Measured, filename: str, sha2
         "interpolated_blocks": m.interpolated,
         "duplicate_timestamps": m.duplicates,
     }
+    stated = site_answers.snapshot_for_connection(session, connection_id)
+    if stated:
+        method["answers"] = stated  # the answers a run on this profile is pinned to
     lp = LoadProfile(
         connection_id=connection_id,
         version=version,
@@ -155,6 +159,49 @@ def store(session: Session, connection_id: str, m: Measured, filename: str, sha2
         year_start=m.year_start,
         blocks=len(m.kw),
         series_kw=encode(m.kw),
+        method=method,
+    )
+    session.add(lp)
+    session.flush()
+    return lp
+
+
+def latest(session: Session, connection_id: str) -> LoadProfile | None:
+    """The connection's latest measured profile, if it has one."""
+    return session.scalars(
+        select(LoadProfile)
+        .where(LoadProfile.connection_id == connection_id, LoadProfile.provenance == "measured")
+        .order_by(LoadProfile.version.desc())
+    ).first()
+
+
+def carry_forward(session: Session, connection_id: str) -> LoadProfile | None:
+    """A measured file replaces the synthesis: when the connection has a measured profile, issue it
+    again as the newest version (the same series, with the answers in force), so it stays the profile
+    every screen and run uses after the intake is rebuilt or an answer changes. None when the
+    connection has no measured profile."""
+    m = latest(session, connection_id)
+    if m is None:
+        return None
+    version = (
+        session.scalar(
+            select(func.max(LoadProfile.version)).where(LoadProfile.connection_id == connection_id)
+        )
+        or 0
+    ) + 1
+    method = {k: v for k, v in m.method.items() if k not in ("answers", "carried_from_version")}
+    stated = site_answers.snapshot_for_connection(session, connection_id)
+    if stated:
+        method["answers"] = stated
+    method["carried_from_version"] = m.method.get("carried_from_version", m.version)
+    lp = LoadProfile(
+        connection_id=connection_id,
+        version=version,
+        provenance="measured",
+        resolution_min=m.resolution_min,
+        year_start=m.year_start,
+        blocks=m.blocks,
+        series_kw=m.series_kw,
         method=method,
     )
     session.add(lp)

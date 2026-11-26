@@ -37,6 +37,7 @@ from .routers import (
     voice,
 )
 from .routers import auth as auth_routes
+from .routers import questions as questions_routes
 
 log = logging.getLogger("ergplan.app")
 
@@ -120,6 +121,7 @@ def create_app() -> FastAPI:
     app.include_router(evaluate.router)
     app.include_router(statebooks.router)
     app.include_router(generation.router)
+    app.include_router(questions_routes.router)  # Stage 15: what the bills do not say
     return app
 
 
