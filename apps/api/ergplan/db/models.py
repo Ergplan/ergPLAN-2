@@ -675,3 +675,46 @@ class RuleProposal(Base):
     __table_args__ = (
         CheckConstraint("status in ('open','accepted','rejected')", name="rule_proposals_status"),
     )
+
+
+class GenerationProfile(Base):
+    """A year of generation supplied for a site (Stage 15): the developer's or the plant's own solar
+    or wind profile, used by settlement and the optimizer in place of the library curve
+    (packages/profiles/cuf). Stored per kW of capacity; never edited after upload (a run pins its id
+    and the file's sha256, invariant 5), only withdrawn."""
+
+    __tablename__ = "generation_profiles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("sites.id", name="generation_profiles_site_fk"), index=True
+    )
+    version: Mapped[int] = mapped_column(Integer)  # per site; the highest not withdrawn is in use
+    technology: Mapped[str] = mapped_column(String(8))  # solar|wind
+    applies_to: Mapped[str] = mapped_column(String(16))  # open_access|rooftop
+    provenance: Mapped[str] = mapped_column(String(16))  # measured|stated
+    filename: Mapped[str] = mapped_column(Text)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    resolution_min: Mapped[int] = mapped_column(Integer)  # as in the file: 15 or 60
+    first_day: Mapped[date] = mapped_column(Date)  # the first day in the file
+    blocks: Mapped[int] = mapped_column(Integer)  # 15-minute blocks stored
+    unit_in_file: Mapped[str] = mapped_column(String(16))
+    basis: Mapped[str] = mapped_column(String(16))  # per_mw|capacity|per_unit
+    capacity_kw: Mapped[Decimal | None] = mapped_column(Numeric(16, 3))
+    # zlib-compressed text of decimals: average kW per kW of capacity, one per 15-minute block
+    series_per_kw: Mapped[bytes] = mapped_column(LargeBinary)
+    annual_cuf_pct: Mapped[Decimal] = mapped_column(Numeric(9, 4))
+    monthly_cuf_pct: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)  # "1".."12" → percent
+    method: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    created_by: Mapped[str] = mapped_column(String(254))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawn_by: Mapped[str | None] = mapped_column(String(254))
+
+    __table_args__ = (
+        CheckConstraint("technology in ('solar','wind')", name="generation_profiles_technology"),
+        CheckConstraint("applies_to in ('open_access','rooftop')", name="generation_profiles_applies_to"),
+        CheckConstraint("provenance in ('measured','stated')", name="generation_profiles_provenance"),
+        CheckConstraint("resolution_min in (15, 60)", name="generation_profiles_resolution"),
+        Index("generation_profiles_site_version", "site_id", "version", unique=True),
+    )
