@@ -128,6 +128,15 @@ def book_with_a_stored_page(site: Site, generate: bool) -> None:
     say(False, "no rule book has a grid tariff cited to a stored page")
 
 
+
+def open_access() -> bool:
+    """Whether .env switches sign-in off (the setting's name and value only; nothing else is read out)."""
+    try:
+        lines = (ROOT / ".env").read_text().splitlines()
+    except OSError:
+        return False
+    return any(ln.strip().lower() in ("ergplan_open_access=true", "ergplan_open_access=1") for ln in lines)
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="https://" + env("SITE_ADDRESS"))
@@ -154,7 +163,13 @@ def main() -> int:
         return 1
     say(status == 200 and b"ergPLAN" in raw, f"{a.base}/login serves the sign-in page ({status}, trusted certificate)")
     status, _ = site.json("GET", "/api/statebooks")
-    say(status == 401, f"signed out, the API refuses ({status})")
+    if open_access():
+        # the person's decision (ERGPLAN_OPEN_ACCESS): no sign-in; approving a rule still needs one
+        say(status == 200, f"open access is on: signed out, the API answers ({status})")
+        st, _ = site.json("POST", "/api/rulebooks/versions/vm-check/approve")
+        say(st == 403, f"open access: approving a rule without an analyst's own sign-in is refused ({st})")
+    else:
+        say(status == 401, f"signed out, the API refuses ({status})")
 
     link = subprocess.run(
         [*COMPOSE, "exec", "-T", "api", "python", "-m", "ergplan.platform.signin", a.email, "--next", "/statebooks"],
