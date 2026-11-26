@@ -22,6 +22,7 @@ from ...core.sourced import RefKind, SourcedValue, SourceRef
 from ...core.units import Unit
 from ...db.base import session_scope
 from ...db.models import Bill, BillRead, Client, Connection, LoadProfile, Site
+from ...intake import answers as site_answers
 from ...intake import bill_reading, bill_reads, defaults, measured_upload, profile_synthesis, site_intake
 from ...intake import bills as bill_store
 from ...intake.billx_client import BillxError, BillxUnavailable
@@ -522,6 +523,8 @@ def _profile_out(p: LoadProfile) -> ProfileOut:
                     pf_note = (
                         "the bill's power factor"
                         if src.get("power_factor")
+                        else "the power factor the client stated"
+                        if "power_factor" in site_answers.pinned(p.method)
                         else "a power factor of 0.95 (assumed)"
                     )
                     eref = (
@@ -537,6 +540,9 @@ def _profile_out(p: LoadProfile) -> ProfileOut:
                         src.get(k) if src else None, f"{k} not given: peak follows the industry shape"
                     )
                 )
+        if p.provenance != "measured":
+            # what the client stated about the plant shaped this month's peak (Stage 15)
+            pref = pref + site_answers.shaping_refs(p.method)
         months.append(
             ProfileMonth(
                 month=first,

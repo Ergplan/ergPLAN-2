@@ -21,6 +21,7 @@ from ...db.models import Bill, Connection, LoadProfile, Site
 from ...engine import avoided_cost, levies, replay
 from ...engine import scope as escope
 from ...engine.gaps import GAPS
+from ...intake import answers as site_answers
 from ...intake import bills as bill_store
 from ...intake import profile_synthesis
 from ...rulebook import repository
@@ -397,6 +398,17 @@ def _kvah_factor(s: Session, conn: Connection) -> tuple[SourcedValue, SourcedVal
         return (
             SourcedValue(value=1 / p, unit=Unit.RATIO, source_refs=refs2, label="kVAh per kWh (1 / PF)"),
             SourcedValue(value=p, unit=Unit.RATIO, source_refs=refs2, label="Power factor (bills)"),
+        )
+    said = site_answers.power_factor(s, conn.site_id)
+    if said is not None:  # no bill gives one: the power factor the client states (Stage 15)
+        return (
+            SourcedValue(
+                value=1 / said.value,
+                unit=Unit.RATIO,
+                source_refs=said.source_refs,
+                label="kVAh per kWh (1 / stated PF)",
+            ),
+            said,
         )
     a = SourceRef(kind=RefKind.ASSUMPTION, note="no bill gives kVAh and kWh or a power factor; 0.95 assumed")
     return (

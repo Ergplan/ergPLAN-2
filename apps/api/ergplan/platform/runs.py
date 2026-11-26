@@ -38,6 +38,7 @@ from ..engine import avoided_cost, landed_cost, lcoe, lifecycle, tariff_eval
 from ..engine import levies as elevies
 from ..engine import scope as escope
 from ..engine.tariff_eval import slot_classes, slot_of
+from ..intake import answers as site_answers
 from ..intake import generation, profile_synthesis
 from ..optimizer import model as om
 from ..optimizer.highs_solve import Solution, SolveFailed, solve
@@ -278,8 +279,19 @@ def assemble(
         raise RunError("no load profile for this connection")
     as_of = spec.as_of or date.today()
     kw = profile_synthesis.decode(lp.series_kw)
+    # Stage 15: what the client stated, as the load profile recorded it (so a replay reads the same):
+    # the planned expansion scales the year the sizing is run for, the contract demand intended
+    # stands in for the bill's, and the roof stated bounds the rooftop plant
+    growth = site_answers.growth_pct(lp.method)
+    if growth is not None:
+        kw = profile_synthesis.future_year(kw, growth)
+    cd_intended = site_answers.contract_demand_kva(lp.method)
+    cd_now = cd_intended or conn.contract_demand_kva
+    roof_sqm = site_answers.roof_sqm(lp.method, site.roof_sqm)
     days = profile_synthesis.year_days(lp.year_start)
     facts = _facts(s, conn)
+    if cd_intended is not None:
+        facts = dataclasses.replace(facts, contract_demand_kva=cd_intended)
     chain = jurisdiction_chain(s, facts.discom)
     if bill_pins is None:
         from_bills = bill_levies(s, conn)
@@ -294,6 +306,20 @@ def assemble(
         )
     rules_for = _rules_for(s, facts, as_of, reader, from_bills)
     notes: list[str] = []
+    if growth is not None:
+        notes.append(
+            f"Sized for the year after the planned expansion: the load profile scaled by "
+            f"{'+' if growth > 0 else ''}{site_answers.plain(growth)}% (the client's answer)"
+        )
+    if cd_intended is not None:
+        notes.append(
+            f"Sized on the contract demand the client intends to hold, {site_answers.plain(cd_intended)} kVA"
+            + (
+                f" (the bill shows {site_answers.plain(conn.contract_demand_kva)} kVA)"
+                if conn.contract_demand_kva
+                else ""
+            )
+        )
 
     # blocks, ToD slots and the avoided-cost rate of each block
     month_firsts = sorted({date(d.year, d.month, 1) for d in days})
@@ -309,12 +335,12 @@ def assemble(
             for i, sl in enumerate(mr.tod.body.get("slots", [])):
                 if sl.get("months") and mf.month not in sl["months"]:
                     continue
-                card = avoided_cost.rate_card(mf, mr, i, factor, conn.contract_demand_kva)
+                card = avoided_cost.rate_card(mf, mr, i, factor, cd_now)
                 if card is not None:
                     card_rate[(mf, str(sl["name"]))] = card.rate_inr_per_kwh
                 names.append(str(sl["name"]))
         if not names:
-            card = avoided_cost.rate_card(mf, mr, None, factor, conn.contract_demand_kva)
+            card = avoided_cost.rate_card(mf, mr, None, factor, cd_now)
             assert card is not None
             card_rate[(mf, "all hours")] = card.rate_inr_per_kwh
             names = ["all hours"]
@@ -378,7 +404,7 @@ def assemble(
     slabs_d: dict[date, list[tuple[Decimal | None, Decimal]]] = {}
     excess_abs_d: dict[date, Decimal] = {}
     min_kva = ZERO
-    cd_level = conn.contract_demand_kva or ZERO
+    cd_level = cd_now or ZERO
     for mf in month_firsts:
         sch = rules_for(mf).schedule
         assert sch is not None
@@ -411,12 +437,20 @@ def assemble(
         fp = sch.get("/demand_charge/billing_demand_rule/min_pct_of_contract_demand")
         if fp not in (None, ""):
             floor = Decimal(str(fp))
-    cd_kva = conn.contract_demand_kva or ZERO
+    cd_kva = cd_now or ZERO
     cd_sv = (
         _sv(
-            cd_kva, Unit.KVA, SourceRef(kind=RefKind.CLIENT_STATED, note="contract demand"), "Contract demand"
+            cd_kva,
+            Unit.KVA,
+            SourceRef(
+                kind=RefKind.CLIENT_STATED,
+                note="contract demand intended (the client's answer)"
+                if cd_intended is not None
+                else "contract demand",
+            ),
+            "Contract demand",
         )
-        if conn.contract_demand_kva
+        if cd_now
         else None
     )
     cds = spec.contract_demand
@@ -556,10 +590,10 @@ def assemble(
             )
             scale = g.cuf_pct.value / cuf
             shape = _resample([v * scale * Decimal("0.25") for v in raw], step)
-            if site.roof_sqm:
-                mx = site.roof_sqm / ROOF_SQM_PER_KWP
+            if roof_sqm:
+                mx = roof_sqm / ROOF_SQM_PER_KWP
                 roof = _sv(
-                    site.roof_sqm,
+                    roof_sqm,
                     Unit.COUNT,
                     SourceRef(kind=RefKind.CLIENT_STATED, note="roof area, m²"),
                     "Roof area",
@@ -572,14 +606,10 @@ def assemble(
                 )
                 limits.append(om.Limit("max_rooftop_kw", _f(mx), "roof area", {}, cid))
                 limit_words[f"limit:max_rooftop_kw:{cid}"] = (
-                    f"Rooftop solar limited by the roof: {site.roof_sqm} m² at 10 m² per kWp",
+                    f"Rooftop solar limited by the roof: {roof_sqm} m² at 10 m² per kWp",
                     [roof, per],
                 )
-            mx2 = (
-                cs.max_mw * 1000
-                if cs.max_mw
-                else (site.roof_sqm / ROOF_SQM_PER_KWP if site.roof_sqm else cd_kva)
-            )
+            mx2 = cs.max_mw * 1000 if cs.max_mw else (roof_sqm / ROOF_SQM_PER_KWP if roof_sqm else cd_kva)
             problem_cands.append(
                 om.Candidate(
                     cid,
@@ -997,7 +1027,12 @@ def assemble(
         Unit.KWH,
         SourceRef(
             kind=RefKind.MEASURED if lp.provenance == "measured" else RefKind.DERIVED,
-            note=f"load profile v{lp.version} ({lp.provenance}), year from {lp.year_start}",
+            note=f"load profile v{lp.version} ({lp.provenance}), year from {lp.year_start}"
+            + (
+                f", scaled by the stated expansion of {site_answers.plain(growth)}%"
+                if growth is not None
+                else ""
+            ),
         ),
         "Load profile energy",
     )

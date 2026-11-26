@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...core.settings import get_settings
-from ...core.sourced import SourcedValue
+from ...core.sourced import SourcedValue, SourceRef
 from ...db.base import session_scope
 from ...db.models import Connection, Run, Scenario, SourceDocument
 from ...optimizer.scenarios import standard
@@ -57,6 +57,24 @@ class Editable(BaseModel):
     value: SourcedValue = Field(json_schema_extra={"owner": "run_results.summary", "ref_kinds": KINDS})
 
 
+class StatedAnswer(BaseModel):
+    """What the client stated about the plant (Stage 15): shown as an editable chip, never as a
+    sourced fact."""
+
+    key: str
+    label: str
+    words: str
+    figures: list[SourcedValue] = Field(
+        json_schema_extra={"owner": "site_answers.value", "ref_kinds": ["client_stated"]}
+    )
+    stated_by: str
+    stated_at: datetime
+    source_ref: SourceRef
+    used_for: str
+    in_use: bool  # False: a measured file is in use, so this answer shapes nothing
+    in_this_plan: bool | None  # the recommended plan was sized with this answer
+
+
 class PlanOut(BaseModel):
     token: str | None = None
     connection_id: str
@@ -74,6 +92,9 @@ class PlanOut(BaseModel):
     assumptions: list[dict[str, Any]]
     editable: list[Editable]
     analyst_view: bool = False
+    answers: list[StatedAnswer] = Field(default_factory=list)
+    profile_provenance: str | None = None  # measured | synthesised | stated
+    profile_words: str | None = None
 
 
 class BuildOut(BaseModel):

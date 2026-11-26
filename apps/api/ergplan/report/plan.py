@@ -22,6 +22,7 @@ from ..db.models import (
     Site,
     SourceDocument,
 )
+from ..intake import questions as site_questions
 
 
 class PlanNotFound(LookupError):
@@ -54,6 +55,22 @@ def _latest_done(s: Session, scenario_id: str) -> tuple[Run, RunResult] | None:
         return None
     rr = s.get(RunResult, run.id)
     return (run, rr) if rr is not None else None
+
+
+def profile_words(lp: LoadProfile) -> str:
+    """Where the load profile comes from, in words (invariant 8)."""
+    method = lp.method or {}
+    if lp.provenance == "measured":
+        return f"Measured: the 15-minute meter file {method.get('file') or ''}".rstrip() + "."
+    stated = len(method.get("answers") or {})
+    billed = sum(1 for m in method.get("months") or [] if not m.get("extrapolated"))
+    said = (
+        f" and {stated} answer{'s' if stated != 1 else ''} the client gave about the plant" if stated else ""
+    )
+    return (
+        f"Estimated from {billed} month{'s' if billed != 1 else ''} of bills{said}, "
+        "not measured. A 15-minute meter file replaces the estimate."
+    )
 
 
 def build(s: Session, connection_id: str, analyst: bool = False) -> dict[str, Any]:
@@ -162,7 +179,19 @@ def build(s: Session, connection_id: str, analyst: bool = False) -> dict[str, An
                 "value": best["summary"]["contract_demand_kva"],
             }
         )
+    # Stage 15: what the client stated about the plant, each a client-stated chip, and whether the
+    # recommended plan was sized with it (its run pins the load profile that recorded the answers)
+    sized_on: dict[str, Any] | None = None
+    if best is not None:
+        best_run = s.get(Run, best["run_id"])
+        pinned_lp = s.get(
+            LoadProfile, ((best_run.pins if best_run else None) or {}).get("load_profile_id") or ""
+        )
+        sized_on = (pinned_lp.method or {}) if pinned_lp is not None else None
     return {
+        "answers": site_questions.for_report(s, site.id, sized_on),
+        "profile_provenance": lp.provenance if lp else None,
+        "profile_words": profile_words(lp) if lp else None,
         "connection_id": conn.id,
         "client": client.name if client else "",
         "site": site.name,
