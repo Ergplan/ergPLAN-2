@@ -23,8 +23,9 @@ from ..core.sourced import RefKind, SourceRef
 from ..db.models import Asset, Bill, Client, Connection, LoadProfile, Site
 from ..rulebook.models import RuleView
 from ..rulebook.scope import norm_code
+from . import answers as site_answers
 from . import bills as bill_store
-from . import defaults, recognise
+from . import defaults, measured_upload, recognise
 from .bill_fields import parse_month
 from .profile_synthesis import MonthInput, ShapeNotFound, TodWindow, encode, shape, shape_ids, synthesise_year
 
@@ -753,10 +754,11 @@ def _prov(**facts: Fact[Any] | None) -> dict[str, Any]:
     }
 
 
-def month_inputs(intake: SiteIntake) -> list[MonthInput]:
+def month_inputs(intake: SiteIntake, stated_power_factor: Decimal | None = None) -> list[MonthInput]:
+    """`stated_power_factor`: the client's answer, used for a month whose bill prints none."""
     out = []
     for m in intake.months:
-        pf = m.power_factor.value if m.power_factor else None
+        pf = m.power_factor.value if m.power_factor else stated_power_factor
         kwh = m.energy.value if m.energy_unit == "kWh" else m.energy.value * (pf or Decimal("0.95"))
         out.append(
             MonthInput(
@@ -785,9 +787,24 @@ def synthesise(session: Session, connection_id: str, intake: SiteIntake) -> Load
         shape(intake.industry_shape.value)
     except ShapeNotFound as e:
         raise ValueError(f"unknown industry shape {e}") from e
-    prof = synthesise_year(
-        month_inputs(intake), intake.industry_shape.value, weekly_off=tuple(intake.weekly_off.value)
+    # what the client states about the plant (intake.answers) shapes the day, the week, the months
+    # and the peaks; the bills' energy, ToD split and recorded demand are matched as before
+    stated_answers = site_answers.snapshot_for_connection(session, connection_id)
+    si = site_answers.synthesis_inputs(
+        {k: v["value"] for k, v in stated_answers.items()},
+        intake.industry_shape.value,
+        tuple(intake.weekly_off.value),
     )
+    prof = synthesise_year(
+        month_inputs(intake, si.power_factor),
+        intake.industry_shape.value,
+        weekly_off=si.weekly_off,
+        week=si.week,
+        shutdowns=si.shutdowns,
+        large_loads=si.large_loads,
+    )
+    if stated_answers:
+        prof.method["answers"] = stated_answers
     prof.method["intake"] = intake.model_dump(mode="json")  # what step 4 edits and rebuilds from
     prof.method["inputs"] = {
         "industry_shape": _prov(f=intake.industry_shape)["f"],
@@ -918,6 +935,8 @@ def build(
             if b is not None:
                 b.connection_id = conn.id
     lp = synthesise(session, conn.id, intake)
+    # a measured 15-minute file replaces the synthesis: it stays the profile in use
+    lp = measured_upload.carry_forward(session, conn.id) or lp
     return {
         "client_id": client.id,
         "site_id": site.id,

@@ -14,6 +14,21 @@ For each month with a bill, starting from the site's industry shape (packages/pr
      (`peak_excess_kw`, `peak_excess_window`), never passed over in silence.
 Months without a bill take the mean daily energy of the billed months, flagged `extrapolated`.
 
+What the client states about the plant (Stage 15, `intake.answers`) shapes the profile before those
+three steps, so the bills' monthly energy, ToD split and recorded maximum demand hold as before:
+  - shifts and the weekly off: `week_from_shifts` puts the shape's working level in the stated shift
+    hours of every day that is not a weekly off, and its base level elsewhere; with a weekly off
+    stated but no shifts, `week_for_working_days` gives every day that is not off the shape's
+    working day (the day and the week);
+  - seasonal shutdowns: every day in a stated range is a shutdown day at the shape's base level, and
+    a month with no bill is estimated lower by the share of its shape those days take away (the months);
+  - large loads: each one's kW is added in its hours on working days after step 1, and the windows
+    are scaled back to the bill's energy (the other hours of the slot give way), so demand rises
+    in those hours and, where the bill's ToD energy leaves the choice open, the month's highest
+    demand is found there (the peaks);
+  - expansion: `future_year` scales every block of the year by the stated growth (the future year
+    the sizing is run for; the stored year stays the one the bills cover).
+
 All checks the profile must pass (monthly kWh, ToD split within 0.1 %, max = MD) are returned in
 `method` with their achieved values, so a reviewer sees how close each month came.
 Floats are used inside the arithmetic; the stored series is Decimal kW to the watt.
@@ -59,6 +74,18 @@ class MonthInput:
     power_factor: Decimal | None = None
     tod: tuple[TodWindow, ...] = ()
     shutdown_days: tuple[int, ...] = ()  # day numbers in the month
+
+
+@dataclass(frozen=True)
+class LargeLoad:
+    """A large load the client names: its kW, the hours it runs, and its weekdays (None: every
+    working day)."""
+
+    kw: Decimal
+    start: str
+    end: str
+    days: tuple[int, ...] | None = None
+    name: str = ""
 
 
 @dataclass
@@ -153,6 +180,75 @@ def _month_base(
     return np.concatenate(days)
 
 
+def week_from_shifts(
+    shape_id: str, shifts: tuple[tuple[str, str], ...], weekly_off: tuple[int, ...]
+) -> np.ndarray:
+    """The week when the client states the shifts: the shape's working level in the shift hours of
+    every day that is not a weekly off, its base level in the other hours, with the shape's ramp at
+    the start and end of each shift. A shift that runs past midnight ("22:00" to "06:00") continues
+    into the next day."""
+    _, d = shape(shape_id)
+    base = float(d["base"])
+    top = max((float(w["level"]) for w in d.get("working", [])), default=100.0)
+    ramp = max(0, int(d.get("ramp_minutes", 0)) // 15)
+    flat = np.zeros(7 * BLOCKS_PER_DAY, dtype=bool)
+    for day in range(7):
+        if day in weekly_off:
+            continue
+        for start, end in shifts:
+            a, b = _block(start), _block(end) if end != "24:00" else BLOCKS_PER_DAY
+            n = b - a if b > a else BLOCKS_PER_DAY - a + b
+            for i in range(n):
+                flat[(day * BLOCKS_PER_DAY + a + i) % (7 * BLOCKS_PER_DAY)] = True
+    week = np.full(7 * BLOCKS_PER_DAY, base)
+    size = len(week)
+    for i in (int(j) for j in np.flatnonzero(flat)):
+        level = top
+        if ramp:
+            # blocks from the nearest edge of the working run, as `shape` ramps its windows
+            edge = next(
+                (k for k in range(1, ramp + 1) if not flat[(i - k) % size] or not flat[(i + k) % size]),
+                ramp + 1,
+            )
+            if edge <= ramp:
+                level = base + (top - base) * edge / (ramp + 1)
+        week[i] = level
+    return week.reshape(7, BLOCKS_PER_DAY)
+
+
+def week_for_working_days(shape_id: str, weekly_off: tuple[int, ...]) -> np.ndarray:
+    """The week when the client states the weekly off but not the shifts: every day that is not off
+    and has no working hours in the shape takes the shape's busiest day."""
+    week, _ = shape(shape_id)
+    out = week.copy()
+    busiest = int(np.argmax(week.sum(axis=1)))
+    worked = set(working_days(shape_id))
+    for day in range(7):
+        if day not in weekly_off and day not in worked:
+            out[day] = week[busiest]
+    return out
+
+
+def shutdown_days(month: date, ranges: tuple[tuple[str, str], ...]) -> tuple[int, ...]:
+    """The day numbers of `month` inside the stated seasonal shutdowns: each range is ("MM-DD",
+    "MM-DD"), both days included, every year; a range may run over the year end ("12-20" to "01-05")."""
+    n = calendar.monthrange(month.year, month.month)[1]
+    out = []
+    for d in range(1, n + 1):
+        key = f"{month.month:02d}-{d:02d}"
+        for a, b in ranges:
+            if (a <= key <= b) if a <= b else (key >= a or key <= b):
+                out.append(d)
+                break
+    return tuple(out)
+
+
+def future_year(values: list[Decimal], growth_pct: Decimal) -> list[Decimal]:
+    """The year after the planned expansion: every block scaled by (1 + growth ÷ 100), to the watt."""
+    f = 1 + growth_pct / Decimal(100)
+    return [(v * f).quantize(Decimal("0.001")) for v in values]
+
+
 def working_days(shape_id: str) -> list[int]:
     """Weekdays on which the shape has working hours (0=Mon … 6=Sun)."""
     _, d = shape(shape_id)
@@ -174,16 +270,45 @@ def _windows(m: MonthInput, n_days: int) -> list[tuple[np.ndarray, float, str]]:
     return masks
 
 
+def _load_mask(
+    month: date, load: LargeLoad, shutdown: tuple[int, ...], weekly_off: tuple[int, ...]
+) -> np.ndarray:
+    """The blocks of the month in which a large load runs: its hours, on its weekdays (every day
+    that is not a weekly off when none are named), never on a shutdown day."""
+    n = calendar.monthrange(month.year, month.month)[1]
+    hours = _window_mask(1, load.start, load.end)
+    days = []
+    for d in range(1, n + 1):
+        wd = date(month.year, month.month, d).weekday()
+        runs = d not in shutdown and wd not in weekly_off and (load.days is None or wd in load.days)
+        days.append(hours if runs else np.zeros(BLOCKS_PER_DAY, dtype=bool))
+    return np.concatenate(days)
+
+
 def synthesise_month(
-    m: MonthInput, week: np.ndarray, base_level: float, weekly_off: tuple[int, ...] = ()
+    m: MonthInput,
+    week: np.ndarray,
+    base_level: float,
+    weekly_off: tuple[int, ...] = (),
+    large_loads: tuple[LargeLoad, ...] = (),
 ) -> tuple[np.ndarray, dict[str, Any]]:
     n = calendar.monthrange(m.month.year, m.month.month)[1]
     x = _month_base(m.month, week, base_level, m.shutdown_days, weekly_off).astype(float)
     windows = _windows(m, n)
+
+    def to_energy() -> None:
+        for mask, e, _ in windows:
+            s = x[mask].sum() * HOURS_PER_BLOCK
+            x[mask] = x[mask] * (e / s) if s > 0 else e / (mask.sum() * HOURS_PER_BLOCK)
+
     # 1. energy per window, exact
-    for mask, e, _ in windows:
-        s = x[mask].sum() * HOURS_PER_BLOCK
-        x[mask] = x[mask] * (e / s) if s > 0 else e / (mask.sum() * HOURS_PER_BLOCK)
+    to_energy()
+    if large_loads:
+        # the client's large loads: their kW on top of the shape in their hours, then every window
+        # back to the bill's energy (the other hours give way), before the peak is matched
+        for load in large_loads:
+            x[_load_mask(m.month, load, m.shutdown_days, weekly_off)] += float(load.kw)
+        to_energy()
     report: dict[str, Any] = {"month": m.month.isoformat(), "kwh_target": str(m.kwh)}
     # 2. peak = MD × PF, keeping each window's energy
     if m.max_kva is not None:
@@ -276,14 +401,21 @@ def synthesise_month(
 
 
 def synthesise_year(
-    months: list[MonthInput], shape_id: str, year_start: date | None = None, weekly_off: tuple[int, ...] = ()
+    months: list[MonthInput],
+    shape_id: str,
+    year_start: date | None = None,
+    weekly_off: tuple[int, ...] = (),
+    week: np.ndarray | None = None,
+    shutdowns: tuple[tuple[str, str], ...] = (),
+    large_loads: tuple[LargeLoad, ...] = (),
 ) -> Profile:
     """Twelve months from `year_start`. By default the April-to-March year of the first billed month
     when every billed month falls in it; otherwise the twelve months ending with the last billed
     month, so the year is the one the bills cover (bills of November to October give that year)."""
     if not months:
         raise ValueError("at least one month of bills is needed")
-    week, d = shape(shape_id)
+    shape_week, d = shape(shape_id)
+    week = shape_week if week is None else week
     base_level = float(d["base"])
     by_month = {m.month: m for m in months}
     first, last = min(by_month), max(by_month)
@@ -309,8 +441,17 @@ def synthesise_year(
             n = calendar.monthrange(y, mo)[1]
             # no bill: the billed months' mean daily energy and mean peak (MD × PF), so an estimated
             # month never shows a peak the plant has not recorded
-            mi = MonthInput(month=month, kwh=Decimal(str(round(mean_daily * n, 3))), max_kva=mean_peak)
-            x, rep = synthesise_month(mi, week, base_level, weekly_off)
+            closed = shutdown_days(month, shutdowns)
+            est = mean_daily * n
+            if closed:
+                # a stated shutdown in a month with no bill: the estimate falls by the share of the
+                # month's shape those days take away
+                full = float(_month_base(month, week, base_level, (), weekly_off).sum())
+                est *= float(_month_base(month, week, base_level, closed, weekly_off).sum()) / full
+            mi = MonthInput(
+                month=month, kwh=Decimal(str(round(est, 3))), max_kva=mean_peak, shutdown_days=closed
+            )
+            x, rep = synthesise_month(mi, week, base_level, weekly_off, large_loads)
             rep["extrapolated"] = True
         else:
             x, rep = synthesise_month(
@@ -320,11 +461,17 @@ def synthesise_year(
                     max_kva=m.max_kva,
                     power_factor=m.power_factor,
                     tod=m.tod,
-                    shutdown_days=m.shutdown_days,
+                    shutdown_days=tuple(
+                        sorted(
+                            {x for x in m.shutdown_days if x <= calendar.monthrange(y, mo)[1]}
+                            | set(shutdown_days(month, shutdowns))
+                        )
+                    ),
                 ),
                 week,
                 base_level,
                 weekly_off,
+                large_loads,
             )
             rep["from_bill_month"] = m.month.isoformat()
         parts.append(x)

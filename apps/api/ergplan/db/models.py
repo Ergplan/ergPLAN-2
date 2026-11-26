@@ -21,6 +21,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -674,4 +675,37 @@ class RuleProposal(Base):
 
     __table_args__ = (
         CheckConstraint("status in ('open','accepted','rejected')", name="rule_proposals_status"),
+    )
+
+
+# ---------------------------------------------------------------- Stage 15: what the client states
+
+
+class SiteAnswer(Base):
+    """One answer to a question about a site that its bills do not say (intake.questions): a
+    `client_stated` value with who stated it and when. Written only by `intake.answers`. A changed
+    answer is a new row and the row it replaces is closed (`superseded_at`); a withdrawn answer is
+    closed with `withdrawn_by`. The open row of a key is the answer in force."""
+
+    __tablename__ = "site_answers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("sites.id", name="site_answers_site_fk"), index=True
+    )
+    key: Mapped[str] = mapped_column(String(32))
+    value: Mapped[Any] = mapped_column(JSONType)
+    stated_by: Mapped[str] = mapped_column(String(254))
+    stated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawn_by: Mapped[str | None] = mapped_column(String(254))
+
+    __table_args__ = (
+        Index(
+            "site_answers_one_open",
+            "site_id",
+            "key",
+            unique=True,
+            postgresql_where=text("superseded_at IS NULL"),
+        ),
     )
