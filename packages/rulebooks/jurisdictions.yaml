@@ -20,6 +20,10 @@ regulators:
   - {id: CSERC, name: Chhattisgarh State Electricity Regulatory Commission, state: CG}
   - {id: OERC, name: Odisha Electricity Regulatory Commission, state: OD}
   - {id: UERC, name: Uttarakhand Electricity Regulatory Commission, state: UK}
+  - {id: JERC, name: "Joint Electricity Regulatory Commission for the State of Goa and Union Territories"}
+  - {id: JSERC, name: Jharkhand State Electricity Regulatory Commission, state: JH}
+  - {id: WBERC, name: West Bengal Electricity Regulatory Commission, state: WB}
+  - {id: DERC, name: Delhi Electricity Regulatory Commission, state: DL}
 states:
   - {id: UP, name: Uttar Pradesh}
   - {id: MH, name: Maharashtra}
@@ -38,6 +42,11 @@ states:
   - {id: MP, name: Madhya Pradesh}
   - {id: CG, name: Chhattisgarh}
   - {id: UK, name: Uttarakhand}
+  - {id: GA, name: Goa}
+  - {id: JH, name: Jharkhand}
+  - {id: PY, name: Puducherry}
+  - {id: WB, name: West Bengal}
+  - {id: DL, name: Delhi}
 groups:
   - {id: uppcl, name: "UPPCL state DISCOMs (one tariff order: PVVNL, MVVNL, PuVVNL, DVVNL, KESCO)", state: UP}
   - {id: ka_escoms, name: "Karnataka ESCOMs (one combined KERC tariff order: BESCOM, MESCOM, CESC, HESCOM, GESCOM)", state: KA}
@@ -93,3 +102,12 @@ discoms:
   - {id: tpsodl, name: TP Southern Odisha Distribution Limited, state: OD, parent: od_discoms}
   - {id: tpwodl, name: TP Western Odisha Distribution Limited, state: OD, parent: od_discoms}
   - {id: upcl, name: Uttarakhand Power Corporation Limited, state: UK}
+  - {id: goa_ed, name: Electricity Department of Goa, state: GA}
+  - {id: jbvnl, name: Jharkhand Bijli Vitran Nigam Limited, state: JH}
+  - {id: ped_py, name: Electricity Department of Puducherry, state: PY}
+  - {id: wbsedcl, name: West Bengal State Electricity Distribution Company Limited, state: WB}
+  - {id: cesc_wb, name: CESC Limited (Kolkata), state: WB}
+  - {id: brpl, name: BSES Rajdhani Power Limited, state: DL}
+  - {id: bypl, name: BSES Yamuna Power Limited, state: DL}
+  - {id: tpddl, name: Tata Power Delhi Distribution Limited, state: DL}
+  - {id: ndmc, name: New Delhi Municipal Council (electricity), state: DL}

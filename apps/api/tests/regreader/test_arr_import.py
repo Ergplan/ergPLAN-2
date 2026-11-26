@@ -229,7 +229,7 @@ def test_orders_without_a_jurisdiction_are_refused_with_what_to_add() -> None:
             arr_import.jurisdiction_for(s, order, "mh")
         with pytest.raises(arr_import.ImportRefused, match="not one of UP"):
             arr_import.jurisdiction_for(s, order, "up", override="msedcl")
-        unknown = dataclasses.replace(order, utilities=("JBVNL",))
+        unknown = dataclasses.replace(order, utilities=("NO-SUCH-DISCOM",))
         with pytest.raises(arr_import.ImportRefused, match=r"jurisdictions\.yaml.*--jurisdiction 67="):
             arr_import.jurisdiction_for(s, unknown, "up")
         mixed = dataclasses.replace(order, utilities=("PVVNL", "NPCL"))
