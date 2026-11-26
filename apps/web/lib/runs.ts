@@ -63,6 +63,25 @@ export type RunOut = {
   summary: SummaryOut | null; analyst: { resettle: { agrees: boolean; max_diff_kwh: string; tolerance_kwh: string; solver_objective_inr: string; resettled_cost_inr: string } } | null;
   identical_to_original: boolean | null;
 };
+// a run's status and the solver's, in plain words (never the stored word itself)
+export const RUN_STATUS_WORDS: Record<string, string> = {
+  queued: "waiting to be sized",
+  running: "sizing",
+  done: "settled",
+  failed: "did not settle",
+  failed_resettle: "set aside: the settlement disagreed with the optimizer",
+};
+export const runStatusWords = (status: string): string => RUN_STATUS_WORDS[status] ?? "status not known";
+export const SOLVER_WORDS: Record<string, string> = {
+  optimal: "proven the cheapest within its gap",
+  time_limit: "stopped on its time limit: the best plan found, not proven the cheapest",
+  status_quo_time_limit: "stopped on its time limit before it found any plan: today's supply is shown",
+};
+export function solverWords(status: string | undefined): string {
+  if (!status) return "—";
+  return SOLVER_WORDS[status] ?? "ended without a plain account of how";
+}
+
 export type CandidateSpec = {
   kind: string; ownership?: string; price_inr_per_kwh?: string; max_mw?: string; min_mw?: string; commissioned?: string;
   fix_at_max?: boolean; capex_inr_per_kw?: string; capex_inr_per_kwh?: string; om_pct_of_capex?: string; cuf_pct?: string;

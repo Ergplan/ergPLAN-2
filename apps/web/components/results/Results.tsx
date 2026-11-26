@@ -10,7 +10,7 @@ import { inr } from "@/lib/evaluate";
 import { isoFromSizes } from "@/lib/iso";
 import { clientFetch, type ConnectionOut } from "@/lib/intake";
 import type { PlanOut } from "@/lib/plan";
-import type { DispatchOut, RunOut, ScenarioOut } from "@/lib/runs";
+import { runStatusWords, type DispatchOut, type RunOut, type ScenarioOut } from "@/lib/runs";
 import { ExchangeVerdicts } from "./ExchangeVerdicts";
 import { Constraints, CostTable, DispatchChart, Inputs, Lifecycle, Settlement, Sizes, OwnedCapital, Summary, YearMix } from "./parts";
 
@@ -123,7 +123,7 @@ export function Results({ connectionId, scenarioId }: { connectionId: string; sc
               return (
                 <button key={s.id} role="tab" aria-selected={s.id === current} className={`ep-tab${s.id === current ? " ep-tab--on" : ""}`} onClick={() => setCurrent(s.id)}>
                   <span>{s.name}</span>
-                  <span className="eg-muted ep-small">{st === "done" ? `${inr(r!.summary!.annual.saving.value)} a year` : st === "queued" || st === "running" ? "sizing…" : st.replace("_", " ")}</span>
+                  <span className="eg-muted ep-small">{st === "done" ? `${inr(r!.summary!.annual.saving.value)} a year` : st === "queued" || st === "running" ? "sizing…" : st === "none" ? "not sized yet" : runStatusWords(st)}</span>
                 </button>
               );
             })}
@@ -141,7 +141,7 @@ export function Results({ connectionId, scenarioId }: { connectionId: string; sc
           </section>
         )}
         {run && (run.status === "failed" || run.status === "failed_resettle") && (
-          <section className="eg-card ep-panel"><p className="ep-error">This scenario did not settle: {run.error ?? run.status.replace("_", " ")}. Change the inputs and try again, or ask jouleWise.</p></section>
+          <section className="eg-card ep-panel"><p className="ep-error">This scenario did not settle: {run.error ?? runStatusWords(run.status)}. Change the inputs and try again, or ask jouleWise.</p></section>
         )}
 
         {run && run.status === "done" && !run.summary && (
