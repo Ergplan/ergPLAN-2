@@ -12,8 +12,8 @@ One line per stage. Times are UTC. Questions and the readings taken are in `docs
 | 14 | C | Built 26 Nov, tagged `stage-14-built` | 60 draft versions from 24 orders in twelve states, in the live database, none approved (the analyst's act); Andhra Pradesh and MSEDCL not imported (questions 19 to 25). Report: `docs/stage-reports/stage-14.md` |
 | 15 | D | Built 26 Nov, tagged `stage-15-built` | Generation profiles, the questions the bills do not answer, the transition plan (UP to 50%: rooftop 5,000 kW, then captive wind 4,610 kW, ₹5.19 cr a year saved). Questions 27 to 29. Report: `docs/stage-reports/stage-15.md` |
 | 16 | E | Merged 26 Nov 11:50; checks running | `/mcp` with OAuth backed by the administrator account; refuses everyone until the two admin variables are in `.env`. Connector address: `https://ergplan.joulewise.tech/mcp` (questions 31). Report: `docs/stage-reports/stage-16.md` |
-| 17 | F | In progress since 26 Nov 10:50 | Two workers: Maharashtra and Karnataka; Gujarat, Punjab and Telangana |
+| 17 | F | Merged 26 Nov 13:45; slow suite running | Five state tests (MH, KA, GJ, PB, TS), nine defects fixed; rule gaps for the analyst (questions 32). Report: `docs/stage-reports/multi-state-test.md`, `stage-17.md` |
 | 18 | G | Built 26 Nov, tagged `stage-18-built` | IEX prices from `Ergplan/tenderos2@23d0afc` loaded on the live server; exchange drafts for 15 states; no stored regulation says whether the exchange may be used, so every verdict is "not yet sourced" (questions 30). Report: `docs/stage-reports/stage-18.md` |
-| 19 | H | In progress since 26 Nov 11:55 | One worker: `/calculator` and the MCP tool `landed_cost_calculator`; public use behind a setting, off |
+| 19 | H | Merged 26 Nov 13:45; slow suite running | `/calculator` and the MCP tool; equals the hand-worked landed cost in all six states; closed to visitors until you switch it on (questions 34). Report: `docs/stage-reports/stage-19.md` |
 
 To resume after an interruption: type "continue the brief".

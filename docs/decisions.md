@@ -336,3 +336,17 @@ The person asked for one application from two: this repository's flow and engine
 - **Files reach a tool by a one-time upload link** (15 minutes, one file, bound to the administrator), because MCP cannot pass an attachment to a tool; base64 works for small files.
 - **Two tools were added to the brief's list**: `build_site` (confirmed bills to a site and connection) and `sizing_status` (the status tool `run_sizing` points to).
 
+## 26 Nov 2026 — the multi-state tests (Stage 17)
+
+- **A state test asserts the app's figure where a listed rule gap makes it differ from the order**, with the gap named beside it, and works the order's figure too; nothing is skipped and no tolerance is widened. Levies no order states (fuel adjustment, duty, tax as a bill prints them) are typed into the hand bills and marked as assumptions.
+- **A month's power factor is the bill's kWh over its kVAh when none is printed**, cited to the kVAh; it counts as given by the bill, so the power-factor question is not asked. This lowered the Uttar Pradesh profile's peak and moved the transition plan's figures (the test was corrected to them).
+- **Per-unit SLDC and RLDC charges are landed lines**, charged on drawal, not grossed up by losses; the banking charge in kind grosses up generation and injection charges, not drawal charges.
+- **The state tests raise the optimizer's time limit to 600 s**, so a result does not depend on the machine's load; production keeps 300 s. A sizing pass that ends on its limit with no feasible solution still fails the run (listed).
+- **A bill recomputed from the dispatch file is checked within the file's print precision** where it prints kWh to three places.
+
+## 26 Nov 2026 — the landed-cost calculator (Stage 19)
+
+- **The calculator is closed to visitors on the live server**: it sits behind `ERGPLAN_PUBLIC_CALCULATOR`, off by default, because opening the app without sign-in is the person's decision (the brief's exception). When on, only the calculator opens; it writes nothing.
+- **The exchange's landed cost is withheld from clients and visitors unless the state's approved verdict offers the purchase**; an analyst sees it marked as the analyst's figure (rule 13, invariant 2).
+- **The all-states table prices each DISCOM on its own reference HT industrial category**, because category names are the DISCOM's own.
+
