@@ -139,11 +139,11 @@ def _review(src: Source, t: SectionTable) -> dict[str, Any]:
     }
 
 
-def _band(text: str, listed_voltages: bool = False) -> dict[str, Any] | None:
+def _band(text: str) -> dict[str, Any] | None:
     """The voltage band a descriptor names, or None when it names none. Raises when the text names
     a voltage this module cannot read whole (a number left over beside the kV figures: a heading the
     text layer broke, such as 'above 66 V kV and up to 132 k'). Two voltages listed with a stroke
-    ('132 kV / 220 kV') are read as the band between them only where the caller asks for it."""
+    ('132 kV / 220 kV') and no other number are the band between them."""
     bare = _CATEGORY.sub(" ", text)
     if not re.search(r"k\s*v(?![a-z])|\d\s*k\b|\bvolt", bare, re.I):
         return None
@@ -156,7 +156,7 @@ def _band(text: str, listed_voltages: bool = False) -> dict[str, Any] | None:
         and re.search(r"\b(below|up\s*to|upto|less than|not exceeding)\b", bare, re.I)
     )
     if band is None or stray or both_ways:
-        listed = _listed_band(bare) if listed_voltages else None
+        listed = _listed_band(bare)
         if listed is not None:
             return listed
         raise _Skip(f"voltage not read with confidence: '{text.strip()}'")
@@ -268,14 +268,12 @@ def _in_words(condition: str) -> str:
     return _plain(out)
 
 
-def _band_and_qualifier(
-    descriptor: str, listed_voltages: bool = False
-) -> tuple[dict[str, Any] | None, str | None]:
+def _band_and_qualifier(descriptor: str) -> tuple[dict[str, Any] | None, str | None]:
     """The voltage of a row and, where the row prints one condition in brackets beside it
     ('33 kV supply (Load factor >15%)'), that condition in words. A row whose voltage is still not
     read whole is refused as before."""
     try:
-        return _band(descriptor, listed_voltages), None
+        return _band(descriptor), None
     except _Skip:
         inside = _BRACKETED.findall(descriptor)
         if len(inside) != 1 or _KV_NUMBER.search(inside[0]) or not re.search(r"[a-z]{3,}", inside[0], re.I):
@@ -494,13 +492,8 @@ def _schedule_entries(src: Source, t: SectionTable, out: Mapped) -> list[_Entry]
                 _slab_guard(descriptor)
                 category = named or cat
                 e = _Entry(t, category, _own_descriptor(t, category, descriptor))
-                # two listed voltages ('132 kV / 220 kV') are a band in a numbered row (a table with a
-                # serial-number column, as MPERC prints its schedules); the same words in a table
-                # without one stay unread (CSERC's HV-1), as each order's golden cases record
-                numbered = _has_serial(t)
                 e.band, e.qualifier = _band_and_qualifier(
-                    _without_serial(t, r, charges | ({own} if own is not None else set()), descriptor),
-                    listed_voltages=numbered,
+                    _without_serial(t, r, charges | ({own} if own is not None else set()), descriptor)
                 )
                 e.fixed = _rate_and_ref(src, t, r, f_col, list(r.cells), lead)
                 e.energy = _rate_and_ref(src, t, r, e_col, list(r.cells), lead)
@@ -1734,10 +1727,6 @@ def _listed_band(text: str) -> dict[str, Any] | None:
         return None
     lo, hi = sorted((Decimal(m.group(1)), Decimal(m.group(2))))
     return {"min": float(lo) if lo % 1 else int(lo), "max": float(hi) if hi % 1 else int(hi)}
-
-
-def _has_serial(t: SectionTable) -> bool:
-    return any(_SERIAL_HEAD.match(c.strip()) for c in t.columns)
 
 
 def _without_serial(t: SectionTable, r: Row, skip: set[int], descriptor: str) -> str:

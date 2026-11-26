@@ -53,6 +53,10 @@ tests:
   - {name: "FY 2025-26 · LV-5.2.2 other industries above 25 HP · energy", given: {context: {category: "LV-5", voltage_kv: 0.4, rate_block: "5.2.2 Above 25 HP (18.7 kW)"}, field: /energy_charge/base}, expect: {value: "6.80"}}
   - {name: "FY 2025-26 · HV-2 by its printed name at 33 kV · energy", given: {context: {category: "HV-2: Mines", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.50"}}
   - {name: "FY 2025-26 · HV-3 at 33 kV without the load factor is not answered", given: {context: {category: "HV-3", voltage_kv: 33}}, expect: {absent: true}}
-  - {name: "FY 2025-26 · HV-1 Railway traction ('132 kV / 220 kV') is not imported", given: {context: {category: "HV-1", voltage_kv: 132}}, expect: {absent: true}}
+  # HV-1: Railway Traction, PDF page 15: 'Supply Voltage | Demand Charge (Rs./kVA/month) | Energy Charge (Rs. per kVAh)',
+  # one row 'Railway Traction on 132 kV / 220 kV  375  5.55' (read on the page; the two listed voltages are one band)
+  - {name: "FY 2025-26 · HV-1 Railway traction at 132 kV · demand", given: {context: {category: "HV-1", voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "375"}}
+  - {name: "FY 2025-26 · HV-1 Railway traction at 132 kV · energy", given: {context: {category: "HV-1", voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "5.55"}}
+  - {name: "FY 2025-26 · HV-1 Railway traction at 220 kV · energy", given: {context: {category: "HV-1", voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "5.55"}}
   - {name: "FY 2025-26 · HV-7 Start-up power ('400/220/132/33/11 kV') is not imported", given: {context: {category: "HV-7", voltage_kv: 33}}, expect: {absent: true}}
   - {name: "FY 2025-26 · LV-5 tribal-area rates (printed under each slab) are not imported", given: {context: {category: "LV-5", voltage_kv: 0.4, rate_block: "a) Bastar avem Dakshin Kshetra Adivasi Vikas Pradhikaran, and Sarguja avem Uttar Kshetra Adivasi Vikas Pradhikaran"}}, expect: {absent: true}}

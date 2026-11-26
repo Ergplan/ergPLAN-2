@@ -87,7 +87,17 @@ def test_a_table_number_is_not_a_figure_to_ground() -> None:
 @pytest.mark.parametrize("order_id", [73, 76])
 def test_cg_category_by_code_and_name_and_no_rate_block_from_a_bare_heading(order_id: int) -> None:
     rows = _rows(order_id, "tariff_schedule")
-    assert len(rows) == 24 and service.validate_rows("tariff_schedule", rows) == {}
+    assert len(rows) == 25 and service.validate_rows("tariff_schedule", rows) == {}
+    # HV-1 is printed for 'Railway Traction on 132 kV / 220 kV' (two listed voltages: one band); the
+    # figures are those of the order's page (73: p. 203, 400 and 5.90; 76: p. 15, 375 and 5.55)
+    hv1 = _one(rows, category=["HV-1: Railway Traction", "HV-1"])
+    assert hv1["scope"]["voltage_kv"] == {"min": 132, "max": 220}
+    assert (
+        hv1["body"]["demand_charge"]["value"],
+        hv1["body"]["energy_charge"]["base"],
+        hv1["source_ref"]["page"],
+    ) == {73: ("400", "5.90", 203), 76: ("375", "5.55", 15)}[order_id]
+    assert hv1["body"]["billing_basis"] == "kvah"
     hv2 = _one(rows, category=["HV-2: Mines", "HV-2"], voltage_kv={"min": 33, "max": 33})
     # the table is headed 'Tariff': that is no rate block; the body keeps the printed name
     assert "rate_block" not in hv2["scope"] and hv2["body"]["category"] == "HV-2: Mines"
@@ -126,7 +136,6 @@ def test_cg_a_condition_beside_the_voltage_is_a_rate_block_in_words() -> None:
     assert low["source_ref"]["page"] == 205
     assert arr_map._in_words("Load factor >=15%") == "Load factor at or above 15%"
     # a voltage that is still not one band is refused as before
-    assert "voltage not read with confidence" in _why(73, "HV-1: Railway Traction")[0]
     assert "voltage not read with confidence" in _why(73, "HV-7: Start-Up Power")[0]
 
 
@@ -375,8 +384,8 @@ def test_a_consumption_range_is_a_slab_whatever_its_column_is_called() -> None:
 @pytest.mark.parametrize(
     ("state", "expected"),
     [
-        ("cg", {(73, "cspdcl", "oa_charge", 5, "8/8"), (73, "cspdcl", "tariff_schedule", 24, "51/51"),
-                (76, "cspdcl", "tariff_schedule", 24, "51/51")}),
+        ("cg", {(73, "cspdcl", "oa_charge", 5, "8/8"), (73, "cspdcl", "tariff_schedule", 25, "53/53"),
+                (76, "cspdcl", "tariff_schedule", 25, "53/53")}),
         ("uk", {(55, "upcl", "oa_charge", 1, "3/3"), (55, "upcl", "tariff_schedule", 7, "13/13"),
                 (54, "upcl", "oa_charge", 1, "3/3"), (54, "upcl", "tariff_schedule", 7, "13/13")}),
         ("tn", {(184, "tnpdcl", "tariff_schedule", 10, "27/27")}),
