@@ -50,6 +50,16 @@ PUBLIC = {
     "/voice/tool",
     "/voice/tools",
     "/chat",
+    # Stage 16: the MCP connector checks its own OAuth tokens (ergplan.mcp.oauth), never the cookie
+    "/mcp",
+    "/mcp/upload/{secret}",
+    "/oauth/register",
+    "/oauth/authorize",
+    "/oauth/token",
+    "/oauth/revoke",
+    "/.well-known/oauth-authorization-server",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/mcp",
 }
 
 

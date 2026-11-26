@@ -13,6 +13,12 @@
 		uri strip_prefix /api
 		reverse_proxy api:8000
 	}
+	# Stage 16: the MCP connector at /mcp and its OAuth endpoints and metadata, at the site's root
+	# (where Claude looks for them), served by the API as they are
+	@mcp path /mcp /mcp/* /oauth/* /.well-known/oauth-authorization-server /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/*
+	handle @mcp {
+		reverse_proxy api:8000
+	}
 	handle {
 		reverse_proxy web:3000
 	}

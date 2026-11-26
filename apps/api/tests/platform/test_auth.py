@@ -223,6 +223,10 @@ def test_every_public_template_is_a_real_route() -> None:
     from ergplan.platform.auth import PUBLIC
 
     paths = set(app.openapi()["paths"])  # routers are included lazily; the schema lists every route
+    # and the routes kept out of the schema (Stage 16: the MCP endpoint, its OAuth and upload links)
+    from ergplan.mcp import oauth, server, uploads
+
+    paths |= {getattr(r, "path", "") for m in (oauth, server, uploads) for r in m.router.routes}
     assert paths >= PUBLIC, sorted(PUBLIC - paths)
 
 

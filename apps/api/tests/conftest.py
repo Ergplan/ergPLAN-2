@@ -19,6 +19,10 @@ from sqlalchemy import text
 from ergplan.db.base import get_engine
 
 APP_TABLES = [
+    "mcp_uploads",
+    "mcp_tokens",
+    "mcp_clients",
+    "bill_reads",  # a queued reading left behind would point at another run's data folder
     "state_rulebooks",
     "rule_proposals",
     "audit_messages",

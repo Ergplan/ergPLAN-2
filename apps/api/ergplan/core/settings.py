@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     ergplan_signin_rate_window_s: int = 60
     ergplan_upload_rate_limit: int = 60
     ergplan_upload_rate_window_s: int = 600
+    # Stage 16: the MCP connector's address (what the person adds in Claude). Empty: the public
+    # address followed by /mcp. Its scheme and host are also the OAuth issuer's.
+    ergplan_mcp_url: str = ""
     ergplan_resettle_tolerance_kwh: Decimal = Decimal("1")
     # the solve's budget (sizing takes half; each month's 15-minute dispatch at least 30 s): runs
     # are solved on the worker, and a mix of several sources needs minutes, not seconds
