@@ -24,7 +24,7 @@ from ..core.sourced import RefKind, SourcedValue, SourceRef
 from ..core.units import Unit
 from ..rulebook.models import RuleView
 from . import gaps as G
-from .tariff_eval import MonthQuantities, TariffBill, evaluate, slot_adjustment_pct
+from .tariff_eval import MonthQuantities, TariffBill, demand_slabs, evaluate, slot_adjustment_pct
 
 TOLERANCE = Decimal("1.00")
 NO_TARIFF = "no_tariff"  # not replayed: no approved tariff in force for the bill's supply period
@@ -197,6 +197,20 @@ def _ref(bill_id: str, path: str, page: Any = None, note: str | None = None) -> 
     )
 
 
+def _inr_deltas(slot: Mapping[str, Any]) -> list[Decimal]:
+    """A slot's adjustments in INR per unit: its own and each billing-demand band's (none: [])."""
+    raw = [slot.get("rate_delta_inr_per_kwh")] + [
+        b.get("rate_delta_inr_per_kwh") for b in slot.get("rate_delta_by_billing_demand") or []
+    ]
+    return [Decimal(str(x)) for x in raw if x not in (None, "")]
+
+
+def _inr_error(slot: Mapping[str, Any], rate: Decimal, base_rate: Decimal) -> Decimal:
+    """How far a zone's printed rate is from the slot's INR adjustment, printed alone or on the base."""
+    deltas = _inr_deltas(slot) or [Decimal(0)]
+    return min(min(abs(rate - d), abs(rate - base_rate - d)) for d in deltas)
+
+
 def tod_units(
     bill: Mapping[str, Any], bill_id: str, base_rate: Decimal, tod: RuleView | None, month: int, unit: Unit
 ) -> tuple[dict[str, SourcedValue], list[str]]:
@@ -223,18 +237,31 @@ def tod_units(
     if not zones or base_rate == 0:
         return {}, notes
     out: dict[str, SourcedValue] = {}
+    by_inr = any(_inr_deltas(s) for s in slots)
     for key, z in sorted(zones.items()):
         r = z["rate"]
         # a zone printed at its full rate (base × (1 + p)) or as the adjustment alone (base × p)
         pct = (r / base_rate - 1) * 100 if r > base_rate / 2 else r / base_rate * 100
-        best = min(slots, key=lambda s: abs(slot_adjustment_pct(s) - pct)) if slots else None
-        if best is None:
-            continue
-        if abs(slot_adjustment_pct(best) - pct) > Decimal("0.5"):
-            notes.append(
-                f"bill zone {key} is charged {pct:+.1f}% on energy; the approved ToD rule has "
-                f"{slot_adjustment_pct(best):+.1f}% for {best['name']}"
-            )
+        if by_inr:
+            # the order adjusts in rupees per unit (GERC HTP-I 11.3, 11.10): a zone printed as that
+            # adjustment (or the base plus it) belongs to the slot carrying it
+            best = min(slots, key=lambda s: _inr_error(s, r, base_rate)) if slots else None
+            if best is None:
+                continue
+            if _inr_error(best, r, base_rate) > Decimal("0.005"):
+                notes.append(
+                    f"bill zone {key} is charged ₹{r}/unit; the approved ToD rule has no slot adjusted "
+                    f"by that amount (nearest: {best['name']})"
+                )
+        else:
+            best = min(slots, key=lambda s: abs(slot_adjustment_pct(s) - pct)) if slots else None
+            if best is None:
+                continue
+            if abs(slot_adjustment_pct(best) - pct) > Decimal("0.5"):
+                notes.append(
+                    f"bill zone {key} is charged {pct:+.1f}% on energy; the approved ToD rule has "
+                    f"{slot_adjustment_pct(best):+.1f}% for {best['name']}"
+                )
         name = str(best["name"])
         refs = tuple(_ref(bill_id, f"elements.{i}.quantity", note=f"zone {key}") for i in z["idx"])
         prev = out.get(name)
@@ -322,6 +349,8 @@ def printed_rate_notes(bill: Mapping[str, Any], schedule: RuleView) -> list[str]
     """When the bill prints its demand rate and it differs from the approved row's, say so: it is
     usually the supply voltage (a different band of the schedule)."""
     dc = schedule.get("/demand_charge/value")
+    # a slabbed demand charge (GERC HTP-I 11.1.1) is printed one line per slab: any slab's rate is its own
+    rates = {rate for _, rate, _ in demand_slabs(schedule)}
     out = []
     for e in bill.get("elements") or []:
         up = str(e.get("label") or "").upper()
@@ -329,7 +358,7 @@ def printed_rate_notes(bill: Mapping[str, Any], schedule: RuleView) -> list[str]
         if r is None or dc is None or e.get("kind") != "item" or "EXCESS" in up:
             continue
         is_demand = e.get("code") == "demand_charge" or up.startswith("FC") or "FIXED CHARGE" in up
-        if is_demand and r != Decimal(str(dc)):
+        if is_demand and r != Decimal(str(dc)) and r not in rates:
             out.append(
                 f"the bill charges demand at ₹{r}/kVA/month; the approved row for this connection "
                 f"({schedule.label}) has ₹{dc}: check the supply voltage"
