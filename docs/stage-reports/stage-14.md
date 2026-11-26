@@ -54,9 +54,9 @@ On approved rules, 8 of the 12 bills have no tariff in force. With the two impor
 | For each state: what is sourced to a page, what rests on the Master, what is missing | The table above |
 | Every imported version has golden tests and they pass | Every version has cases worked from the order's page and all of those pass. On three versions' families the approved rulebook's own cases also run and some fail, on purpose (Uttar Pradesh FY 2026-27: schedule 25 of 28, open-access 16 of 18 and 10 of 15; Telangana FY 2026-27: 34 of 40; Gujarat FY 2026-27: 21 of 34): the draft lacks the approved version's prose rules and the gate refuses it |
 | The twelve assumed Uttar Pradesh bills replay across both tariff years in the sandbox | Yes for energy and ToD, to within ₹1; the demand charge and 1 to 21 Nov 2025 are named as missing (above) |
-| No draft reaches a client; nothing imported was approved by the builder | The absurd-draft test passes; LIVE |
-| Watcher green | WATCHER |
-| `pytest -m slow` and the last CI run | SLOW |
+| No draft reaches a client; nothing imported was approved by the builder | The absurd-draft test passes. On the live database (26 Nov, 08:30 UTC) all thirteen import commands ran: 60 draft versions, and the 72 approved versions and their 200 rules are unchanged (a fingerprint of every approved version and rule taken before and after is identical). A second run says "unchanged" for all 60. Every order's PDF is stored. The two Telangana PDFs could not be downloaded from inside the server's container (the regulator's site refuses its TLS handshake; certificate checks were left on), so they were downloaded on the VM with certificate checks on, their SHA-256 matched the ARR Network's, and they were placed in the library. `tools/dev/vm-check.py`: every check passed |
+| Watcher green | Green on the merged tree (the pass that ended 26 Nov 00:40 UTC began after the last code change; only documents changed since) |
+| `pytest -m slow` and the last CI run | `pytest -m slow` passed on the merged tree (26 Nov; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); the two browser journeys passed (161 s); CI green on `ca482a3` |
 | Reviewer clean | Not run: no OpenAI key |
 
 ## What was skipped, and why
