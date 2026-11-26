@@ -1,0 +1,14 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JERC (Goa and UTs) MYT order for the Electricity Department of Goa (ARR Network order 23, sha256 8c2b13e3…), the
+# FY 2026-27 columns of Table 187 "Approved tariff by the Commission for 4th Control Period", PDF pages 228-230. The
+# year's rates apply from 1 April 2026; the order sets the next year's from 1 April 2027 (not imported).
+# FY 2026-27: HTS-IV Rs 280.00/kVA/month and Rs 5.60/kVAh; HTS-I 120.00 and 5.85; EHTS-II 275.00 and 5.50.
+jurisdiction: goa_ed
+family: tariff_schedule
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "GA FY 2026-27 · HTS-IV · energy", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.60"}}
+  - {name: "GA FY 2026-27 · HTS-IV · fixed", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "280"}}
+  - {name: "GA FY 2026-27 · HTS-I · energy", given: {context: {category: HTS-I, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.85"}}
+  - {name: "GA FY 2026-27 · EHTS-II · energy", given: {context: {category: EHTS-II, voltage_kv: 110}, field: /energy_charge/base}, expect: {value: "5.50"}}

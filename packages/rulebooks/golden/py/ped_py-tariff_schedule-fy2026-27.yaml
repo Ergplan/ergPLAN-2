@@ -1,0 +1,15 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JERC (Goa and UTs) MYT order for the Electricity Department of Puducherry (ARR Network order 28, sha256 ad0725e6…).
+# Table 9-2 "Tariff schedule approved by the Commission for FY 2026-27", PDF pages 242-244 (printed also as Table 6-4,
+# p. 200): HTS-IV (Industries) Rs. 450.00/kVA or part thereof per month and Rs. 6.25/kVAh (unchanged from FY 2025-26);
+# EHTS-II 500.00 and 6.10; LTAS-III (Cottage Ind.) 30.00 and 6.20 (5.95 in FY 2025-26). From 1 April 2026; the order
+# sets the next year's rates from 1 April 2027 (not imported).
+jurisdiction: ped_py
+family: tariff_schedule
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "PY FY 2026-27 · HTS-IV · energy", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.25"}}
+  - {name: "PY FY 2026-27 · HTS-IV · fixed", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "450"}}
+  - {name: "PY FY 2026-27 · EHTS-II · energy", given: {context: {category: EHTS-II, voltage_kv: 110}, field: /energy_charge/base}, expect: {value: "6.10"}}
+  - {name: "PY FY 2026-27 · LTAS-III · energy", given: {context: {category: LTAS-III, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "6.20"}}

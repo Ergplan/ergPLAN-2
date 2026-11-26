@@ -1,0 +1,27 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 37,
+  "commission": "JSERC",
+  "title": "Order on True-up for FY 2023-24, Annual Performance Review for FY 2024-25, and Aggregate Revenue Requirement & Tariff for FY 2025-26 for Jharkhand Bijli Vitran Nigam Limited (JBVNL)",
+  "url": "http://jserc.org/pdf/tariff_order/jbvnl-2025.pdf",
+  "sha256": "76909d1642b99d26b07a143fd02a24e6fe77518f81cbe5886dae59e4780139ed",
+  "pages": 315,
+  "pages_without_text": 0,
+  "arr_year": "FY2025-26",
+  "years_decided": [
+   "FY2023-24",
+   "FY2024-25",
+   "FY2025-26"
+  ],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "discovery profile jserc-discovery v1",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "JBVNL"
+  ]
+ }
+}

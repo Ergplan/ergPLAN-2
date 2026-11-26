@@ -1,0 +1,10 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JERC (Goa and UTs) MYT order for the Electricity Department of Goa (ARR Network order 23, sha256 8c2b13e3…), PDF page
+# 209, Table 166 "Additional Surcharge for control period approved by the Commission": Rs 0.77/kWh for FY 2026-27
+# (0.68 in Table 165 is the Electricity Department's own figure).
+jurisdiction: goa_ed
+family: oa_charge
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "GA FY 2026-27 · additional surcharge (Table 166, approved)", given: {context: {connection: intra_state, voltage_kv: 11}, where: {/component: additional_surcharge}, field: /value}, expect: {value: "0.77"}}

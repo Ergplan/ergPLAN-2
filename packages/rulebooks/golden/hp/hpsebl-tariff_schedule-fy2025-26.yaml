@@ -1,0 +1,18 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# HPERC tariff order for FY 2025-26 (ARR Network order 10, sha256 964c9ea8…, 448 pages). Schedule of Tariff in force
+# from 1 April 2025 (General Conditions of Tariff, A, PDF page 414), until the FY 2026-27 order's schedule of 1 April
+# 2026. Table 278 "Existing and Approved Tariff for Large Industrial Power Supply Category", PDF page 350: EHT 220 kV
+# and above 5.46 Rs/kVAh, 132 kV 5.51, 66 kV 5.56, demand 425.00 Rs/kVA/month; HT-1 (up to 1 MVA) 5.86 and 250.00;
+# HT-2 (more than 1 MVA) 5.61 and 400.00.
+jurisdiction: hpsebl
+family: tariff_schedule
+effective_on: '2025-08-01'
+origin: arr_network
+tests:
+  - {name: "HP FY 2025-26 · LIPS at 132 kV · energy", given: {context: {category: Large Industrial Power Supply, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "5.51"}}
+  - {name: "HP FY 2025-26 · LIPS at 132 kV · demand", given: {context: {category: Large Industrial Power Supply, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "425"}}
+  - {name: "HP FY 2025-26 · LIPS at 220 kV · energy", given: {context: {category: Large Industrial Power Supply, voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "5.46"}}
+  - {name: "HP FY 2025-26 · LIPS at 66 kV · energy", given: {context: {category: Large Industrial Power Supply, voltage_kv: 66}, field: /energy_charge/base}, expect: {value: "5.56"}}
+  - {name: "HP FY 2025-26 · LIPS HT-1 · energy", given: {context: {category: Large Industrial Power Supply, rate_block: "HT-1 (up to 1 MVA)", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.86"}}
+  - {name: "HP FY 2025-26 · LIPS HT-2 · energy", given: {context: {category: Large Industrial Power Supply, rate_block: "HT-2 (More than 1 MVA)", voltage_kv: 22}, field: /energy_charge/base}, expect: {value: "5.61"}}
+  - {name: "HP FY 2025-26 · LIPS HT-2 · demand", given: {context: {category: Large Industrial Power Supply, rate_block: "HT-2 (More than 1 MVA)", voltage_kv: 22}, field: /demand_charge/value}, expect: {value: "400"}}

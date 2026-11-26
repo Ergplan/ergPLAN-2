@@ -1,0 +1,23 @@
+{
+ "note": "Machine-read from the orders. A figure is reviewed by a person only where reviewed_by is set; consensus says how many independent readers gave the same value.",
+ "order": {
+  "order_id": 111,
+  "commission": "JSERC",
+  "title": "JSERC JBVNL MYT TrueUp APR Order 2026",
+  "url": "https://jserc.org/pdf/tariff_order/JBVNL-2026.pdf",
+  "sha256": "0391dd2701c7bbb7a962923212ef5a8ed6c9cdfbfea601df692d7ce4aa119108",
+  "pages": 372,
+  "pages_without_text": 0,
+  "arr_year": "FY2026-27",
+  "years_decided": [],
+  "kind": "tariff_order",
+  "utility_kind": "discom",
+  "order_date": null,
+  "found_by": "read in the build session; URL and SHA-256 in scripts/load_real_orders.py",
+  "fetched_on": "2026-11-11T00:00:00.000Z",
+  "read_status": "read",
+  "utilities": [
+   "JBVNL"
+  ]
+ }
+}

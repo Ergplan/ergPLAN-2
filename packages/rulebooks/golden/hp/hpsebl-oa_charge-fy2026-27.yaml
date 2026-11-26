@@ -1,0 +1,12 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# HPERC tariff order for FY 2026-27 (ARR Network order 9, sha256 0f3d9e9d…): Table 261 "Additional Surcharge Approved by
+# the Commission for FY27 (Paisa/Unit)", PDF page 394: 63.66 paisa per unit (Rs 0.6366/kWh); 69.36 on the same page is
+# HPSEBL's own figure. Wheeling charges, CSS and losses (Tables 259, 260, 262, 265) are not imported.
+jurisdiction: hpsebl
+family: oa_charge
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "HP FY 2026-27 · additional surcharge", given: {context: {connection: intra_state, voltage_kv: 132}, where: {/component: additional_surcharge}, field: /value}, expect: {value: "0.6366"}}
+  - {name: "HP FY 2026-27 · additional surcharge per kWh", given: {context: {connection: intra_state, voltage_kv: 132}, where: {/component: additional_surcharge}, field: /basis}, expect: {value: inr_per_kwh}}
+  - {name: "HP FY 2026-27 · no wheeling charge imported", given: {context: {connection: intra_state, voltage_kv: 132}, where: {/component: wheeling}}, expect: {absent: true}}

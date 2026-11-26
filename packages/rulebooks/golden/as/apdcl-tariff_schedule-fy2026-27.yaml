@@ -1,0 +1,26 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# AERC tariff order of 6 March 2026 for APDCL, FY 2026-27 (ARR Network order 176, sha256 db6b0e31…, 285 pages); tariffs
+# "effective from April 1, 2026 and shall continue until replaced" (PDF page 18, para 13). Tariff schedule, PDF pages
+# 264-271: HT Category I HT Domestic Rs 7.89/kWh, Rs 70/kVA/month; HT Category V (B) HT-I Industries (contract demand
+# above 50 kVA and up to 150 kVA) 7.69 and 200; HT Category V (C) HT-II Industries (above 150 kVA) Option-1 8.09 and 280
+# with ToD, Option-2 7.69 and 360 without ToD; HT Category VII Oil and Coal 9.09 and 320. HT Category IV Bulk Supply
+# (p. 266) is printed under a heading the ARR Network took from its applicability text: not imported.
+jurisdiction: apdcl
+family: tariff_schedule
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "AS FY 2026-27 · HT-II Option-1 · energy", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -1, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "8.09"}}
+  - {name: "AS FY 2026-27 · HT-II Option-1 · fixed", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -1, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "280"}}
+  - {name: "AS FY 2026-27 · HT-II fixed charge per kVA", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -1, voltage_kv: 33}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  - {name: "AS FY 2026-27 · HT-II billed in kWh", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -1, voltage_kv: 33}, field: /billing_basis}, expect: {value: kwh}}
+  - {name: "AS FY 2026-27 · HT-II Option-2 · energy", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -2, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.69"}}
+  - {name: "AS FY 2026-27 · HT-II Option-2 · fixed", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -2, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "360"}}
+  - {name: "AS FY 2026-27 · HT-I at 100 kVA · energy", given: {context: {category: "HT Category V (B)-HT-I Industries", contract_demand_kva: 100, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "7.69"}}
+  - {name: "AS FY 2026-27 · HT-I at 100 kVA · fixed", given: {context: {category: "HT Category V (B)-HT-I Industries", contract_demand_kva: 100, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "200"}}
+  - {name: "AS FY 2026-27 · HT-I is for 50 to 150 kVA only", given: {context: {category: "HT Category V (B)-HT-I Industries", contract_demand_kva: 400, voltage_kv: 11}}, expect: {absent: true}}
+  - {name: "AS FY 2026-27 · HT Domestic · energy", given: {context: {category: "HT Category I: HT Domestic", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "7.89"}}
+  - {name: "AS FY 2026-27 · Oil and Coal · energy", given: {context: {category: "HT Category VII: Oil and Coal", voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "9.09"}}
+  - {name: "AS FY 2026-27 · Oil and Coal · fixed", given: {context: {category: "HT Category VII: Oil and Coal", voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "320"}}
+  # LT Category II Domestic A is printed in consumption slabs (p. 256): no row
+  - {name: "AS FY 2026-27 · Domestic A slabs are not imported", given: {context: {category: "LT Category –II: Domestic A", voltage_kv: 0.23}}, expect: {absent: true}}

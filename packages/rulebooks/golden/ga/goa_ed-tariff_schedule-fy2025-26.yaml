@@ -1,0 +1,25 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JERC (Goa and UTs) MYT order for the Electricity Department of Goa, 4th control period FY 2025-26 to FY 2029-30, dated
+# 30 September 2025 (ARR Network order 23, sha256 8c2b13e3…, 256 pages): "This Order shall come into force with effect
+# from 1st October, 2025" (PDF page 15, para 7; also p. 193: "the tariff rates approved for the 4th Control Period shall
+# be applicable from 1st October 2025"). Table 187 "Approved tariff by the Commission for 4th Control Period", PDF pages
+# 228-230, a fixed charge (FC) and a variable charge (VC, Rs/unit) for each year, the unit in a column of its own.
+# FY 2025-26: HTS-IV Rs 280.00/kVA/month and Rs 5.30/kVAh; HTS-I 120.00 and 5.50; HTS-II 255.00 and 5.50;
+# EHTS-II 275.00 and 5.20; EHTS-I 250.00 and 5.45; LTPS-I 60.00 and 4.50.
+jurisdiction: goa_ed
+family: tariff_schedule
+effective_on: '2025-11-01'
+origin: arr_network
+tests:
+  - {name: "GA FY 2025-26 · HTS-IV · energy", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.30"}}
+  - {name: "GA FY 2025-26 · HTS-IV · fixed", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "280"}}
+  - {name: "GA FY 2025-26 · HTS-IV · fixed per kVA", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  - {name: "GA FY 2025-26 · HTS-IV · billed in kVAh", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "GA FY 2025-26 · HTS-I · energy", given: {context: {category: HTS-I, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.50"}}
+  - {name: "GA FY 2025-26 · HTS-II · fixed", given: {context: {category: HTS-II, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "255"}}
+  - {name: "GA FY 2025-26 · EHTS-II · energy", given: {context: {category: EHTS-II, voltage_kv: 110}, field: /energy_charge/base}, expect: {value: "5.20"}}
+  - {name: "GA FY 2025-26 · EHTS-II · fixed", given: {context: {category: EHTS-II, voltage_kv: 110}, field: /demand_charge/value}, expect: {value: "275"}}
+  - {name: "GA FY 2025-26 · EHTS-I · energy", given: {context: {category: EHTS-I, voltage_kv: 110}, field: /energy_charge/base}, expect: {value: "5.45"}}
+  - {name: "GA FY 2025-26 · LTPS-I · energy", given: {context: {category: LTPS-I, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "4.50"}}
+  # LTIS-I is printed in consumption slabs (0-500, 501-1000, > 1000): no row
+  - {name: "GA FY 2025-26 · LTIS-I slabs are not imported", given: {context: {category: LTIS-I, voltage_kv: 0.4}}, expect: {absent: true}}

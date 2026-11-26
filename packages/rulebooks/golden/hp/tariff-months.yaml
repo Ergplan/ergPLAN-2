@@ -1,0 +1,32 @@
+# A month of a consumer's bill worked by hand from the order page (rates read from the text layer of the PDF,
+# independently of the importer), for the version imported from the ARR Network. Evaluated through rulebook.sandbox on
+# the draft in force at the end of the month and engine.tariff_eval (apps/api/tests/regreader/test_arr_hp_jh_as_ga_py.py).
+# The recorded demand is set equal to the contract demand, so the readings of billable demand give the same charge.
+#
+# HPERC FY 2026-27 (order 9): Table 281, Large Industrial Power Supply, EHT 132 kV, PDF page 424.
+# HPERC FY 2025-26 (order 10): Table 278, Large Industrial Power Supply, EHT 66 kV, PDF page 350.
+origin: arr_network
+state: HP
+cases:
+  - name: HPSEBL LIPS at 132 kV, 5,000 kVA contract, August 2026 (FY 2026-27 order)
+    # demand 5,000 kVA x 425.00 = 2,125,000; energy 2,000,000 kVAh x 5.50 = 11,000,000
+    discom: hpsebl
+    category: Large Industrial Power Supply
+    voltage_kv: 132
+    month: 2026-08
+    contract_kva: 5000
+    max_kva: 5000
+    units: 2000000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kvah, demand_charge: "2125000.00", energy_charge: "11000000.00", tod_adjustment: "0.00", total: "13125000.00"}
+  - name: HPSEBL LIPS at 66 kV, 3,000 kVA contract, August 2025 (FY 2025-26 order)
+    # demand 3,000 kVA x 425.00 = 1,275,000; energy 1,000,000 kVAh x 5.56 = 5,560,000
+    discom: hpsebl
+    category: Large Industrial Power Supply
+    voltage_kv: 66
+    month: 2025-08
+    contract_kva: 3000
+    max_kva: 3000
+    units: 1000000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, billing_basis: kvah, demand_charge: "1275000.00", energy_charge: "5560000.00", tod_adjustment: "0.00", total: "6835000.00"}
