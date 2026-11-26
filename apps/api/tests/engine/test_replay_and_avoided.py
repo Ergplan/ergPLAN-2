@@ -14,6 +14,7 @@ from ergplan.core.sourced import RefKind
 from ergplan.core.units import Unit
 from ergplan.engine import avoided_cost, replay
 from ergplan.engine.gaps import GAPS
+from ergplan.rulebook.models import RuleView
 
 from .helpers import restore_committed, rules, sv
 
@@ -21,6 +22,28 @@ from .helpers import restore_committed, rules, sv
 @pytest.fixture
 def committed() -> None:
     restore_committed()
+
+
+def test_bill_zones_find_slots_whose_tod_is_in_rupees() -> None:
+    """Stage 17: KERC's HT-2(a) ToD is (+)100 / 0 / (+)100 / (-)100 paise (Tariff Order 2025, p. 568).
+    Matched on percentages alone every slot read 0%, so the surcharge and the rebate zones both landed
+    on the first slot and the rebate was charged as a surcharge."""
+    slots = [
+        {"name": "06-09", "start": "06:00", "end": "09:00", "rate_delta_inr_per_kwh": "1.00"},
+        {"name": "09-18", "start": "09:00", "end": "18:00", "rate_delta_inr_per_kwh": "0"},
+        {"name": "18-22", "start": "18:00", "end": "22:00", "rate_delta_inr_per_kwh": "1.00"},
+        {"name": "22-06", "start": "22:00", "end": "06:00", "rate_delta_inr_per_kwh": "-1.00"},
+    ]
+    tod = RuleView("r", "tod_slots", "v", "ka_escoms", {}, {"slots": slots}, {"kind": "order"})
+    bill = {
+        "elements": [
+            {"index": 2, "label": "TOD CHARGES", "stage": "current", "quantity": "476076", "rate": "1.00"},
+            {"index": 3, "label": "TOD REBATE", "stage": "current", "quantity": "546424", "rate": "-1.00"},
+        ]
+    }
+    got, notes = replay.tod_units(bill, "b", Decimal("6.60"), tod, 4, Unit.KWH)
+    assert {k: v.value for k, v in got.items()} == {"06-09": Decimal("476076"), "22-06": Decimal("546424")}
+    assert notes == []
 
 
 def _el(

@@ -222,18 +222,27 @@ def tod_units(
         z["idx"].append(int(e.get("index", 0)))
     if not zones or base_rate == 0:
         return {}, notes
+
+    def slot_pct(s: Mapping[str, Any]) -> Decimal:
+        """The slot's adjustment as a percentage of the base rate: its surcharge or rebate, or (Stage
+        17: KERC's (+)100 / (-)100 paise) its adjustment in rupees per unit over the base rate."""
+        p = slot_adjustment_pct(s)
+        if p == 0 and s.get("rate_delta_inr_per_kwh") not in (None, ""):
+            return Decimal(str(s["rate_delta_inr_per_kwh"])) / base_rate * 100
+        return p
+
     out: dict[str, SourcedValue] = {}
     for key, z in sorted(zones.items()):
         r = z["rate"]
         # a zone printed at its full rate (base × (1 + p)) or as the adjustment alone (base × p)
         pct = (r / base_rate - 1) * 100 if r > base_rate / 2 else r / base_rate * 100
-        best = min(slots, key=lambda s: abs(slot_adjustment_pct(s) - pct)) if slots else None
+        best = min(slots, key=lambda s: abs(slot_pct(s) - pct)) if slots else None
         if best is None:
             continue
-        if abs(slot_adjustment_pct(best) - pct) > Decimal("0.5"):
+        if abs(slot_pct(best) - pct) > Decimal("0.5"):
             notes.append(
                 f"bill zone {key} is charged {pct:+.1f}% on energy; the approved ToD rule has "
-                f"{slot_adjustment_pct(best):+.1f}% for {best['name']}"
+                f"{slot_pct(best):+.1f}% for {best['name']}"
             )
         name = str(best["name"])
         refs = tuple(_ref(bill_id, f"elements.{i}.quantity", note=f"zone {key}") for i in z["idx"])

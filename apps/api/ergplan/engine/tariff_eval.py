@@ -117,8 +117,13 @@ def slot_classes(slot: Mapping[str, object] | None) -> frozenset[str]:
     """What a settlement rule may call a block's slot: `peak` or `off_peak` (the two classes UPERC's
     drawal windows use: a slot with a surcharge is peak), and its ToD category for the cycle settlement
     (`cat:peak`, `cat:normal`, `cat:off_peak`): the slot's own `category` where the rule names it,
-    otherwise a surcharge makes it peak and a rebate off-peak."""
+    otherwise a surcharge makes it peak and a rebate off-peak. A surcharge or rebate printed in rupees
+    per unit (`rate_delta_inr_per_kwh`, KERC's (+)100 / (-)100 paise) counts by its sign as a
+    percentage does (Stage 17: Karnataka's slots were all `normal`, so a ToD-slot settlement netted
+    the whole month as one slot)."""
     adj = slot_adjustment_pct(slot) if slot else Decimal(0)
+    if adj == 0 and slot and slot.get("rate_delta_inr_per_kwh") not in (None, ""):
+        adj = Decimal(str(slot["rate_delta_inr_per_kwh"]))
     cat = str(slot["category"]) if slot and slot.get("category") else None
     if cat is None:
         cat = "peak" if adj > 0 else "off_peak" if adj < 0 else "normal"

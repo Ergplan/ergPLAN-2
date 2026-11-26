@@ -10,7 +10,7 @@ import pytest
 
 from ergplan.core.sourced import RefKind
 from ergplan.core.units import Unit
-from ergplan.engine.tariff_eval import BasisMismatch, MonthQuantities, evaluate, slot_of
+from ergplan.engine.tariff_eval import BasisMismatch, MonthQuantities, evaluate, slot_classes, slot_of
 from ergplan.rulebook.models import RuleView
 
 from .helpers import restore_committed, rules, schedule, sv
@@ -315,3 +315,23 @@ def test_gerc_excess_over_contract_and_least_billing_demand() -> None:
     assert next(ln for ln in small.lines if ln.code == "energy_charge" and ln.rate).rate.value == Decimal(
         "4.00"
     )
+
+
+@pytest.mark.parametrize(
+    ("slot", "classes"),
+    [
+        # KERC Tariff Order 2025, Annexure-9 p. 568 (HT-2(a), December to June): +100, 0, +100, -100 paise
+        ({"name": "06:00-09:00", "rate_delta_inr_per_kwh": "1.00"}, {"peak", "cat:peak"}),
+        ({"name": "09:00-18:00", "rate_delta_inr_per_kwh": "0"}, {"off_peak", "cat:normal"}),
+        ({"name": "22:00-06:00", "rate_delta_inr_per_kwh": "-1.00"}, {"off_peak", "cat:off_peak"}),
+        ({"name": "solar", "rebate_pct": "15"}, {"off_peak", "cat:off_peak"}),
+        ({"name": "peak", "surcharge_pct": "25"}, {"peak", "cat:peak"}),
+        ({"name": "x", "rate_delta_inr_per_kwh": "1.00", "category": "normal"}, {"peak", "cat:normal"}),
+    ],
+)
+def test_a_rupee_surcharge_or_rebate_classes_the_slot_as_a_percentage_does(
+    slot: dict[str, str], classes: set[str]
+) -> None:
+    """Stage 17: Karnataka's slots carry their ToD in rupees; read as no adjustment, every slot was
+    `normal` and the ToD-slot settlement netted the whole month as one slot."""
+    assert slot_classes(slot) == frozenset(classes)
