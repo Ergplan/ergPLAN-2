@@ -180,4 +180,7 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | No state's open access regulations or SLDC procedure are stored, so every exchange verdict is "not yet sourced" and no plan offers IEX | Analyst / person (obtain the documents) |
 | The monthly rule book and the landed-cost screen show exchange landed costs without the verdict; `/mix/options` without a connection does not apply it | Stage 19 |
 | Contract-demand reduction and standby charges under an exchange rule are words only; no what-if for the deviation share; no analyst screen for the exchange sandbox; the exchange reader prompt has never been run; one RTM block of the copied year was filled by the builder from a neighbouring day, which one is not recorded | Next round / tenderos2 |
+| The MCP connector has not been tried in claude.ai or Claude Code against the live server: password sign-in is off there until the administrator's two variables are in `.env` | Person |
+| `mcp_clients` and `mcp_tokens` are never pruned; registration is open (rate-limited, redirects bounded to Claude's hosts) | Next round |
+| MCP results carry the screens' full models (`tools/list` is about 170 KB of schemas; plan and run summaries are large) | Next round, if Claude struggles |
 

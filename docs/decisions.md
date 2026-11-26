@@ -327,3 +327,12 @@ The person asked for one application from two: this repository's flow and engine
 - **The deviation risk is priced from the rule's terms and a pinned 5% assumption** (`ERGPLAN_EXCHANGE_DEVIATION_PCT`); a side the rule does not state is not priced. Runs without `pins.exchange` replay ungated.
 - **States with no stored regulation still get a draft** with every field "not stated" and the regulation to obtain, so the gap is in the rule book.
 
+## 26 Nov 2026 — the MCP server (Stage 16)
+
+- **The MCP SDK is pinned to 1.30.0**, the 1.x line, because 2.x requires `httpx2`, a second HTTP client (rule 8).
+- **The endpoint runs stateless with JSON responses inside the FastAPI app**; a tool calls the screen's own route function and computes nothing; solves are queued for the worker, and a tool answers "running" after a short wait.
+- **The connector's sign-in is the Stage 13 administrator password**, with the same lockout and log as the web sign-in. With password sign-in off, the MCP refuses everyone and says why. Tokens are stored as SHA-256 only: code 5 minutes, access 1 hour, refresh 30 days, rotating; reuse of a spent code or refresh token ends the whole grant.
+- **An https redirect is allowed only to Claude's hosts** (`ERGPLAN_MCP_REDIRECT_HOSTS`, claude.ai and claude.com by default), http only to localhost, so a client someone else registers cannot collect the administrator's grant at an address of its choosing.
+- **Files reach a tool by a one-time upload link** (15 minutes, one file, bound to the administrator), because MCP cannot pass an attachment to a tool; base64 works for small files.
+- **Two tools were added to the brief's list**: `build_site` (confirmed bills to a site and connection) and `sizing_status` (the status tool `run_sizing` points to).
+
