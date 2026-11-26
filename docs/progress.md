@@ -10,10 +10,10 @@ One line per stage. Times are UTC. Questions and the readings taken are in `docs
 | 12 | — | Waits for the second round | Register figures to stored pages (questions 26) |
 | 13 | B | Built 25 Nov, tagged `stage-13-built` | Administrator sign-in built and tested; **switched off on the live server** until the two variables are typed into `.env` (questions 16). Report: `docs/stage-reports/stage-13.md` |
 | 14 | C | Built 26 Nov, tagged `stage-14-built` | 60 draft versions from 24 orders in twelve states, in the live database, none approved (the analyst's act); Andhra Pradesh and MSEDCL not imported (questions 19 to 25). Report: `docs/stage-reports/stage-14.md` |
-| 15 | D | Merged 26 Nov 10:40; slow tests running | Generation profiles, the questions the bills do not answer, the transition plan (UP to 50%: rooftop 5,000 kW, then captive wind 4,610 kW, ₹5.19 cr a year saved). Report: `docs/stage-reports/stage-15.md` |
+| 15 | D | Built 26 Nov, tagged `stage-15-built` | Generation profiles, the questions the bills do not answer, the transition plan (UP to 50%: rooftop 5,000 kW, then captive wind 4,610 kW, ₹5.19 cr a year saved). Questions 27 to 29. Report: `docs/stage-reports/stage-15.md` |
 | 16 | E | In progress since 26 Nov 10:50 | One worker: `/mcp` with OAuth backed by the administrator account |
 | 17 | F | In progress since 26 Nov 10:50 | Two workers: Maharashtra and Karnataka; Gujarat, Punjab and Telangana |
-| 18 | G | Merged 26 Nov 10:30; slow tests running | IEX prices from `Ergplan/tenderos2@23d0afc` in; exchange verdict per state; no stored regulation says whether the exchange may be used, so every verdict is "not yet sourced" (questions 30). Report: `docs/stage-reports/stage-18.md` |
+| 18 | G | Built 26 Nov, tagged `stage-18-built` | IEX prices from `Ergplan/tenderos2@23d0afc` loaded on the live server; exchange drafts for 15 states; no stored regulation says whether the exchange may be used, so every verdict is "not yet sourced" (questions 30). Report: `docs/stage-reports/stage-18.md` |
 | 19 | H | Not started | Landed-cost calculator |
 
 To resume after an interruption: type "continue the brief".

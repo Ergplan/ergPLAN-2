@@ -71,7 +71,7 @@ PVVNL HV-2, 5,000 kVA at 33 kV, twelve assumed bills, as of 1 Nov 2026, hourly. 
 | A measured file replaces the synthesis | `test_api_questions.py::test_a_measured_file_replaces_the_synthesis` |
 | The transition plan for the assumed Uttar Pradesh site lists its phases with every figure sourced; field-trace complete | `tests/e2e/test_up_transition.py` (slow), `test_api_transition.py::test_every_figure_of_the_response_has_an_owner_in_the_field_trace`; `field-trace --check` OK |
 | Watcher green | Green on the merged tree (`4ee83e8`; the pass began at 10:10 UTC, after the last merge) |
-| `pytest -m slow` and the last CI run | The full fast suite and `pytest -m slow` passed on the merged tree (26 Nov; including the Uttar Pradesh full test, the Uttar Pradesh transition plan, the Stage 15 answers end-to-end and the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); CI: CI_RESULT |
+| `pytest -m slow` and the last CI run | The full fast suite and `pytest -m slow` passed on the merged tree (26 Nov; including the Uttar Pradesh full test, the Uttar Pradesh transition plan, the Stage 15 answers end-to-end and the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); CI green on `6534f23` |
 | Reviewer clean | Not run: no OpenAI key |
 
 ## What was skipped, and why

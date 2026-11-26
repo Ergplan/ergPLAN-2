@@ -72,8 +72,12 @@ A probe on the synthetic 5 MVA MSEDCL site, hourly, the real DAM year, 4 MW cap,
 | The optimizer offers exchange sources only where the verdict allows; a draft reaches only the sandbox | `tests/platform/test_api_exchange.py` |
 | A run with the vintage pins it and replays to the paisa | `test_a_uniform_rule_is_a_flat_block_and_the_run_pins_prices_and_rule_and_replays` (identical after a newer upload and a newer rule) |
 | Watcher green | Green on the merged tree (`4ee83e8`; the pass began at 10:10 UTC, after the last merge) |
-| `pytest -m slow` and the last CI run | The full fast suite and `pytest -m slow` passed on the merged tree (26 Nov; including the Uttar Pradesh full test, the Uttar Pradesh transition plan, the Stage 15 answers end-to-end and the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); CI: CI_RESULT |
+| `pytest -m slow` and the last CI run | The full fast suite and `pytest -m slow` passed on the merged tree (26 Nov; including the Uttar Pradesh full test, the Uttar Pradesh transition plan, the Stage 15 answers end-to-end and the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); CI green on `6534f23` |
 | Reviewer clean | Not run: no OpenAI key |
+
+## On the live server
+
+Redeployed at `6534f23` on 26 Nov (migrations to 0019). `python -m ergplan.intake.iex_vintage` loaded GDAM, DAM and RTM (35,040 blocks each, 19 Nov 2025 to 18 Nov 2026); a second run changed nothing. `python -m ergplan.regreader.exchange_drafts --pdf-dir /data/documents` proposed the fifteen drafts (Andhra Pradesh after its order, SHA-256 `56d2ce7c…`, was placed in the library from the copy read in Stage 14). The 72 approved versions and their 200 rules are unchanged (fingerprint before and after). `tools/dev/vm-check.py`: every check passed.
 
 ## What was skipped, and why
 
