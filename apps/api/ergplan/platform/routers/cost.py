@@ -23,6 +23,7 @@ from ...engine import scope as escope
 from ...engine.gaps import GAPS
 from ...intake import answers as site_answers
 from ...intake import bills as bill_store
+from ...intake import defaults as intake_defaults
 from ...intake import profile_synthesis
 from ...rulebook import repository
 from ...rulebook.models import RuleView
@@ -114,6 +115,9 @@ def _facts(s: Session, conn: Connection) -> escope.ConnectionFacts:
         connection_kind=conn.connection_kind,
         contract_demand_kva=conn.contract_demand_kva,
         rate_block=conn.rate_block,
+        # the supply level a rule row may be scoped by (`consumer_kind`: lt, ht or eht), from the
+        # supply voltage as intake classes it
+        consumer_kind=intake_defaults.connection_kind(conn.voltage_kv),
         stated_tariff=(conn.provenance or {}).get("tariff"),
     )
 

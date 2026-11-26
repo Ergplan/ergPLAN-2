@@ -11,7 +11,7 @@ import heapq
 import math
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any
 
@@ -43,6 +43,17 @@ SOLVER_VERSION = f"highspy {_HIGHS} / pyomo {pyomo.__version__} / search 3"
 
 class SolveFailed(RuntimeError):
     pass
+
+
+class NoSolutionInTime(SolveFailed):
+    """The search ended on its time limit before it found any solution."""
+
+
+# `Solution.status`: proven within the gap; the best plan found when the time limit ended the search;
+# no plan found in time, so today's supply (nothing built, the contract demand as it is) stands in
+OPTIMAL = "optimal"
+TIME_LIMIT = "time_limit"
+STATUS_QUO = "status_quo_time_limit"
 
 
 @dataclass
@@ -424,6 +435,8 @@ def _run(m: Any, time_limit_s: float, mip_gap: float, name: str = "", hold: Any 
         # equal-cost vertices there (the battery behind the meter where the one at the plant was)
         status = _lp(h, deadline)
         out.lp_iterations = int(h.getInfo().simplex_iteration_count)
+        if status == _TIME:
+            raise NoSolutionInTime("solver ended on its time limit without a solution")
         if status != _OPTIMAL:
             raise _fail(h, status)
         x = h.getSolution().col_value
@@ -435,10 +448,9 @@ def _run(m: Any, time_limit_s: float, mip_gap: float, name: str = "", hold: Any 
         held = [col[id(v)] for v in hold if id(v) in col and mx.lower[col[id(v)]] <= 0.0]
         x = _tree(h, mx, deadline, mip_gap, out, held)
         if x is None:
-            late = time.perf_counter() >= deadline
-            raise SolveFailed(
-                f"solver ended {'on its time limit' if late else 'infeasible'} without a solution"
-            )
+            if time.perf_counter() >= deadline:
+                raise NoSolutionInTime("solver ended on its time limit without a solution")
+            raise SolveFailed("solver ended infeasible without a solution")
     else:
         out.search = "highs"
         x = _mip(h, mx, deadline, mip_gap, out)
@@ -464,6 +476,8 @@ def _mip(h: Any, mx: _Matrix, deadline: float, mip_gap: float, out: Pass) -> lis
     status = _lp(h, deadline)
     info = h.getInfo()
     feasible = info.primal_solution_status == highspy.SolutionStatus.kSolutionStatusFeasible
+    if status == _TIME and not feasible:
+        raise NoSolutionInTime("solver ended on its time limit without a solution")
     if status not in (_OPTIMAL, _TIME) or not feasible:
         raise _fail(h, status)
     out.nodes, out.lp_iterations = int(info.mip_node_count), int(info.simplex_iteration_count)
@@ -497,8 +511,18 @@ def solve(p: Problem, time_limit_s: float = 120.0, mip_gap: float = 0.001) -> So
         passes.append(done)
         return model
 
-    m = run(lambda: build(ps), time_limit_s * 0.5, mip_gap, "sizing")
-    gap, optimal = passes[0].gap, passes[0].optimal
+    fell_back = False
+    try:
+        m = run(lambda: build(ps), time_limit_s * 0.5, mip_gap, "sizing")
+    except NoSolutionInTime:
+        # no plan found in time: today's supply stands in (nothing built, the contract demand as it
+        # is, no target or mandate, which only bind what is built), labelled as such, never as the
+        # optimum. Its dispatch and settlement are solved as any plan's are
+        fell_back = True
+        passes.append(Pass(name="sizing", optimal=False))  # it found nothing
+        ps = replace(ps, fixed=Fixed({}, {}, {}, ps.grid.cd_kva), limits=[])
+        m = run(lambda: build(ps), max(30.0, time_limit_s * 0.5), mip_gap, "status quo")
+    gap, optimal = passes[-1].gap, passes[-1].optimal
     size = read(m, ps)
     objective = float(pyo.value(m.obj))
     binding_names = size.binding
@@ -524,7 +548,9 @@ def solve(p: Problem, time_limit_s: float = 120.0, mip_gap: float = 0.001) -> So
     # proven only if the sizing and every month's dispatch were (the settlement passes are checked
     # by the judge)
     optimal = optimal and all(q.optimal for q in passes)
-    sol.status = "optimal" if optimal else "time_limit"
+    sol.status = STATUS_QUO if fell_back else OPTIMAL if optimal else TIME_LIMIT
+    if fell_back:
+        gap = None
     sol.objective = objective
     sol.gap = gap
     sol.binding = binding_names

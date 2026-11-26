@@ -5,7 +5,7 @@ import { RefChips } from "@/components/cost/RefChips";
 import { inr, num } from "@/lib/evaluate";
 import type { Ref, SourcedValue } from "@/lib/intake";
 import type { Chain } from "@/lib/audit";
-import { levyRows, paybackHeadline, type DispatchOut, type LevyOut, type LifecycleOut, type MonthMix, type RunOut, type SizeOut, type SummaryOut } from "@/lib/runs";
+import { levyRows, paybackHeadline, solverWords, type DispatchOut, type LevyOut, type LifecycleOut, type MonthMix, type RunOut, type SizeOut, type SummaryOut } from "@/lib/runs";
 
 export const MIX_COLORS = ["#f5b544", "#4fb3d9", "#7fc97f", "#c084fc", "#f472b6", "#94a3b8", "#fb923c"];
 const V = (x: SourcedValue | null | undefined) => (x ? Number(x.value) : 0);
@@ -437,7 +437,7 @@ export function Inputs({ run, chain }: { run: RunOut; chain: Chain | null }) {
           <li>Load profile: {s.provenance.load_profile} <RefChips refs={s.provenance.profile_ref.source_refs} max={1} /></li>
           {s.provenance.prices.length > 0 && <li>Exchange prices: IEX vintages {s.provenance.prices.join(", ")}</li>}
           {(s.provenance.generation ?? []).map((g) => <li key={g} style={{ overflowWrap: "anywhere" }}>Generation profile you supplied, {g}</li>)}
-          <li>Resolution: {run.resolution_min === 60 ? "hourly (8,760 blocks)" : "15 minutes (35,040 blocks)"}; solver {run.solver.status ?? "—"}{run.solver.seconds ? ` in ${Math.round(run.solver.seconds)} s` : ""}{run.solver.gap !== undefined && run.solver.gap !== null ? `, gap ${(Number(run.solver.gap) * 100).toFixed(2)}%` : ""}</li>
+          <li>Resolution: {run.resolution_min === 60 ? "hourly (8,760 blocks)" : "15 minutes (35,040 blocks)"}; optimizer: {solverWords(run.solver.status)}{run.solver.seconds ? ` in ${Math.round(run.solver.seconds)} s` : ""}{run.solver.gap !== undefined && run.solver.gap !== null ? `, gap ${(Number(run.solver.gap) * 100).toFixed(2)}%` : ""}</li>
           <li>Settled {run.finished_at ? new Date(run.finished_at).toLocaleString("en-IN") : ""}; run {run.id.slice(0, 8)} is reproducible from its pinned rules, prices and profile.</li>
           {s.notes.map((n, i) => <li key={i}>{n}</li>)}
         </ul>

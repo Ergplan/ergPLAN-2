@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { apiOrNull } from "@/lib/api";
 import { inr, type EvaluationOut } from "@/lib/evaluate";
+import { runStatusWords } from "@/lib/runs";
 
 // Home: the evaluations this account can see, and the way in.
 export default async function Home() {
@@ -57,7 +58,7 @@ export default async function Home() {
                       r.latest_run.status === "done" ? (
                         <><b>{inr(r.latest_run.saving?.value)}</b> a year<div className="eg-muted ep-small">{r.latest_run.scenario}</div></>
                       ) : (
-                        <span className="eg-chip">{r.latest_run.status.replace("_", " ")}</span>
+                        <span className="eg-chip">{runStatusWords(r.latest_run.status)}</span>
                       )
                     ) : <span className="eg-muted">not sized yet</span>}
                   </td>

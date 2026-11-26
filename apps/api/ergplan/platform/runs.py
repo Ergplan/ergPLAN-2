@@ -153,6 +153,25 @@ class Assembled:
     exchange: list[dict[str, Any]] = field(default_factory=list)
     exchange_pins: dict[str, Any] = field(default_factory=dict)
     exchange_deviation: SourcedValue | None = None
+    # what the run read from the site and the connection as they stood (invariant 5): the roof typed
+    # with the inputs, the connection's facts the rules were matched on, the captive thermal units.
+    # Empty on a replay of a run made before 26 Nov 2026 (it read them live, and still does)
+    site_inputs: dict[str, Any] = field(default_factory=dict)
+
+
+def facts_pin(f: escope.ConnectionFacts) -> dict[str, Any]:
+    return {k: (str(v) if isinstance(v, Decimal) else v) for k, v in dataclasses.asdict(f).items()}
+
+
+def facts_from_pin(d: dict[str, Any]) -> escope.ConnectionFacts:
+    cd = d.get("contract_demand_kva")
+    return escope.ConnectionFacts(
+        **{
+            **d,
+            "voltage_kv": Decimal(str(d["voltage_kv"])),
+            "contract_demand_kva": Decimal(str(cd)) if cd is not None else None,
+        }
+    )
 
 
 def _f(x: Decimal | float) -> float:
@@ -266,12 +285,15 @@ def assemble(
     treatment: int = CAPITAL_TREATMENT,
     generation_pins: dict[str, Any] | None = None,
     exchange_pins: dict[str, Any] | None = None,
+    site_pins: dict[str, Any] | None = None,
 ) -> Assembled:
     """`bill_pins` (a replay): what the original run read from the client's bills — the levies and
     the kVAh factor and power factor — used instead of reading the bills again. `treatment` (a
     replay): the capital treatment the original run pinned (`capital_treatment`). `generation_pins`
     (a replay): the supplied generation profiles the original run pinned, used instead of those in
-    use for the site today (an empty dict: the library curves)."""
+    use for the site today (an empty dict: the library curves). `site_pins` (a replay): what the
+    original run read from the site and the connection (`Assembled.site_inputs`); an empty dict (a
+    run made before they were pinned) reads them live, without the supply level, as that run did."""
     conn = s.get(Connection, sc.connection_id)
     if conn is None:
         raise RunError("connection not found")
@@ -299,10 +321,18 @@ def assemble(
     if growth is not None:
         kw = profile_synthesis.future_year(kw, growth)
     cd_intended = site_answers.contract_demand_kva(lp.method)
-    cd_now = cd_intended or conn.contract_demand_kva
-    roof_sqm = site_answers.roof_sqm(lp.method, site.roof_sqm)
+    if site_pins:
+        facts = facts_from_pin(site_pins["facts"])
+        roof_typed = Decimal(site_pins["roof_sqm"]) if site_pins.get("roof_sqm") is not None else None
+    else:
+        facts = _facts(s, conn)
+        if site_pins is not None:
+            facts = dataclasses.replace(facts, consumer_kind=None)  # as a run made before matched
+        roof_typed = site.roof_sqm
+    cd_now = cd_intended or facts.contract_demand_kva
+    roof_sqm = site_answers.roof_sqm(lp.method, roof_typed)
     days = profile_synthesis.year_days(lp.year_start)
-    facts = _facts(s, conn)
+    bill_facts = facts  # as the connection states them (pinned), before the contract demand intended
     if cd_intended is not None:
         facts = dataclasses.replace(facts, contract_demand_kva=cd_intended)
     chain = jurisdiction_chain(s, facts.discom)
@@ -330,8 +360,8 @@ def assemble(
         notes.append(
             f"Sized on the contract demand the client intends to hold, {site_answers.plain(cd_intended)} kVA"
             + (
-                f" (the bill shows {site_answers.plain(conn.contract_demand_kva)} kVA)"
-                if conn.contract_demand_kva
+                f" (the bill shows {site_answers.plain(bill_facts.contract_demand_kva)} kVA)"
+                if bill_facts.contract_demand_kva
                 else ""
             )
         )
@@ -601,10 +631,10 @@ def assemble(
             f = lcoe.crf(g.discount_pct, g.life_years)
             yearly = g.capex_inr_per_kw.value * (f.value + g.om_pct_of_capex.value / 100)
             raw, cuf = generation.profile(
-                generation.curve_for("solar", site.state), Decimal(1), lp.year_start
+                generation.curve_for("solar", facts.state), Decimal(1), lp.year_start
             )
             scale = g.cuf_pct.value / cuf
-            own = generation_profiles.source_series("solar", "rooftop", site.state, lp.year_start, supplied)
+            own = generation_profiles.source_series("solar", "rooftop", facts.state, lp.year_start, supplied)
             if own is not None:
                 # the rooftop profile supplied for the site: its own shape and CUF, not scaled
                 raw, scale = own.kw, Decimal(1)
@@ -711,14 +741,14 @@ def assemble(
             meta.price = p
             prices = {(mo, nm): p for mo in months for nm in slots_of[mo]}
             raw, cuf = generation.profile(
-                generation.curve_for(src.source, site.state), Decimal(1), lp.year_start
+                generation.curve_for(src.source, facts.state), Decimal(1), lp.year_start
             )
             cuf_sv = _sv(
                 cuf,
                 Unit.PERCENT,
                 SourceRef(
                     kind=RefKind.ASSUMPTION,
-                    note=f"normative {src.source} curve for {site.state} (packages/profiles/cuf)",
+                    note=f"normative {src.source} curve for {facts.state} (packages/profiles/cuf)",
                 ),
                 "CUF",
             )
@@ -730,12 +760,12 @@ def assemble(
                     Unit.PERCENT,
                     SourceRef(
                         kind=RefKind.CLIENT_STATED,
-                        note=f"CUF you stated; shape of the normative {src.source} curve, {site.state}",
+                        note=f"CUF you stated; shape of the normative {src.source} curve, {facts.state}",
                     ),
                     "CUF",
                 )
             own = generation_profiles.source_series(
-                src.source, "open_access", site.state, lp.year_start, supplied
+                src.source, "open_access", facts.state, lp.year_start, supplied
             )
             if own is not None:
                 # the developer's or the plant's own profile: its shape and CUF, not scaled to a typed CUF
@@ -1060,7 +1090,15 @@ def assemble(
             "above any tariff) so that every unit that can be replaced is. Its cost and saving are at "
             "the real rates"
         )
-    thermals = _thermals(s, site.id, hours, notes)
+    thermal_rows = (
+        [(str(x["id"]), dict(x["params"] or {})) for x in site_pins.get("thermals") or []]
+        if site_pins
+        else [
+            (a.id, dict(a.params or {}))
+            for a in s.scalars(select(Asset).where(Asset.site_id == site.id, Asset.kind == "captive_thermal"))
+        ]
+    )
+    thermals = _thermals(s, site.id, hours, notes, thermal_rows)
     if duty_own is not None and thermals:
         # captive thermal units are not bought from the DISCOM either: the same assumed duty
         thermals = [
@@ -1151,6 +1189,13 @@ def assemble(
         exchange=exchange_out,
         exchange_pins=xpins,
         exchange_deviation=dev_pct if deviation_used else None,
+        site_inputs={}
+        if site_pins is not None and not site_pins
+        else {
+            "roof_sqm": str(roof_typed) if roof_typed is not None else None,
+            "facts": facts_pin(bill_facts),
+            "thermals": [{"id": i, "params": p} for i, p in thermal_rows],
+        },
     )
 
 
@@ -1174,16 +1219,27 @@ def _limit_words(kind: str, v: Decimal, r: RuleView) -> str:
     return f"{words.get(kind, kind)} ({r.label or 'regulatory limit'})"
 
 
-def _thermals(s: Session, site_id: str, hours: float, notes: list[str]) -> list[om.Thermal]:
+def _thermals(
+    s: Session,
+    site_id: str,
+    hours: float,
+    notes: list[str],
+    rows: list[tuple[str, dict[str, Any]]] | None = None,
+) -> list[om.Thermal]:
+    """`rows` (id, params): the units as the run read or pinned them; None reads the site's."""
+    if rows is None:
+        rows = [
+            (a.id, dict(a.params or {}))
+            for a in s.scalars(select(Asset).where(Asset.site_id == site_id, Asset.kind == "captive_thermal"))
+        ]
     out = []
-    for a in s.scalars(select(Asset).where(Asset.site_id == site_id, Asset.kind == "captive_thermal")):
-        p = a.params or {}
+    for a_id, p in rows:
         if not p.get("capacity_kw") or not p.get("variable_cost_inr_per_kwh"):
             notes.append("the captive thermal plant needs its capacity and variable cost to be dispatched")
             continue
         out.append(
             om.Thermal(
-                a.id,
+                a_id,
                 capacity_kw=float(p["capacity_kw"]),
                 tech_min_pct=float(p.get("tech_min_pct", 0)),
                 ramp_kw_per_hour=float(p["ramp_kw_per_hour"]) if p.get("ramp_kw_per_hour") else None,
@@ -1974,6 +2030,8 @@ def execute(run_id: str) -> str:
                 generation_pins=(pins.get("generation_profiles") or {}) if run.replay_of else None,
                 # a run made before exchange sources were gated replays as it was solved
                 exchange_pins=(pins.get("exchange") or {"gate": 0}) if run.replay_of else None,
+                # a run made before the site's inputs were pinned replays reading them live, as it did
+                site_pins=(pins.get("site") or {}) if run.replay_of else None,
             )
             used_versions = sorted(reader.used)
             vint_by_seg: dict[str, str] = {}
@@ -2031,6 +2089,10 @@ def execute(run_id: str) -> str:
                 # how exchange sources were treated and the deviation assumed (Stage 18); absent on a
                 # run made before it and on its replays
                 **({"exchange": a.exchange_pins} if a.exchange_pins.get("gate") else {}),
+                # what the run read from the site and the connection (the roof typed, the facts its
+                # rules were matched on, the captive thermal units); absent on a run made before
+                # 26 Nov 2026 and on its replays
+                **({"site": a.site_inputs} if a.site_inputs else {}),
             }
             run.solver = {
                 "status": sol.status,

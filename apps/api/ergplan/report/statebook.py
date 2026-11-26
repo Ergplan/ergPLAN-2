@@ -377,12 +377,21 @@ def _route_table(
         )
         row: dict[str, Any] = {"slot": w.slot, "lines": [_j(x) for x in lines], "landed": _j(total)}
         if bank:
-            row["banking"] = _j(
+            banking = derive(
+                sum((x.value for x in bank), ZERO),
+                Unit.INR_PER_KWH,
+                bank,
+                label="Banking charge on a banked unit",
+            )
+            row["banking"] = _j(banking)
+            # beside them, the landed-cost screen's figure: the banking charge on every unit, the most
+            # banking can add (the same total, so the book and the screen agree)
+            row["landed_upper"] = _j(
                 derive(
-                    sum((x.value for x in bank), ZERO),
+                    total.value + banking.value,
                     Unit.INR_PER_KWH,
-                    bank,
-                    label="Banking charge on a banked unit",
+                    [total, banking],
+                    label="Landed cost if every unit is banked (upper bound)",
                 )
             )
         tot_w.append((hours.get(w.slot, ZERO), total))
@@ -478,6 +487,7 @@ def build(
             category=cat,
             voltage_kv=voltage_kv or Decimal(33),
             connection_kind="ht",
+            consumer_kind=defaults.connection_kind(voltage_kv or Decimal(33)),
             contract_demand_kva=contract_demand_kva or Decimal(5000),
             rate_block=ref_block if cat == ref_cat else None,
         )
@@ -1112,6 +1122,11 @@ def to_markdown(book: StateRulebook, stored: set[str] | None = None) -> str:
                         else f"{_money(sl['banking'])}{_cite(sl['banking']['source_refs'], notes, stored)}"
                         for sl in r["slots"]
                     )
+                    + " |"
+                )
+                L.append(
+                    "| Landed cost if every unit is banked (upper bound) | "
+                    + " | ".join(_money(sl.get("landed_upper")) for sl in r["slots"])
                     + " |"
                 )
             for g in r["gaps"]:

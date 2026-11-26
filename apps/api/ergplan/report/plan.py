@@ -23,6 +23,7 @@ from ..db.models import (
     SourceDocument,
 )
 from ..intake import questions as site_questions
+from ..optimizer.highs_solve import STATUS_QUO
 
 # scenarios of a transition plan (platform.transition.PREFIX): its phases, not options of the plan
 TRANSITION_PREFIX = "Transition plan "
@@ -87,6 +88,7 @@ def build(s: Session, connection_id: str, analyst: bool = False) -> dict[str, An
         select(LoadProfile).where(LoadProfile.connection_id == conn.id).order_by(LoadProfile.version.desc())
     ).first()
     scenarios = []
+    stand_ins: set[str] = set()  # scenarios whose latest run found no plan in time (today's supply)
     pending = 0
     for sc in s.scalars(
         select(Scenario).where(Scenario.connection_id == conn.id).order_by(Scenario.created_at)
@@ -101,6 +103,8 @@ def build(s: Session, connection_id: str, analyst: bool = False) -> dict[str, An
         if got is None:
             continue
         run, rr = got
+        if (run.solver or {}).get("status") == STATUS_QUO:
+            stand_ins.add(sc.id)  # never the recommendation
         item: dict[str, Any] = {
             "scenario_id": sc.id,
             "name": sc.name,
@@ -132,7 +136,11 @@ def build(s: Session, connection_id: str, analyst: bool = False) -> dict[str, An
                 ],
             }
         scenarios.append(item)
-    best = max(scenarios, key=lambda x: Decimal(x["summary"]["annual"]["saving"]["value"]), default=None)
+    best = max(
+        (x for x in scenarios if x["scenario_id"] not in stand_ins),
+        key=lambda x: Decimal(x["summary"]["annual"]["saving"]["value"]),
+        default=None,
+    )
     refs: list[dict[str, Any]] = []
     holders: list[dict[str, Any]] = []
     _walk_refs([x["summary"] for x in scenarios], refs, holders)

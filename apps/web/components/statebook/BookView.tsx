@@ -76,6 +76,13 @@ function Waterfall({ r }: { r: BookRoute }) {
               <td><RefChips refs={bank.source_refs} max={2} /></td>
             </tr>
           )}
+          {bank && (
+            <tr className="eg-muted">
+              <td>Landed cost if every unit is banked (upper bound, as the landed-cost screen shows it)</td>
+              {r.slots.map((s) => <td key={s.slot} className="num"><Fig v={s.landed_upper} /></td>)}
+              <td></td>
+            </tr>
+          )}
         </tbody>
       </table>
       {(r.inputs?.length ?? 0) > 0 && (

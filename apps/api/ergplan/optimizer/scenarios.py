@@ -121,6 +121,12 @@ def unproven_note(status: str, gap: float | None) -> str | None:
     proven within the solver's gap."""
     if status == "optimal":
         return None
+    if status == "status_quo_time_limit":
+        return (
+            "The optimizer's time limit ended before it found any plan that works, so this shows "
+            "today's supply from the DISCOM alone (nothing built, the contract demand as it is), not "
+            "a plan and not the cheapest one. Run it again with a longer time limit or fewer sources."
+        )
     how_far = (
         f"its yearly cost is within {gap * 100:.2f}% of the lowest any plan could reach"
         if gap is not None

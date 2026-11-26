@@ -5,7 +5,7 @@ import type { Ref } from "@/lib/intake";
 
 export type Sourced = { value: string; unit: string; source_refs: Ref[]; label?: string };
 
-export type BookSlot = { slot: string; lines: Sourced[]; landed: Sourced; grid: Sourced | null; saving: Sourced | null; banking?: Sourced | null };
+export type BookSlot = { slot: string; lines: Sourced[]; landed: Sourced; grid: Sourced | null; saving: Sourced | null; banking?: Sourced | null; landed_upper?: Sourced | null };
 
 export type BookRoute = {
   route?: string;
