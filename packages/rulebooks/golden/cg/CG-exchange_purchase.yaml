@@ -1,0 +1,36 @@
+# Golden cases for the exchange-purchase drafts read from the stored documents (Stage 18).
+# They apply to versions of origin exchange_reader; an analyst who completes the rule from the
+# open access regulations writes the cases for the completed version.
+jurisdiction: CG
+family: exchange_purchase
+origin: exchange_reader
+tests:
+- name: whether the purchase is permitted is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /permitted/status
+  expect:
+    value: not_stated
+- name: the shape of schedule is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /schedule/status
+  expect:
+    value: not_stated
+- name: standby in rupees per kWh
+  given:
+    context:
+      source: iex
+    field: /standby/value
+  expect:
+    value: '11.93'
+  source_ref:
+    kind: order
+    document_id: f2d59c3e-45ca-5510-b960-c7d433b4f7d8
+    page: 217
+    quote: The Standby Charges for consumers availing open access (using transmission and/or distribution system
+      of Licensee) and who draw power from the grid up to the contracted capacity of open access during the outage
+      of generating plant/CPP shall be 1.5 times of the per kWh weighted average tariff of HV consumers, which is
+      Rs. 11.93 per kWh

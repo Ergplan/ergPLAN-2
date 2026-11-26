@@ -1,0 +1,34 @@
+# Golden cases for the exchange-purchase drafts read from the stored documents (Stage 18).
+# They apply to versions of origin exchange_reader; an analyst who completes the rule from the
+# open access regulations writes the cases for the completed version.
+jurisdiction: MP
+family: exchange_purchase
+origin: exchange_reader
+tests:
+- name: whether the purchase is permitted is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /permitted/status
+  expect:
+    value: not_stated
+- name: the shape of schedule is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /schedule/status
+  expect:
+    value: not_stated
+- name: additional surcharge is payable
+  given:
+    context:
+      source: iex
+    field: /additional_surcharge/payable
+  expect:
+    value: 'yes'
+  source_ref:
+    kind: order
+    document_id: 13469f1b-52bc-5de6-9c27-a0301ec22367
+    page: 138
+    quote: The Additional Surcharge determined by the Commission shall be levied in addition to Cross Subsidy Surcharge
+      determined by the Commission in accordance with the Tariff Policy, 2016

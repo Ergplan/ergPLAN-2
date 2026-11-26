@@ -1,0 +1,105 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: BR
+title: Exchange purchase by an open-access consumer · Bihar · as read from the stored documents, 26 Nov 2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents:
+  440bde3d-24ac-5a3c-b337-1b728e648cb4:
+    sha256: a247053b586fd8909e14b00280d24e0d39357b94bdb36e7b670f21e5aa794537
+    title: Tariff Order of DISCOMS (NBPDCL & SBPDCL) for FY 2026-27
+    regulator: BERC
+    url_public: https://berc.co.in/images/pdf/tariff-order/2026-27/DISCOMs_FO_TARIFF_CN_50_51_DT_180326.pdf
+    pages: 612
+rows:
+- label: Bihar · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments; the Bihar SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments; the Bihar SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    sldc_clearance:
+      status: not_stated
+      obtain: the Bihar SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments; the Bihar SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments; the Bihar SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments; the Bihar SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: stated
+      basis: temporary_tariff
+      condition: Stated for the outage of a power plant supplying the open-access customer, on a day-ahead request
+        (BERC open access regulations, 20A, as the order quotes them); the order does not say how it applies to
+        an exchange purchase.
+    deviation_under:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments, and BERC's deviation settlement
+        regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments, and BERC's deviation settlement
+        regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: stated
+      payable: 'yes'
+      condition: Stated for every consumer who seeks open access; the order does not single out exchange power,
+        and says the applicability of each charge is as the open access regulations provide.
+    additional_surcharge:
+      status: stated
+      payable: 'yes'
+      condition: Payable by a consumer who seeks open access (order, page 511), but not to the extent of the contract
+        demand kept with the DISCOM (Electricity (Amendment) Rules 2024, rule 22(3), as the order quotes it); the
+        order does not single out exchange power.
+    banking:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments; the Bihar SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: BERC's intra-state open access regulations in force, with their amendments; the Bihar SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notes: Read from the tariff order stored for Bihar. The order does not state whether an open-access consumer
+      may buy on the exchange or how the purchase must be scheduled, so the verdict stays 'not yet sourced' until
+      the open access regulations and the SLDC procedure are stored and read.
+  source_ref: &id001
+    kind: order
+    document_id: 440bde3d-24ac-5a3c-b337-1b728e648cb4
+    page: 520
+    quote: Such standby supply will be provided by the licensee at day ahead request from the open access customer.
+      The open access customer will, for that supply, be liable to pay charges under tariff for temporary connection
+      to that category of consumer.
+  field_refs:
+    /standby: *id001
+    /cross_subsidy_surcharge:
+      kind: order
+      document_id: 440bde3d-24ac-5a3c-b337-1b728e648cb4
+      page: 511
+      quote: The consumer who seeks open access in accordance with the regulations will have to pay transmission
+        charges, wheeling charges, cross subsidy surcharge, additional surcharge, reactive energy charges, standby
+        charge and SLDC charges.
+    /additional_surcharge:
+      kind: order
+      document_id: 440bde3d-24ac-5a3c-b337-1b728e648cb4
+      page: 519
+      quote: Provided further that the additional surcharge shall not be applicable for Open Access Consumer to
+        the extent of contract demand being maintained with the distribution licensees

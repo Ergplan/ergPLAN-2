@@ -15,6 +15,7 @@ from typing import Any
 
 from ..rulebook.models import RuleView
 from ..rulebook.scope import matches, specificity
+from . import exchange
 
 
 @dataclass(frozen=True)
@@ -61,3 +62,18 @@ def pick(rows: Iterable[RuleView], ctx: dict[str, Any], chain: Sequence[str]) ->
 def first(rows: Iterable[RuleView], ctx: dict[str, Any], chain: Sequence[str]) -> RuleView | None:
     got = pick(rows, ctx, chain)
     return got[0] if got else None
+
+
+def exchange_verdict(
+    rows: Iterable[RuleView],
+    c: ConnectionFacts,
+    on: date,
+    chain: Sequence[str],
+    iex_segment: str | None = None,
+) -> exchange.Verdict:
+    """The state's verdict on buying on the power exchange through open access, for this
+    connection (Stage 18): feasible, feasible with conditions, not practical, or not yet sourced.
+    `rows` are the `exchange_purchase` rows the caller may read: approved ones for a client
+    (`rulebook.repository.approved_rules`), a draft's only in the analyst's sandbox."""
+    row = first(rows, context(c, on, source="iex", iex_segment=iex_segment), chain)
+    return exchange.verdict(c.state, row, c.contract_demand_kva, c.voltage_kv)

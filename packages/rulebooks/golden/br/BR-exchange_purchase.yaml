@@ -1,0 +1,62 @@
+# Golden cases for the exchange-purchase drafts read from the stored documents (Stage 18).
+# They apply to versions of origin exchange_reader; an analyst who completes the rule from the
+# open access regulations writes the cases for the completed version.
+jurisdiction: BR
+family: exchange_purchase
+origin: exchange_reader
+tests:
+- name: whether the purchase is permitted is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /permitted/status
+  expect:
+    value: not_stated
+- name: the shape of schedule is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /schedule/status
+  expect:
+    value: not_stated
+- name: cross-subsidy surcharge is payable
+  given:
+    context:
+      source: iex
+    field: /cross_subsidy_surcharge/payable
+  expect:
+    value: 'yes'
+  source_ref:
+    kind: order
+    document_id: 440bde3d-24ac-5a3c-b337-1b728e648cb4
+    page: 511
+    quote: The consumer who seeks open access in accordance with the regulations will have to pay transmission charges,
+      wheeling charges, cross subsidy surcharge, additional surcharge, reactive energy charges, standby charge and
+      SLDC charges.
+- name: additional surcharge is payable
+  given:
+    context:
+      source: iex
+    field: /additional_surcharge/payable
+  expect:
+    value: 'yes'
+  source_ref:
+    kind: order
+    document_id: 440bde3d-24ac-5a3c-b337-1b728e648cb4
+    page: 519
+    quote: Provided further that the additional surcharge shall not be applicable for Open Access Consumer to the
+      extent of contract demand being maintained with the distribution licensees
+- name: standby at the temporary tariff
+  given:
+    context:
+      source: iex
+    field: /standby/basis
+  expect:
+    value: temporary_tariff
+  source_ref:
+    kind: order
+    document_id: 440bde3d-24ac-5a3c-b337-1b728e648cb4
+    page: 520
+    quote: Such standby supply will be provided by the licensee at day ahead request from the open access customer.
+      The open access customer will, for that supply, be liable to pay charges under tariff for temporary connection
+      to that category of consumer.

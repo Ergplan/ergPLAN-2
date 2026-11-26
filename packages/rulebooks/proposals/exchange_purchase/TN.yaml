@@ -1,0 +1,75 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: TN
+title: Exchange purchase by an open-access consumer · Tamil Nadu · as read from the stored documents, 26 Nov 2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents: {}
+rows:
+- label: Tamil Nadu · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments; the Tamil Nadu SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments; the Tamil Nadu SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    sldc_clearance:
+      status: not_stated
+      obtain: the Tamil Nadu SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments; the Tamil Nadu SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments; the Tamil Nadu SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments; the Tamil Nadu SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for TNPDCL
+    deviation_under:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments, and TNERC's deviation
+        settlement regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments, and TNERC's deviation
+        settlement regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for TNPDCL
+    additional_surcharge:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for TNPDCL
+    banking:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments; the Tamil Nadu SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: TNERC's intra-state open access regulations in force, with their amendments; the Tamil Nadu SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notes: 'No stored document for Tamil Nadu states any field of this rule (operating rule 18: not stated, never
+      a guess). The verdict is ''not yet sourced''.'
+  source_ref:
+    kind: assumption
+    note: No regulation stored for Tamil Nadu states any of these fields; nothing is assumed. Each field names the
+      regulation to obtain.

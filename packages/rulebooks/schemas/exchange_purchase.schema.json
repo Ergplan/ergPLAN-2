@@ -1,0 +1,832 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "exchange_purchase.schema.json",
+  "title": "Exchange purchase by an open-access consumer",
+  "description": "Whether, and on what conditions, a consumer may buy power on the exchange (IEX) through open access in a state. Every field is either stated (cited in field_refs under its JSON pointer, e.g. /schedule) or not_stated with the regulation to obtain. engine.exchange turns a row into a verdict: feasible, feasible with conditions, not practical, or not yet sourced.",
+  "type": "object",
+  "required": [
+    "scope",
+    "body",
+    "source_ref"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "$ref": "scope.schema.json"
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permitted",
+        "eligibility",
+        "sldc_clearance",
+        "schedule",
+        "notice",
+        "contract_demand",
+        "standby",
+        "deviation_under",
+        "deviation_over",
+        "cross_subsidy_surcharge",
+        "additional_surcharge",
+        "banking",
+        "lock_in"
+      ],
+      "properties": {
+        "permitted": {
+          "type": "object",
+          "title": "May an open-access consumer buy on the power exchange",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "value": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "value": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        "eligibility": {
+          "type": "object",
+          "title": "Who is eligible (contract demand, voltage, metering)",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "min_contract_demand_kva": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            },
+            "min_voltage_kv": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            },
+            "metering": {
+              "type": "string",
+              "maxLength": 300
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "min_contract_demand_kva": false,
+              "min_voltage_kv": false,
+              "metering": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "condition"
+            ]
+          }
+        },
+        "sldc_clearance": {
+          "type": "object",
+          "title": "The SLDC's no-objection or standing clearance and its validity",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "required": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            },
+            "kind": {
+              "enum": [
+                "no_objection",
+                "standing_clearance"
+              ]
+            },
+            "validity_days": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            },
+            "issued_by": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "required": false,
+              "kind": false,
+              "validity_days": false,
+              "issued_by": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "required"
+            ]
+          }
+        },
+        "schedule": {
+          "type": "object",
+          "title": "Whether the schedule must be uniform over the day or may vary by block",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "shape": {
+              "enum": [
+                "uniform_day",
+                "by_block"
+              ]
+            },
+            "uniform_hours": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$",
+              "description": "uniform_day: the hours the schedule must be held uniform for (24 when omitted)"
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "shape": false,
+              "uniform_hours": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "shape"
+            ]
+          }
+        },
+        "notice": {
+          "type": "object",
+          "title": "Day-ahead notice and revision",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "day_ahead_by": {
+              "type": "string",
+              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+            },
+            "revision": {
+              "enum": [
+                "allowed",
+                "not_allowed"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "day_ahead_by": false,
+              "revision": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "condition"
+            ]
+          }
+        },
+        "contract_demand": {
+          "type": "object",
+          "title": "Whether the DISCOM's contract demand must be reduced or stays",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "treatment": {
+              "enum": [
+                "reduced",
+                "stays"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "treatment": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "treatment"
+            ]
+          }
+        },
+        "standby": {
+          "type": "object",
+          "title": "Charges on standby drawal from the DISCOM",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "basis": {
+              "enum": [
+                "multiple_of_energy_charge",
+                "multiple_of_tariff",
+                "inr_per_kwh",
+                "temporary_tariff",
+                "as_worded"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "basis": false,
+              "value": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "basis"
+            ]
+          }
+        },
+        "deviation_under": {
+          "type": "object",
+          "title": "Settlement of under-drawal (scheduled energy the consumer does not draw)",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "treatment": {
+              "enum": [
+                "not_compensated",
+                "compensated"
+              ]
+            },
+            "rate_inr_per_kwh": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "treatment": false,
+              "rate_inr_per_kwh": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "treatment"
+            ]
+          }
+        },
+        "deviation_over": {
+          "type": "object",
+          "title": "Settlement of over-drawal (drawal above the schedule)",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "treatment": {
+              "enum": [
+                "grid_tariff",
+                "multiple_of_energy_charge",
+                "as_worded"
+              ]
+            },
+            "multiple": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "treatment": false,
+              "multiple": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "treatment"
+            ]
+          }
+        },
+        "cross_subsidy_surcharge": {
+          "type": "object",
+          "title": "Cross-subsidy surcharge on exchange power",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "payable": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "payable": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "payable"
+            ]
+          }
+        },
+        "additional_surcharge": {
+          "type": "object",
+          "title": "Additional surcharge on exchange power",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "payable": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "payable": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "payable"
+            ]
+          }
+        },
+        "banking": {
+          "type": "object",
+          "title": "Banking or time-shifting of exchange power (not allowed unless the rule says so)",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "allowed": {
+              "enum": [
+                "yes",
+                "no"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "allowed": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "allowed"
+            ]
+          }
+        },
+        "lock_in": {
+          "type": "object",
+          "title": "Minimum period or lock-in",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "stated",
+                "not_stated"
+              ],
+              "description": "not_stated: no stored regulation states this (never a guess)"
+            },
+            "condition": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "The rule in plain words, as the client will read it"
+            },
+            "obtain": {
+              "type": "string",
+              "maxLength": 400,
+              "description": "not_stated: the regulation or procedure that would have to be obtained"
+            },
+            "min_period_days": {
+              "type": "string",
+              "pattern": "^\\d+(\\.\\d+)?$"
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_stated"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "obtain"
+            ],
+            "properties": {
+              "min_period_days": false,
+              "condition": false
+            }
+          },
+          "else": {
+            "required": [
+              "condition"
+            ]
+          }
+        },
+        "barriers": {
+          "type": "array",
+          "description": "Conditions a cited regulation states that bar the purchase in practice; each is cited in field_refs under /barriers/<index>. One barrier makes the verdict 'not practical'.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text"
+            ],
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": 600
+              }
+            }
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "source_ref": {
+      "$ref": "source_ref.schema.json"
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "field_refs": {
+      "type": "object",
+      "description": "Citation per body field (JSON pointer such as /schedule or /barriers/0)",
+      "additionalProperties": {
+        "$ref": "source_ref.schema.json"
+      }
+    },
+    "label": {
+      "type": "string",
+      "description": "Short human label"
+    }
+  }
+}

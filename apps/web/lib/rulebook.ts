@@ -89,6 +89,7 @@ export const FAMILY_LABEL: Record<string, string> = {
   regulatory_limit: "Regulatory limits",
   ists_waiver: "ISTS waiver",
   net_metering: "Net metering",
+  exchange_purchase: "Exchange purchase (open access)",
 };
 
 export function scopeChips(scope: Record<string, unknown>): string[] {

@@ -1,0 +1,88 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: GJ
+title: Exchange purchase by an open-access consumer · Gujarat · as read from the stored documents, 26 Nov 2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents:
+  17db86c4-2914-591e-a92b-03372554e3a6:
+    sha256: 1c4697f8b315d64a2f161e2a26cafc5ad2ccc5cb62799161fcfb529695925e1a
+    title: 'GERC Tariff Order: Truing up for FY 2024-25 and Revised ARR & Tariff for FY 2026-27, MGVCL (Case No.
+      2582 of 2025, 25.03.2026)'
+    regulator: GERC
+    url_public: https://www.mgvcl.com/Upload/tariff_petition/2025/2582/MGVCL%20Tariff%20Order%20for%20FY%202026-27.pdf
+    pages: 184
+rows:
+- label: Gujarat · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments; the Gujarat SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: stated
+      min_contract_demand_kva: '1000'
+      condition: The order for FY 2026-27 describes the consumers eligible for open access as those with contracted
+        demand in excess of 1000 kVA; the voltage and metering conditions are not in the order.
+    sldc_clearance:
+      status: not_stated
+      obtain: the Gujarat SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments; the Gujarat SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments; the Gujarat SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments; the Gujarat SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for the Gujarat DISCOMs
+    deviation_under:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments, and GERC's deviation settlement
+        regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments, and GERC's deviation settlement
+        regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for the Gujarat DISCOMs
+    additional_surcharge:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for the Gujarat DISCOMs
+    banking:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments; the Gujarat SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: GERC's intra-state open access regulations in force, with their amendments; the Gujarat SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notes: Read from the tariff order stored for Gujarat. The order does not state whether an open-access consumer
+      may buy on the exchange or how the purchase must be scheduled, so the verdict stays 'not yet sourced' until
+      the open access regulations and the SLDC procedure are stored and read.
+  source_ref: &id001
+    kind: order
+    document_id: 17db86c4-2914-591e-a92b-03372554e3a6
+    page: 152
+    quote: 9.87% portion of demand charge proposed to be recovered from the consumers of contracted demand in excess
+      of 1000 kVA (i.e. from the consumers eligible for open access)
+  field_refs:
+    /eligibility: *id001

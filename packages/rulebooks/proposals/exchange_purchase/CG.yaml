@@ -1,0 +1,91 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: CG
+title: Exchange purchase by an open-access consumer · Chhattisgarh · as read from the stored documents, 26 Nov 2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents:
+  f2d59c3e-45ca-5510-b960-c7d433b4f7d8:
+    sha256: 7c77f6d68eb43a622ab905baa9c136e79975017d048e53b7ecd395f0ea1d5fd8
+    title: Tariff Order for CSPDCL for FY 2026-30 and retail tariff for FY 2026-27
+    regulator: CSERC
+    url_public: https://cserc.gov.in/upload/./upload_terrif_order/16-07-2026_1784180584.pdf
+    pages: 227
+rows:
+- label: Chhattisgarh · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments; the Chhattisgarh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments; the Chhattisgarh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    sldc_clearance:
+      status: not_stated
+      obtain: the Chhattisgarh SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments; the Chhattisgarh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments; the Chhattisgarh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments; the Chhattisgarh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: stated
+      basis: inr_per_kwh
+      value: '11.93'
+      condition: Up to the contracted open-access capacity during the outage of the generating plant; above that
+        capacity standby support is at two times the weighted average HV tariff, Rs 15.90 per kWh. The order does
+        not say how this applies to an exchange purchase.
+    deviation_under:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments, and CSERC's deviation
+        settlement regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments, and CSERC's deviation
+        settlement regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for CSPDCL
+    additional_surcharge:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for CSPDCL
+    banking:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments; the Chhattisgarh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: CSERC's intra-state open access regulations in force, with their amendments; the Chhattisgarh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notes: Read from the tariff order stored for Chhattisgarh. The order does not state whether an open-access consumer
+      may buy on the exchange or how the purchase must be scheduled, so the verdict stays 'not yet sourced' until
+      the open access regulations and the SLDC procedure are stored and read.
+  source_ref: &id001
+    kind: order
+    document_id: f2d59c3e-45ca-5510-b960-c7d433b4f7d8
+    page: 217
+    quote: The Standby Charges for consumers availing open access (using transmission and/or distribution system
+      of Licensee) and who draw power from the grid up to the contracted capacity of open access during the outage
+      of generating plant/CPP shall be 1.5 times of the per kWh weighted average tariff of HV consumers, which is
+      Rs. 11.93 per kWh
+  field_refs:
+    /standby: *id001

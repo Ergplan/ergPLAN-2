@@ -1,0 +1,86 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: OD
+title: Exchange purchase by an open-access consumer · Odisha · as read from the stored documents, 26 Nov 2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents:
+  40c4aebb-c302-5797-80ba-aafadbfe5300:
+    sha256: d58d281787d4dd34e7b895add2e7cb37dbf3b9e8d5f1a1ea208dc57ceffde0ab
+    title: Aggregate Revenue Requirement, Wheeling Tariff &Retail Supply Tariff for the FY 2026-27
+    regulator: OERC
+    url_public: https://www.orierc.org/CuteSoft_Client/writereaddata/upload/DISCOM_TARIFF_ORDER_FY_2026-27.pdf
+    pages: 246
+rows:
+- label: Odisha · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments; the Odisha SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments; the Odisha SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    sldc_clearance:
+      status: not_stated
+      obtain: the Odisha SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments; the Odisha SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments; the Odisha SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments; the Odisha SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for the Odisha DISCOMs
+    deviation_under:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments, and OERC's deviation settlement
+        regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments, and OERC's deviation settlement
+        regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for the Odisha DISCOMs
+    additional_surcharge:
+      status: stated
+      payable: 'no'
+      condition: No additional surcharge is levied at present (order for FY 2026-27).
+    banking:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments; the Odisha SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: OERC's intra-state open access regulations in force, with their amendments; the Odisha SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notes: Read from the tariff order stored for Odisha. The order does not state whether an open-access consumer
+      may buy on the exchange or how the purchase must be scheduled, so the verdict stays 'not yet sourced' until
+      the open access regulations and the SLDC procedure are stored and read.
+  source_ref: &id001
+    kind: order
+    document_id: 40c4aebb-c302-5797-80ba-aafadbfe5300
+    page: 245
+    quote: 'Additional Surcharge: No additional surcharge over and above the Cross-Subsidy Surcharge needs to be
+      paid to the embedded licensee.'
+  field_refs:
+    /additional_surcharge: *id001

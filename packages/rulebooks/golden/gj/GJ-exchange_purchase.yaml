@@ -1,0 +1,34 @@
+# Golden cases for the exchange-purchase drafts read from the stored documents (Stage 18).
+# They apply to versions of origin exchange_reader; an analyst who completes the rule from the
+# open access regulations writes the cases for the completed version.
+jurisdiction: GJ
+family: exchange_purchase
+origin: exchange_reader
+tests:
+- name: whether the purchase is permitted is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /permitted/status
+  expect:
+    value: not_stated
+- name: the shape of schedule is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /schedule/status
+  expect:
+    value: not_stated
+- name: eligible above 1000 kVA
+  given:
+    context:
+      source: iex
+    field: /eligibility/min_contract_demand_kva
+  expect:
+    value: '1000'
+  source_ref:
+    kind: order
+    document_id: 17db86c4-2914-591e-a92b-03372554e3a6
+    page: 152
+    quote: 9.87% portion of demand charge proposed to be recovered from the consumers of contracted demand in excess
+      of 1000 kVA (i.e. from the consumers eligible for open access)
