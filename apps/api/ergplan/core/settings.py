@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     # pinned by every run, used to price the deviation risk the state's rule creates
     ergplan_exchange_deviation_pct: Decimal = Decimal("5")
     ergplan_worker_concurrency: int = 1  # runs solved at once by `python -m ergplan.platform.worker`
+    # Stage 19: the landed-cost calculator (/calculator) open to visitors without signing in. Off by
+    # default: opening the app to visitors is the person's decision, never the builder's; when off,
+    # the calculator needs sign-in like every other screen. Per-address limit on its routes.
+    ergplan_public_calculator: bool = False
+    ergplan_calculator_rate_limit: int = 30
+    ergplan_calculator_rate_window_s: int = 60
 
     billx_url: str = "http://localhost:8080"
     billx_token: str = ""

@@ -514,3 +514,9 @@ a.eg-btn { text-decoration: none; }
 .ep-q__rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; align-items: flex-start; }
 .ep-q__time { width: 130px; }
 .ep-q__num { width: 140px; }
+/* Stage 19: the landed-cost calculator */
+.ep-calc__form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); }
+.ep-calc__form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.ep-calc__plant { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.ep-calc__routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.ep-calc__lines td { padding: 6px 8px; font-size: 13px; }

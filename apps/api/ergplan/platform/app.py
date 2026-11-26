@@ -22,6 +22,7 @@ from . import admin
 from .auth import guard, production
 from .routers import (
     audit,
+    calculator,
     cost,
     documents,
     evaluate,
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(mcp_oauth.router)  # Stage 16: the MCP connector's OAuth
     app.include_router(mcp_uploads.router)
     app.include_router(mcp_server.router)
+    app.include_router(calculator.router)  # Stage 19: the landed-cost calculator
     return app
 
 
