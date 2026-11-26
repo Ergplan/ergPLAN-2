@@ -44,6 +44,7 @@ from .routers import (
 )
 from .routers import auth as auth_routes
 from .routers import questions as questions_routes
+from .routers import tariffs as tariffs_routes
 
 log = logging.getLogger("ergplan.app")
 
@@ -134,6 +135,7 @@ def create_app() -> FastAPI:
     app.include_router(mcp_uploads.router)
     app.include_router(mcp_server.router)
     app.include_router(calculator.router)  # Stage 19: the landed-cost calculator
+    app.include_router(tariffs_routes.router)  # Stage 19: the DISCOM tariffs screen
     return app
 
 
