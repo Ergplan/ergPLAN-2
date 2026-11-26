@@ -121,6 +121,52 @@ def test_the_named_kind_reaches_the_intake_and_the_connection(billx: FakeBillx) 
         assert s.get(Bill, b["id"]) is not None
 
 
+def _lines(*lines: tuple[str, str, str]) -> dict[str, Any]:
+    res = copy.deepcopy(result("pvvnl_passed"))
+    res["bills"][0]["elements"] = [
+        {
+            "index": i,
+            "label": label,
+            "code": code,
+            "kind": "item",
+            "stage": "current",
+            "amount": _fo(amt, page=1),
+        }
+        for i, (label, code, amt) in enumerate(lines)
+    ]
+    return res
+
+
+def test_a_retail_wheeling_charge_alone_is_not_open_access(billx: FakeBillx) -> None:
+    """Stage 17: an MSEDCL HT bill prints a wheeling charge on every unit sold (MERC Case 75/2025,
+    p. 100); read as open access, the Maharashtra site was taken for an open-access consumer."""
+    [b] = _upload(
+        billx,
+        "rec-wh",
+        _lines(
+            ("ENERGY CHARGES", "energy_charge", "3933000"), ("WHEELING CHARGES", "wheeling_charge", "377443")
+        ),
+    )
+    r = _recognition(b["id"])
+    assert r["open_access"] == "none_seen" and r["evidence"] == []
+    with session_scope(actor="t") as s:
+        assert site_intake.from_bills(s, [b["id"]]).open_access is None
+
+
+def test_a_wheeling_charge_beside_a_surcharge_is_open_access(billx: FakeBillx) -> None:
+    [b] = _upload(
+        billx,
+        "rec-wh-css",
+        _lines(
+            ("WHEELING CHARGES", "wheeling_charge", "37744"),
+            ("CROSS SUBSIDY SURCHARGE", "cross_subsidy_surcharge", "98000"),
+        ),
+    )
+    r = _recognition(b["id"])
+    assert r["open_access"] == "open_access"
+    assert {e["ref"]["field_path"] for e in r["evidence"]} == {"elements[0].amount", "elements[1].amount"}
+
+
 def test_a_stated_arrangement_must_be_a_known_one(billx: FakeBillx) -> None:
     [b] = _upload(billx, "rec-st", copy.deepcopy(result("pvvnl_passed")))
     with session_scope(actor="t") as s:

@@ -152,6 +152,7 @@ def _open_access(bill: Bill, b: dict[str, Any]) -> tuple[OpenAccess, list[str], 
     fields = b.get("fields") or {}
     evidence: list[Evidence] = []
     texts: list[tuple[str, SourceRef, bool]] = []  # (text, its page, printed with an amount)
+    wheeling: list[Evidence] = []
     oa_seen = False
     for path, finding in (
         ("open_access.re_kwh", "renewable open-access or captive units set off"),
@@ -210,7 +211,12 @@ def _open_access(bill: Bill, b: dict[str, Any]) -> tuple[OpenAccess, list[str], 
         if not charged:
             continue
         code = e.get("code")
-        if code in OA_CODES:
+        if code == "wheeling_charge":
+            # MERC's DISCOMs bill a wheeling charge to every retail consumer (MERC Case 75/2025,
+            # p. 100: HT I (A) energy 8.44 + wheeling 0.81 Rs/kVAh): on its own it is no sign of
+            # open access, only beside other open-access evidence
+            wheeling.append(Evidence(finding=f"{OA_CODES[code]} charged ('{label}')", ref=ref))
+        elif code in OA_CODES:
             oa_seen = True
             evidence.append(Evidence(finding=f"{OA_CODES[code]} charged ('{label}')", ref=ref))
         elif code == "green_tariff_premium":
@@ -232,6 +238,7 @@ def _open_access(bill: Bill, b: dict[str, Any]) -> tuple[OpenAccess, list[str], 
             evidence.append(Evidence(finding=f"the bill names {KIND_LABEL[kind]} ('{hit[0]}')", ref=hit[1]))
     if oa_seen or (kinds and kinds != ["exchange"]):
         status: OpenAccess = "open_access"
+        evidence.extend(wheeling)
     elif green:
         status = "green_tariff"
     else:

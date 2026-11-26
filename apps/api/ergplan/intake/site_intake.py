@@ -585,13 +585,29 @@ def month_from_bill(session: Session, bill: Bill) -> MonthFacts:
         bill_id=bill.id,
         unmapped_tod_slots=unmapped,
         max_kva=from_bill(v["demand.max_kva"], v["demand.max_kva"].dec) if "demand.max_kva" in v else None,
-        power_factor=from_bill(v["energy.power_factor"], v["energy.power_factor"].dec)
-        if "energy.power_factor" in v and v["energy.power_factor"].dec
-        else None,
+        power_factor=_bill_power_factor(v),
         bill_inr=from_bill(v["totals.current_charges"], v["totals.current_charges"].dec)
         if "totals.current_charges" in v and v["totals.current_charges"].dec
         else None,
     )
+
+
+def _bill_power_factor(v: dict[str, bill_store.BillValue]) -> Fact[Decimal] | None:
+    """The month's power factor: as the bill prints it, else kWh / kVAh where the bill prints both
+    (Stage 17: a bill without a printed PF left the profile's peak at MD × 1, while the avoided cost
+    divides that peak by the bills' kWh / kVAh, overstating billing demand by the kVAh factor)."""
+    if "energy.power_factor" in v and v["energy.power_factor"].dec:
+        return from_bill(v["energy.power_factor"], v["energy.power_factor"].dec)
+    kwh, kvah = v.get("energy.kwh"), v.get("energy.kvah")
+    if kwh is None or kvah is None or not kwh.dec or not kvah.dec or not (0 < kwh.dec <= kvah.dec):
+        return None
+    pf = kwh.dec / kvah.dec
+    if pf < Decimal("0.3"):
+        return None
+    return Fact(value=pf, provenance="bill", ref=kvah.ref.model_copy(update={"note": PF_FROM_KVAH}))
+
+
+PF_FROM_KVAH = "kWh / kVAh as billed"  # the note of a power factor worked from the bill's two registers
 
 
 def from_bills(session: Session, bill_ids: list[str], overrides: dict[str, Any] | None = None) -> SiteIntake:

@@ -302,7 +302,9 @@ def test_from_bills_then_build(billx: FakeBillx) -> None:
         assert len(kw) == 365 * 96 == lp.blocks
         assert all(s.get(Bill, b.id).connection_id == conn.id for b in rows)  # type: ignore[union-attr]
         rep = {r["month"]: r for r in lp.method["months"]}
-        assert rep["2026-09-01"]["kwh"] == 1909000.0 and rep["2026-09-01"]["max_kw_target"] == 3250.0
+        # the peak is the recorded 3,250 kVA times the bill's kWh / kVAh (no PF printed): Stage 17
+        assert rep["2026-09-01"]["kwh"] == 1909000.0
+        assert rep["2026-09-01"]["max_kw_target"] == round(3250 * 1909000 / 2059020, 3)
     with session_scope() as s:
         again = site_intake.build(s, si, "client@x", connection_id=out["connection_id"])
         s.commit()

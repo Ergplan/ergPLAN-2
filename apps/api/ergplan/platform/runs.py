@@ -1879,13 +1879,18 @@ def digest(summary: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(summary, sort_keys=True, default=str).encode()).hexdigest()
 
 
+DISPATCH_KWH = Decimal("0.000001")
+
+
 def dispatch_blob(a: Assembled, sol: Solution, rs: Resettled) -> bytes:
     p = a.problem
     series: dict[str, list[str]] = {
         "load": [f"{x:.3f}" for x in p.load_kwh],
         "metered": [format(b.load_kwh, "f") for b in rs.blocks],
-        "grid": [format(x.quantize(Decimal("0.001")), "f") for x in rs.result.grid_kwh],
-        "withdrawn": [format(x.quantize(Decimal("0.001")), "f") for x in rs.result.withdrawn_kwh],
+        # to the milliwatt-hour (Stage 17): at 0.001 kWh the rounding of a week's repeated blocks added
+        # up, and the grid bill worked from the file missed the run's by ₹5 at 15 minutes
+        "grid": [format(x.quantize(DISPATCH_KWH), "f") for x in rs.result.grid_kwh],
+        "withdrawn": [format(x.quantize(DISPATCH_KWH), "f") for x in rs.result.withdrawn_kwh],
     }
     for k, v in sol.delivered.items():
         series[f"supply:{k}"] = [f"{x:.3f}" for x in v]
