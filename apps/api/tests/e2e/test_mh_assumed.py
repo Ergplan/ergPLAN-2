@@ -26,6 +26,7 @@ from tests.e2e.assumed_site import (
     Line,
     Out,
     balance_by_hand,
+    calculator_input,
     check_settle,
     client,
     crf,
@@ -36,6 +37,7 @@ from tests.e2e.assumed_site import (
     hand_settle,
     landed_lines,
     make_site,
+    route_entry,
     run_scenario,
     sv,
 )
@@ -215,7 +217,8 @@ def hand_landed() -> dict[str, dict[str, Any]]:
         p = PLANT[source]
         f = crf(DISCOUNT, p["life"])
         e = energy_per_kw(p["cuf"], p["deg"], p["life"])
-        lcoe = p["capex"] * (f + p["om"] / 100) / e
+        # a rate keeps four places (core/money.py): the levelised cost and the equity cost are stated so
+        lcoe = (p["capex"] * (f + p["om"] / 100) / e).quantize(D("0.0001"))
         equity = p["capex"] * EQUITY / 100 * f / e
         for route in ("captive", "group_captive", "third_party"):
             gen = lcoe if route == "captive" else PPA[source]
@@ -579,20 +582,24 @@ def test_mh_assumed() -> None:
 
 def landed_yaml() -> dict[str, Any]:
     """landed_hand/mh.yaml as the hand figures make it (the file a later test reads)."""
-    q4 = D("0.0001")
     doc: dict[str, Any] = {
         "state": "MH",
         "discom": "msedcl",
         "category": "HT I (A)",
         "voltage_kv": "22",
+        "contract_demand_kva": "2000",
+        "as_of": AS_OF,
         "month": "2026-11",
+        "slot": "all",
+        # what the landed-cost calculator is given (Stage 19 test_calculator_hand)
+        "calculator": calculator_input(PLANT, PPA, EQUITY),
         "tod_slot": "all (the same in every slot)",
         "sources": {
             "generation": "PPA tariff stated (solar 3.10, wind 3.60); for a captive plant its levelised cost from the plant figures stated (capital, O&M, CUF, degradation, 25 years) at a 10% cost of capital",
             "injection_charges": f"wheeling charges (HT) 0.81 Rs/unit FY 26-27: MERC Case 75/2025 ({CASE75}) p. 83, Table 9 row E; NOT in the approved rule book",
             "losses": "transmission loss 3.26% and wheeling loss 7.50% at HT: Case 75/2025 p. 106 (columns TL, WL); NOT in the approved rule book",
             "drawal_charges": "cross-subsidy surcharge 2.11 Rs./kWh, HT I (A) (i) at 33/22/11 kV: Case 75/2025 p. 106; nil for captive and 26%-equity users (Electricity Act s. 42(2), fourth proviso)",
-            "banking_upper_bound": "8% in kind on energy banked (approved rule MSEDCL settlement v4, a register field; the order does not state it), as if every unit were banked",
+            "banking_upper_bound": "8% in kind on energy banked (approved rule MSEDCL settlement v4, a register field; the order does not state it), as if every unit were banked: 8/92 of the generation, injection charges and losses (the drawal charges fall on units drawn, so are not grossed up)",
             "duty_assumed": "electricity duty at the twelve bills' average per kWh (7.5% of the bill's charges); in no order; an assumption",
             "equity_cost": "26% of the plant's capital x capital recovery factor (10%, 25 years) / average yearly kWh per kW",
             "not_stated_in_the_corpus": "intra-state transmission charge (MSETCL tariff order); additional surcharge (MERC's order on MSEDCL's additional surcharge)",
@@ -601,12 +608,5 @@ def landed_yaml() -> dict[str, Any]:
     }
     for key, v in hand_landed().items():
         route, source = key.split(":")
-        doc["routes"].append(
-            {
-                "route": route,
-                "source": source,
-                "approved_rulebook": {k: str(x.quantize(q4)) for k, x in v["approved"].items()},
-                "order": {k: str(x.quantize(q4)) for k, x in v["order"].items()},
-            }
-        )
+        doc["routes"].append(route_entry(route, source, v["approved"], v["order"]))
     return doc
