@@ -41,7 +41,7 @@ The calculator matched every line and its citation.
 | The all-states table downloads as CSV | `test_every_state_at_once_and_as_csv` (40 DISCOMs, 17 states, every figure with the pages it opens) |
 | The MCP tool returns the same figures as the screen | `tests/mcp/test_landed_cost_calculator.py` (identical JSON, the same refusal, listed read-only) |
 | Watcher green | Green on the final merge (`e7e34c6`; the pass began at 13:51 UTC, after it) |
-| `pytest -m slow` and the last CI run | The whole slow suite passed on the final tree (26 Nov: the six state tests, the Uttar Pradesh full test and transition plan, the MCP end-to-end, the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); the two browser journeys passed (135 s); CI: CI_RESULT |
+| `pytest -m slow` and the last CI run | The whole slow suite passed on the final tree (26 Nov: the six state tests, the Uttar Pradesh full test and transition plan, the MCP end-to-end, the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); the two browser journeys passed (135 s); CI green on `2d4db05` |
 | Reviewer clean | Not run: no OpenAI key |
 
 Also tested: off by default the calculator needs sign-in; the rate limit; a draft changes nothing; the exchange follows the state's verdict (not yet sourced, the analyst's figure, a fixture rule that offers, a Rajasthan fixture judged not practical); a minimum contract demand bars open access with the rule (fixture); an approved rule book downloads, a draft does not.

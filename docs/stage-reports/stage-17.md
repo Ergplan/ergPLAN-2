@@ -19,7 +19,7 @@ Built on 26 Nov 2026 on the VM, from `stage-17-start` (4ee83e8), by two workers 
 | Each of the six states (and any Stage 14 made ready) has its test in the slow suite, passing, or with each failing assertion's defect fixed or listed as a rule gap | Uttar Pradesh (`test_up_assumed.py`, from Stage 11) and the five new tests pass. Where a listed gap makes the app differ from the order, the test asserts the app's figure with the gap named and works the order's figure beside it. The Stage 14 drafts were not tested: a draft cannot reach a client, and the brief's "through the sandbox" for states Stage 14 made ready is left for the second round |
 | `docs/stage-reports/multi-state-test.md` is written | Yes |
 | Watcher green | Green on the final merge (`e7e34c6`; the pass began at 13:51 UTC, after it) |
-| `pytest -m slow` and the last CI run | The whole slow suite passed on the final tree (26 Nov: the six state tests, the Uttar Pradesh full test and transition plan, the MCP end-to-end, the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); the two browser journeys passed (135 s); CI: CI_RESULT |
+| `pytest -m slow` and the last CI run | The whole slow suite passed on the final tree (26 Nov: the six state tests, the Uttar Pradesh full test and transition plan, the MCP end-to-end, the mix journey; the Stage 6 to 8 end-to-end tests skip on the VM, which holds no real bills); the two browser journeys passed (135 s); CI green on `2d4db05` |
 | Reviewer clean | Not run: no OpenAI key |
 
 ## Solver time and gap

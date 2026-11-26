@@ -52,7 +52,7 @@ The twelve assumed PVVNL HV-2 bills of `tests/e2e/test_up_assumed.py` go in thro
 | The upload link works once | `tests/mcp/test_uploads.py` |
 | The person is told the address | Above, and questions 31 |
 | Watcher green | Green on the merge (`2260b4f`, pass ended 12:05 UTC); the full fast suite also passed after the redirect fix (`c2a43c0`) |
-| `pytest -m slow` and the last CI run | `tests/e2e/test_mcp_up.py` passed on the merged tree; the whole slow suite passed again with Stages 17 and 19 merged; CI: CI_RESULT |
+| `pytest -m slow` and the last CI run | `tests/e2e/test_mcp_up.py` passed on the merged tree; the whole slow suite passed again with Stages 17 and 19 merged; CI green on `2d4db05` |
 | Reviewer clean | Not run: no OpenAI key |
 
 ## On the live server
