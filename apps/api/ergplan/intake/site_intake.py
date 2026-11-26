@@ -493,6 +493,21 @@ def supply_month(start: date | None, end: date | None) -> date | None:
     return max(days, key=lambda k: (days[k], k))
 
 
+def bill_power_factor(v: dict[str, bill_store.BillValue]) -> Fact[Decimal] | None:
+    """The month's power factor: as the bill prints it, else its kWh over its kVAh where it prints
+    both (the ratio the tariff side bills kVAh on), cited to the kVAh. Without it a profile took
+    the recorded kVA as kW and its peak came out above the recorded demand (Stage 17)."""
+    pf = v.get("energy.power_factor")
+    if pf is not None and pf.dec:
+        return from_bill(pf, pf.dec)
+    kwh, kvah = v.get("energy.kwh"), v.get("energy.kvah")
+    if kwh and kvah and kwh.dec and kvah.dec and Decimal(0) < kwh.dec <= kvah.dec:
+        ratio = (kwh.dec / kvah.dec).quantize(Decimal("0.000001"))
+        if ratio >= Decimal("0.3"):
+            return from_bill(kvah, ratio)
+    return None
+
+
 def month_from_bill(session: Session, bill: Bill) -> MonthFacts:
     """A month's facts from one accepted bill. The month is the one the energy was used in: the
     supply period's (period.from to period.to). Only a bill that states no usable period is filed
@@ -585,9 +600,7 @@ def month_from_bill(session: Session, bill: Bill) -> MonthFacts:
         bill_id=bill.id,
         unmapped_tod_slots=unmapped,
         max_kva=from_bill(v["demand.max_kva"], v["demand.max_kva"].dec) if "demand.max_kva" in v else None,
-        power_factor=from_bill(v["energy.power_factor"], v["energy.power_factor"].dec)
-        if "energy.power_factor" in v and v["energy.power_factor"].dec
-        else None,
+        power_factor=bill_power_factor(v),
         bill_inr=from_bill(v["totals.current_charges"], v["totals.current_charges"].dec)
         if "totals.current_charges" in v and v["totals.current_charges"].dec
         else None,
