@@ -193,3 +193,9 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | A sizing pass that ends on its time limit with no feasible solution fails the run rather than falling back to the grid-only plan | Next round (optimizer) |
 | The calculator: no approved rule in any state states a minimum contract demand for open access (the bar is tested on fixtures only); a signed-in user cannot save a calculation; duty and additional surcharge for a reference consumer are "not yet sourced" | Analyst / next round |
 | With `ERGPLAN_OPEN_ACCESS` on, anyone with the address can upload bills, see every client's plans, edit drafts and run sizings (approving still needs a named sign-in); rate limits on sign-in and bill upload still apply | Person (switch it off in `.env`) |
+| Himachal Pradesh: Small and Medium Industrial not imported (the load column is read as slabs); peak-load charges, wheeling, surcharge and losses not imported (tables broken at the source) | Next round / analyst |
+| Jharkhand: voltage rebates and billing-demand floors not imported; FY 2025-26 open-access charges not imported | Next round / analyst |
+| Assam: HT-IV and LT-V not imported (misfiled headings at the source); HT-II Option-1 ToD and FY 2023-24 ToD not imported; the surcharge table prints no unit; FY 2024-25 and FY 2025-26 orders not at the source; order 177's end date is a reading | Analyst / ARR Network |
+| Goa: the imported additional surcharge is the petitioner's (0.74 / 0.68; the Commission approves 0.82 / 0.77, p. 209); Goa and Puducherry slabbed categories, ToD, surcharge and wheeling not imported; FY 2024-25 and FY 2027-28 onward not imported | Analyst (questions 36) |
+| West Bengal (gists only at the source) and Delhi (FY 2021-22 orders only) are not imported | ARR Network / person |
+

@@ -97,3 +97,21 @@ Not run: no OpenAI key (`docs/questions-for-review.md`, 1).
 ## Cost
 
 - Application model calls: none (the importer calls no model). Reviewer: none. Builder: Claude Code on the subscription; seven subagents (survey, importer, four state workers, integration).
+
+## Second round (26 Nov 2026)
+
+Five of the seven states new to ergPLAN were imported as drafts (merge `5340390`): ten order-years, 18 versions, every PDF's SHA-256 matching the ARR Network's, no grounding failure, no ASSUMED date. Imported on the live server (93 drafts now; the 72 approved versions and their 200 rules unchanged by fingerprint; a second run says "unchanged" for all 18). Jharkhand's FY 2025-26 order (37) has a plain-http regulator link, so its PDF was fetched over https from jserc.org, its SHA-256 matched, and it was placed in the library.
+
+| Order | Jurisdiction, year | In force | Versions (rows) | Golden |
+| --- | --- | --- | --- | --- |
+| 9 | HPSEBL FY 2026-27 | 1 Apr 2026 → (order p. 491) | schedule 12, open access 1 | 15/15, 3/3 |
+| 10 | HPSEBL FY 2025-26 | 1 Apr 2025 → 31 Mar 2026 (p. 414) | schedule 12, open access 1 | 7/7, 1/1 |
+| 111 | JBVNL FY 2026-27 | 1 Apr 2026 → (p. 326) | schedule 6, open access 8 | 13/13, 10/10 |
+| 37 | JBVNL FY 2025-26 | 1 May 2025 → 31 Mar 2026 (p. 256) | schedule 4 | 5/5 |
+| 176 | APDCL FY 2026-27 | 1 Apr 2026 → (p. 18) | schedule 18, ToD 3, open access 3 | 13/13, 10/10, 4/4 |
+| 177 | APDCL FY 2023-24 | 1 Apr 2023 → 26 Jun 2024 (a reading: the day before the next order) | schedule 20, open access 3 | 5/5, 2/2 |
+| 23 | Goa ED FY 2025-26, FY 2026-27 | 1 Oct 2025 → 31 Mar 2026; 1 Apr 2026 → 31 Mar 2027 (p. 15, 193) | schedule 17, open access 1 (each) | 11/11 and 4/4; **open access 0/1** |
+| 28 | Puducherry ED FY 2025-26, FY 2026-27 | as Goa (p. 20) | schedule 16 and 17 | 9/9, 4/4 |
+
+**Finding for the analyst:** Goa's additional surcharge draft carries the petitioner's figure (₹0.74 / ₹0.68), which the ARR Network files under the caption of the Commission's Table 166; the Commission approves ₹0.82 / ₹0.77 (PDF p. 209). Grounding passes (both tables are on that page); the golden case catches it and the gate refuses that version. West Bengal (the source holds gists, not orders, with seasonal slot-priced rates) and Delhi (only FY 2021-22 orders, nothing mappable) are not imported.
+
