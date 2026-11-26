@@ -89,6 +89,8 @@ def evaluate(s: Session, run: Run, w: WhatIf) -> dict[str, Any]:
         treatment=svc.capital_treatment(run.pins),
         # the generation profiles of the run being changed, not those uploaded since
         generation_pins=(run.pins or {}).get("generation_profiles") or {},
+        # the roof, connection facts and thermal units the run read (a run made before: read live)
+        site_pins=(run.pins or {}).get("site"),
     )
     sizes = {z["kind"]: z for z in rr.summary["sizes"]}
     cap: dict[str, float] = {}
