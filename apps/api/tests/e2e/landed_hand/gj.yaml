@@ -1,0 +1,66 @@
+# Landed cost per kWh at the meter, worked by hand in tests/e2e/test_gj_assumed.py (Stage 17), for
+# Stage 19's calculator test. Consumer: MGVCL HTP-I, 33 kV, contract demand 4,000 kVA; rules in force
+# on 1 November 2026 (month 11). The same in every ToD slot (no open-access line varies by slot).
+# Inputs stated by the client: PPA tariff (solar 3.10, wind 3.60), capacity 10 MW and CUF (solar 23%,
+# wind 30%) to spread the per-MW transmission charge, group-captive equity cost 0.25/kWh. A captive
+# plant is priced at its levelised cost on ergPLAN's plant assumptions (solar: 42,000/kW, O&M 1.5%,
+# CUF 23%, degradation 0.5%/yr, 25 years, 10%; wind: 68,000/kW, O&M 2%, CUF 30%, no degradation,
+# 25 years, 10%): an assumption, not an order figure.
+# Arithmetic: losses = (generation + wheeling) / ((1 - 3.37%) (1 - 6.50%)) - (generation + wheeling);
+# transmission = 3858.96 / (24 x 1000 x CUF); total = the sum of the lines.
+# Documents: ORDER = GERC Tariff Order FY 2026-27 for MGVCL, document 17db86c4-2914-591e-a92b-03372554e3a6
+# (PDF page); REGISTER = jouleWise State Regulation Master, Gujarat, FY 2026-27 (register version 15),
+# whose source order is not stored (cited as the register cites it).
+state: GJ
+discom: mgvcl
+category: HTP-I
+voltage_kv: "33"
+contract_demand_kva: "4000"
+as_of: "2026-11-01"
+month: 11
+slot: all
+calculator:
+  solar: {ppa_tariff_inr_per_kwh: '3.10', capex_inr_per_kw: '42000', om_pct_of_capex: '1.5', cuf_pct: '23',
+          degradation_pct: '0.5', life_years: 25, capacity_mw: '10', equity_cost_inr_per_kwh: '0.25'}
+  wind: {ppa_tariff_inr_per_kwh: '3.60', capex_inr_per_kw: '68000', om_pct_of_capex: '2', cuf_pct: '30',
+         degradation_pct: '0', life_years: 25, capacity_mw: '10', equity_cost_inr_per_kwh: '0.25'}
+  connection: intra_state
+sources:
+  wheeling: {value: "0.2352", document: ORDER, page: 150, where: "Table 9-2 row 5, 23.52 paise/kWh at 11/22/33 kV"}
+  wheeling_loss_pct: {value: "6.50", document: ORDER, page: 151, where: "9.3, 11/22/33 kV"}
+  css: {value: "1.33", document: ORDER, page: 152, where: "Table 9-3 and text, HT category, capped at 20% of tariff"}
+  stu_loss_pct: {value: "3.37", document: REGISTER, page: null, where: "entered without a citation"}
+  stu_transmission_inr_per_mw_day: {value: "3858.96", document: REGISTER, page: null, where: "GERC GETCO MYT Case 2419/2024 Table 6-4 p.120 (not stored)"}
+  sldc: {value: "0.05", document: REGISTER, page: null, where: "entered without a citation"}
+  additional_surcharge: {value: "0.99", document: REGISTER, page: null, where: "GERC AS Order 05/2026 paras 5-6 (not stored)"}
+routes:
+  - route: captive
+    source: solar
+    lines: {generation: "2.7692", wheeling: "0.2352", losses: "0.3209", stu_transmission: "0.6991", sldc: "0.0500", css: "0.0000", additional_surcharge: "0.0000", equity: "0.0000"}
+    total: {value: "4.0744", note: "generation is the plant's levelised cost (assumption); CSS and additional surcharge exempt (captive)"}
+    banking: null
+  - route: captive
+    source: wind
+    lines: {generation: "3.3681", wheeling: "0.2352", losses: "0.3849", stu_transmission: "0.5360", sldc: "0.0500", css: "0.0000", additional_surcharge: "0.0000", equity: "0.0000"}
+    total: {value: "4.5742", note: "generation is the plant's levelised cost (assumption); CSS and additional surcharge exempt (captive)"}
+    banking: null
+  - route: group_captive
+    source: solar
+    lines: {generation: "3.1000", wheeling: "0.2352", losses: "0.3563", stu_transmission: "0.6991", sldc: "0.0500", css: "0.0000", additional_surcharge: "0.0000", equity: "0.2500"}
+    total: {value: "4.6905", note: "CSS and additional surcharge exempt (group captive)"}
+    banking: null
+  - route: group_captive
+    source: wind
+    lines: {generation: "3.6000", wheeling: "0.2352", losses: "0.4097", stu_transmission: "0.5360", sldc: "0.0500", css: "0.0000", additional_surcharge: "0.0000", equity: "0.2500"}
+    total: {value: "5.0808", note: "CSS and additional surcharge exempt (group captive)"}
+    banking: null
+  - route: third_party
+    source: solar
+    lines: {generation: "3.1000", wheeling: "0.2352", losses: "0.3563", stu_transmission: "0.6991", sldc: "0.0500", css: "1.3300", additional_surcharge: "0.9900", equity: "0.0000"}
+    total: {value: "6.7605"}
+    banking: null
+  - route: third_party
+    source: wind
+    lines: {generation: "3.6000", wheeling: "0.2352", losses: "0.4097", stu_transmission: "0.5360", sldc: "0.0500", css: "1.3300", additional_surcharge: "0.9900", equity: "0.0000"}
+    total: {value: "7.1508"}
+    banking: null

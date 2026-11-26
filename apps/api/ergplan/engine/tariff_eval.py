@@ -122,8 +122,15 @@ def slot_classes(slot: Mapping[str, object] | None) -> frozenset[str]:
     percentage does (Stage 17: Karnataka's slots were all `normal`, so a ToD-slot settlement netted
     the whole month as one slot)."""
     adj = slot_adjustment_pct(slot) if slot else Decimal(0)
-    if adj == 0 and slot and slot.get("rate_delta_inr_per_kwh") not in (None, ""):
-        adj = Decimal(str(slot["rate_delta_inr_per_kwh"]))
+    if adj == 0 and slot:
+        # an order that adjusts in rupees per unit (GERC HTP-I 11.3 and 11.10, TGERC 4.16.3): the sign
+        # of the slot's adjustment (its own, else its first billing-demand band's) says the same
+        bands = slot.get("rate_delta_by_billing_demand") or []
+        raw = slot.get("rate_delta_inr_per_kwh")
+        if raw in (None, "") and isinstance(bands, list) and bands and isinstance(bands[0], Mapping):
+            raw = bands[0].get("rate_delta_inr_per_kwh")
+        if raw not in (None, ""):
+            adj = Decimal(str(raw))
     cat = str(slot["category"]) if slot and slot.get("category") else None
     if cat is None:
         cat = "peak" if adj > 0 else "off_peak" if adj < 0 else "normal"

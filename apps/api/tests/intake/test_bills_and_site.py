@@ -313,6 +313,29 @@ def test_from_bills_then_build(billx: FakeBillx) -> None:
         site_intake.build(s, si, "client@x", connection_id="missing")
 
 
+def test_power_factor_from_the_bills_registers_when_none_is_printed(billx: FakeBillx) -> None:
+    """Stage 17: a bill printing kWh and kVAh but no power factor gave the month no power factor, so
+    the profile took the recorded kVA as kW and today's demand charge (kVA = kW × kVAh/kWh) came out
+    above the bill's."""
+    [b] = _ingest(billx, "aug", result("pvvnl_passed"))  # 1,972,620 kWh and 2,059,020 kVAh, no PF
+    with session_scope() as s:
+        [m] = site_intake.from_bills(s, [b.id]).months
+    assert m.power_factor is not None
+    assert m.power_factor.value.quantize(Decimal("0.000001")) == Decimal("0.958038")  # kWh / kVAh
+    assert m.power_factor.provenance == "bill" and m.power_factor.ref is not None
+    assert m.power_factor.ref.field_path == "energy.kvah"
+    printed = copy.deepcopy(result("pvvnl_passed"))
+    printed["bills"][0]["fields"]["energy"]["power_factor"] = copy.deepcopy(
+        printed["bills"][0]["fields"]["energy"]["kvah"]
+    ) | {"value": "0.97", "printed": "0.97"}
+    printed["file"]["sha256"] = "another-file"
+    [b2] = _ingest(BillxWithPf := FakeBillx(), "aug-pf", printed)
+    assert BillxWithPf.calls == 1
+    with session_scope() as s:
+        [m2] = site_intake.from_bills(s, [b2.id]).months
+    assert m2.power_factor is not None and m2.power_factor.value == Decimal("0.97")  # as printed
+
+
 def test_from_bills_refuses_unaccepted(billx: FakeBillx) -> None:
     [b] = _ingest(billx, "r", result("pvvnl_needs_review"))
     with session_scope() as s, pytest.raises(ValueError, match="not accepted"):

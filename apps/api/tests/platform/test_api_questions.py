@@ -24,6 +24,7 @@ AN = {"X-Ergplan-Actor": "analyst@joulewise.in", "X-Ergplan-Role": "analyst"}
 CL = {"X-Ergplan-Actor": "client@acme.in", "X-Ergplan-Role": "client"}
 SYNTHESIS_ONLY = ["shifts", "weekly_off", "seasonal_shutdowns", "large_loads"]
 ALL = [*SYNTHESIS_ONLY, "power_factor", "expansion", "roof_sqm", "land_acres", "contract_demand_kva"]
+OPEN = [k for k in ALL if k != "power_factor"]  # the fixture bills give it (kWh over kVAh)
 
 
 @pytest.fixture
@@ -80,6 +81,7 @@ def test_the_questions_are_listed_in_plain_words(site: tuple[str, str]) -> None:
         assert q["asked"] is True and q["answer"] is None and q["until_answered"]
         assert "_" not in q["label"] and "_" not in q["question"] and "_" not in q["until_answered"]
     by = {q["key"]: q for q in d["questions"]}
+    assert by["power_factor"]["known_from_inputs"] == "worked from every bill's kWh and kVAh"
     assert (
         by["shifts"]["until_answered"]
         == "The operating pattern chosen with the inputs (Two-shift manufacturing)."

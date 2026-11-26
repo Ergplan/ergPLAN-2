@@ -234,3 +234,40 @@ def test_avoided_cost_without_rules_is_zero_and_says_so() -> None:
     )
     assert all(v == 0 for row in wf.matrix for v in row)
     assert len(wf.notes) == 12
+
+
+def mgvcl_bill() -> dict[str, Any]:
+    """A November 2026 MGVCL HTP-I bill at 33 kV (billing demand 3,510 kVA), its ToD printed as the
+    order's rupee adjustments: peak +₹0.85 (11.3 (b)), 11:00-17:00 −₹0.60 (11.10)."""
+    return {
+        "index": 0,
+        "flags": [],
+        "fields": {
+            "energy": {"kwh": {"value": "2064000"}},
+            "demand": {"max_kva": {"value": "3510"}, "contract_kva": {"value": "4000"}},
+            "period": {"from": {"value": "2026-11-01"}, "to": {"value": "2026-11-30"}},
+        },
+        "elements": [
+            _el(0, "DEMAND CHARGES @ RS 150/KVA", "75000", "demand_charge", qty="500", rate="150"),
+            _el(1, "DEMAND CHARGES @ RS 260/KVA", "130000", "demand_charge", qty="500", rate="260"),
+            _el(2, "DEMAND CHARGES @ RS 475/KVA", "1192250", "demand_charge", qty="2510", rate="475"),
+            _el(3, "ENERGY CHARGES", "8875200.00", "energy_charge", qty="2064000", rate="4.30"),
+            _el(4, "TOD CHARGES (PEAK)", "582726.00", "tod_surcharge", qty="685560", rate="0.85"),
+            _el(5, "TOD DISCOUNT (11-17 HRS)", "-307123.20", "tod_rebate", qty="511872", rate="-0.60"),
+            _el(6, "EHV REBATE ON ENERGY CHARGES @1.5%", "-133128.00", "energy_charge"),
+        ],
+    }
+
+
+def test_replay_matches_rupee_tod_adjustments_and_slabbed_demand(committed: None) -> None:
+    """Stage 17 (Gujarat): ToD zones were matched to the slots by a percentage of the energy rate, so
+    GERC's rupee adjustments all landed on one slot; and each slab's printed rate was reported as a
+    wrong demand rate."""
+    r = rules("mgvcl", "HTP-I", "33", date(2026, 11, 30), rate_block=None)
+    rep = replay.replay("b1", mgvcl_bill(), {}, date(2026, 11, 30), r.schedule, r.tod, sv("4000", Unit.KVA))
+    g = {ln.group: ln for ln in rep.lines}
+    assert g["demand"].status == "match" and g["demand"].billed == Decimal("1397250")
+    # 2,064,000 × 4.30 × (1 − 1.5%) + 685,560 × 0.85 − 511,872 × 0.60
+    assert g["energy"].billed == Decimal("9017674.80")
+    assert g["energy"].status == "match", rep.notes
+    assert not any("demand at ₹" in n for n in rep.notes), rep.notes

@@ -1,0 +1,64 @@
+# Landed cost per kWh at the meter, worked by hand in tests/e2e/test_pb_assumed.py (Stage 17), for
+# Stage 19's calculator test. Consumer: PSPCL Large Supply General Industry above 1000 kVA, 11 kV,
+# contract demand 2,000 kVA; rules in force on 1 November 2026 (month 11). The same in every ToD slot.
+# Inputs stated by the client: PPA tariff (solar 3.10, wind 3.60), group-captive equity cost 0.25/kWh.
+# A captive plant is priced at its levelised cost on ergPLAN's plant assumptions for Punjab (an
+# assumption, not an order figure).
+# Arithmetic: kept = (1 - 2%) (1 - 2.19%) (1 - 4.00%) = 0.92019552; losses in kind = gen / kept - gen;
+# banking charge, upper bound (every unit banked, 10% in kind) = (gen / kept) x (1 / 0.9 - 1);
+# CSS on the units drawn (third party only); equity per kWh at the meter (group captive);
+# total = the sum of the lines. No additional surcharge or SLDC charge is approved for Punjab.
+# Documents: ORDER = PSERC Tariff Order FY 2026-27 for PSPCL, document 8fc3d382-3fde-5496-9246-411738181d7e
+# (PDF page as the approved rules cite it; the printed page is two more); REGISTER = jouleWise State
+# Regulation Master, Punjab, FY 2026-27 (register version 12).
+state: PB
+discom: pspcl
+category: LS General Industry
+voltage_kv: "11"
+contract_demand_kva: "2000"
+as_of: "2026-11-01"
+month: 11
+slot: all
+calculator:
+  solar: {ppa_tariff_inr_per_kwh: '3.10', capex_inr_per_kw: '42000', om_pct_of_capex: '1.5', cuf_pct: '19',
+          degradation_pct: '0.5', life_years: 25, equity_cost_inr_per_kwh: '0.25'}
+  wind: {ppa_tariff_inr_per_kwh: '3.60', capex_inr_per_kw: '68000', om_pct_of_capex: '2', cuf_pct: '28',
+         degradation_pct: '0', life_years: 25, equity_cost_inr_per_kwh: '0.25'}
+  connection: intra_state
+sources:
+  wheeling_in_kind_pct: {value: "2", document: ORDER, page: 238, where: "6.10.1, NRSE power within the State, 2% of the energy injected"}
+  transmission_loss_pct: {value: "2.19", document: ORDER, page: 239, where: "6.10.2"}
+  distribution_loss_11kv_pct: {value: "4.00", document: ORDER, page: 239, where: "6.10.2 (iii), 40% of 10.00%"}
+  css: {value: "0.86", document: ORDER, page: 239, where: "6.10.3, Large Supply 86 paise/kWh"}
+  banking_charge_in_kind_pct: {value: "10", document: REGISTER, page: null, where: "banking rule as entered, no citation"}
+routes:
+  - route: captive
+    source: solar
+    lines: {generation: "3.3522", losses_in_kind: "0.2907", banking_upper_bound: "0.4048", css: "0.0000", equity: "0.0000"}
+    total: {value: "3.6429", with_banking_upper_bound: "4.0477", note: "generation is the plant's levelised cost (assumption); CSS exempt (captive)"}
+    banking: {value: "0.4048", kind: register, note: "10% in kind, on banked units only (register, no citation)"}
+  - route: captive
+    source: wind
+    lines: {generation: "3.6087", losses_in_kind: "0.3130", banking_upper_bound: "0.4357", css: "0.0000", equity: "0.0000"}
+    total: {value: "3.9217", with_banking_upper_bound: "4.3574", note: "generation is the plant's levelised cost (assumption); CSS exempt (captive)"}
+    banking: {value: "0.4357", kind: register, note: "10% in kind, on banked units only (register, no citation)"}
+  - route: group_captive
+    source: solar
+    lines: {generation: "3.1000", losses_in_kind: "0.2688", banking_upper_bound: "0.3743", css: "0.0000", equity: "0.2500"}
+    total: {value: "3.6188", with_banking_upper_bound: "3.9932", note: "CSS exempt (group captive)"}
+    banking: {value: "0.3743", kind: register, note: "10% in kind, on banked units only (register, no citation)"}
+  - route: group_captive
+    source: wind
+    lines: {generation: "3.6000", losses_in_kind: "0.3122", banking_upper_bound: "0.4347", css: "0.0000", equity: "0.2500"}
+    total: {value: "4.1622", with_banking_upper_bound: "4.5969", note: "CSS exempt (group captive)"}
+    banking: {value: "0.4347", kind: register, note: "10% in kind, on banked units only (register, no citation)"}
+  - route: third_party
+    source: solar
+    lines: {generation: "3.1000", losses_in_kind: "0.2688", banking_upper_bound: "0.3743", css: "0.8600", equity: "0.0000"}
+    total: {value: "4.2288", with_banking_upper_bound: "4.6032"}
+    banking: {value: "0.3743", kind: register, note: "10% in kind, on banked units only (register, no citation)"}
+  - route: third_party
+    source: wind
+    lines: {generation: "3.6000", losses_in_kind: "0.3122", banking_upper_bound: "0.4347", css: "0.8600", equity: "0.0000"}
+    total: {value: "4.7722", with_banking_upper_bound: "5.2069"}
+    banking: {value: "0.4347", kind: register, note: "10% in kind, on banked units only (register, no citation)"}
