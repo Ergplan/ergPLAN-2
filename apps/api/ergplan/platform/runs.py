@@ -38,7 +38,7 @@ from ..engine import avoided_cost, landed_cost, lcoe, lifecycle, tariff_eval
 from ..engine import levies as elevies
 from ..engine import scope as escope
 from ..engine.tariff_eval import slot_classes, slot_of
-from ..intake import generation, profile_synthesis
+from ..intake import generation, generation_profiles, profile_synthesis
 from ..optimizer import model as om
 from ..optimizer.highs_solve import Solution, SolveFailed, solve
 from ..optimizer.resettle import INR, Resettled, resettle, status_quo
@@ -139,6 +139,9 @@ class Assembled:
     # owned capital. 1: runs made before 25 Nov 2026 (captive at a PPA tariff, no capital), kept so
     # they replay as they were solved
     capital_treatment: int = 2
+    # the generation profiles supplied for the site that the run generated with, pinned by id and
+    # sha256 (invariant 5): "solar:open_access" → {id, sha256, file, provenance}. Empty: library curves
+    generation_profiles: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 def _f(x: Decimal | float) -> float:
@@ -262,10 +265,13 @@ def assemble(
     vintage_pins: dict[str, str] | None = None,
     bill_pins: dict[str, Any] | None = None,
     treatment: int = CAPITAL_TREATMENT,
+    generation_pins: dict[str, Any] | None = None,
 ) -> Assembled:
     """`bill_pins` (a replay): what the original run read from the client's bills — the levies and
     the kVAh factor and power factor — used instead of reading the bills again. `treatment` (a
-    replay): the capital treatment the original run pinned (`capital_treatment`)."""
+    replay): the capital treatment the original run pinned (`capital_treatment`). `generation_pins`
+    (a replay): the supplied generation profiles the original run pinned, used instead of those in
+    use for the site today (an empty dict: the library curves)."""
     conn = s.get(Connection, sc.connection_id)
     if conn is None:
         raise RunError("connection not found")
@@ -294,6 +300,8 @@ def assemble(
         )
     rules_for = _rules_for(s, facts, as_of, reader, from_bills)
     notes: list[str] = []
+    supplied = generation_profiles.for_run(s, site.id, generation_pins)
+    gen_used: dict[str, dict[str, str]] = {}
 
     # blocks, ToD slots and the avoided-cost rate of each block
     month_firsts = sorted({date(d.year, d.month, 1) for d in days})
@@ -555,6 +563,13 @@ def assemble(
                 generation.curve_for("solar", site.state), Decimal(1), lp.year_start
             )
             scale = g.cuf_pct.value / cuf
+            own = generation_profiles.source_series("solar", "rooftop", site.state, lp.year_start, supplied)
+            if own is not None:
+                # the rooftop profile supplied for the site: its own shape and CUF, not scaled
+                raw, scale = own.kw, Decimal(1)
+                g = dataclasses.replace(g, cuf_pct=own.cuf)
+                gen_used.update(own.pins)
+                notes.append(f"{meta.label}: {own.note}")
             shape = _resample([v * scale * Decimal("0.25") for v in raw], step)
             if site.roof_sqm:
                 mx = site.roof_sqm / ROOF_SQM_PER_KWP
@@ -673,6 +688,17 @@ def assemble(
                         note=f"CUF you stated; shape of the normative {src.source} curve, {site.state}",
                     ),
                     "CUF",
+                )
+            own = generation_profiles.source_series(
+                src.source, "open_access", site.state, lp.year_start, supplied
+            )
+            if own is not None:
+                # the developer's or the plant's own profile: its shape and CUF, not scaled to a typed CUF
+                raw, cuf_sv = own.kw, own.cuf
+                gen_used.update(own.pins)
+                notes.append(
+                    f"{meta.label}: {own.note}"
+                    + ("; the CUF typed is not used" if cs.cuf_pct is not None else "")
                 )
             meta.cuf = cuf_sv
             mx = cs.max_mw * 1000 if cs.max_mw else cd_kva * 3
@@ -1036,6 +1062,7 @@ def assemble(
         levies=levy_uses,
         thermal_duty=duty_own if thermals else None,
         capital_treatment=treatment,
+        generation_profiles=gen_used,
     )
 
 
@@ -1211,6 +1238,11 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
                     ins,
                 ),
             }
+        if a.generation_profiles and m.cuf is not None:
+            # a run that generated with a supplied profile shows each source's CUF and where it is
+            # from (the file, measured or stated; the library curve, an assumption). Not on a run
+            # with library curves only, whose summary stays as it was (replays compare summaries)
+            row["cuf"] = m.cuf.model_dump(mode="json")
         if m.spec.kind != "rooftop_pv":
             for key, label, src in (
                 ("banked_kwh", "Banked (after the charge in kind)", rs.result.deposit_kwh),
@@ -1303,6 +1335,18 @@ def summarise(a: Assembled, sol: Solution, rs: Resettled) -> dict[str, Any]:
             "load_profile": f"v{a.profile.version} ({a.profile.provenance})",
             "prices": a.vintages,
             "profile_ref": a.profile_ref.model_dump(mode="json"),
+            # the supplied generation profiles the run generated with (invariant 8), when any
+            **(
+                {
+                    "generation": [
+                        f"{k.split(':')[0]} ({'rooftop' if k.endswith(':rooftop') else 'open access'}): "
+                        f"{v['file']} ({v['provenance']}), sha256 {v['sha256']}"
+                        for k, v in sorted(a.generation_profiles.items())
+                    ]
+                }
+                if a.generation_profiles
+                else {}
+            ),
         },
         "sensitivities": [],
         # a plan the search could not prove the cheapest says so wherever its notes are shown
@@ -1764,6 +1808,8 @@ def execute(run_id: str) -> str:
                 bill_pins=(pins.get("bills") or {"levies": []}) if run.replay_of else None,
                 # a run made before the captive plant carried its capital replays as it was solved
                 treatment=capital_treatment(pins) if run.replay_of else CAPITAL_TREATMENT,
+                # a replay generates with the profiles the original pinned (none: the library curves)
+                generation_pins=(pins.get("generation_profiles") or {}) if run.replay_of else None,
             )
             used_versions = sorted(reader.used)
             vint_by_seg = {
@@ -1811,6 +1857,9 @@ def execute(run_id: str) -> str:
                 # how capital is treated (`Assembled.capital_treatment`); absent on a run made
                 # before 25 Nov 2026 and on its replays
                 **({"capital": {"treatment": a.capital_treatment}} if a.capital_treatment >= 2 else {}),
+                # the supplied generation profiles the run generated with (id and the file's sha256);
+                # absent when every source took its library curve
+                **({"generation_profiles": a.generation_profiles} if a.generation_profiles else {}),
             }
             run.solver = {
                 "status": sol.status,

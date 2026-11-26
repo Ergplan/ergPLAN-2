@@ -44,7 +44,7 @@ export type SummaryOut = {
   settlement: { grid_kwh: SourcedValue; lapsed_kwh: SourcedValue; withdrawn_kwh: SourcedValue; rule: string | null };
   contract_demand_kva: SourcedValue;
   binding: { name: string; words: string; refs: SourcedValue[] }[];
-  provenance: { load_profile: string; prices: string[]; profile_ref: SourcedValue };
+  provenance: { load_profile: string; prices: string[]; profile_ref: SourcedValue; generation?: string[] };
   sensitivities: { label: string; saving: SourcedValue }[];
   notes: string[];
   monthly?: MonthMix[];

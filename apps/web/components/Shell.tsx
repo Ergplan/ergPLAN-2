@@ -101,6 +101,10 @@ export function Shell({ children }: { children: ReactNode }) {
               {s.label}
             </Link>
           ))}
+          <Link className="eg-nav__item" href={site ? `/plan/generation?c=${site}` : "/plan/generation"} aria-current={current("/plan/generation")}>
+            <span data-icon="trend" data-size="19"></span>
+            Generation profiles
+          </Link>
           <Link className="eg-nav__item" href="/bills" aria-current={current("/bills")}>
             <span data-icon="receipt" data-size="19"></span>
             Your bills

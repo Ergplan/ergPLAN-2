@@ -121,6 +121,11 @@ class SizeOut(BaseModel):
     energy_cost: SourcedValue | None = _o()
     banked_kwh: SourcedValue | None = _o()
     unbanked_kwh: SourcedValue | None = _o()
+    # the CUF the source generated at, on a run that used a supplied generation profile (Stage 15)
+    cuf: SourcedValue | None = _o(
+        "generation_profiles.series_per_kw + packages/profiles/cuf",
+        ["measured", "client_stated", "assumption"],
+    )
     waterfall: dict[str, list[SourcedValue]] = Field(
         default_factory=dict, json_schema_extra={"owner": "rules.body + scenarios.spec", "ref_kinds": KINDS}
     )
@@ -165,6 +170,8 @@ class ProvenanceOut(BaseModel):
     load_profile: str
     prices: list[str]
     profile_ref: SourcedValue = _f("load_profiles.series_kw", ["measured", "derived"])
+    # the supplied generation profiles the run generated with, in words (file, provenance, sha256)
+    generation: list[str] = Field(default_factory=list)
 
 
 _LEVY_OWNER = "bills.billx_result + runs.pins"

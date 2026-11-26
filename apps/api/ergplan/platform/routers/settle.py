@@ -18,7 +18,7 @@ from ...db.models import Connection, LoadProfile, Site
 from ...engine import landed_cost
 from ...engine import scope as escope
 from ...engine.tariff_eval import slot_classes, slot_of
-from ...intake import generation, profile_synthesis, site_intake
+from ...intake import generation, generation_profiles, profile_synthesis, site_intake
 from ...rulebook import repository
 from ...rulebook.scope import matches
 from ...rulebook.service import jurisdiction_chain
@@ -120,8 +120,23 @@ def settle(connection_id: str, body: DispatchIn, who: Annotated[Caller, Depends(
             if d.kw is not None and len(d.kw) != len(kw):
                 raise HTTPException(422, f"{d.id}: {len(kw)} 15-minute values are needed")
             cap_kw = d.capacity_mw * 1000
+            own = (
+                generation_profiles.source_series(
+                    spec.source,
+                    "open_access",
+                    site.state,
+                    lp.year_start,
+                    generation_profiles.in_use(s, site.id),
+                )
+                if d.kw is None
+                else None
+            )
             if d.kw is not None:
                 inj, cuf = d.kw, None
+            elif own is not None:
+                # the profile supplied for the site, in place of the library curve (Stage 15)
+                inj, cuf = [v * cap_kw for v in own.kw], own.cuf.value
+                notes.append(f"{d.id}: {own.note}")
             else:
                 try:
                     inj, cuf = generation.profile(

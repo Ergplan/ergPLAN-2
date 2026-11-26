@@ -79,3 +79,8 @@ def blocks_per_day(minutes: int = 15) -> int:
 def kwh_from_kw_block(kw: Decimal, minutes: int = 15) -> Decimal:
     """Energy in a block from average power: kW × hours."""
     return kw * Decimal(minutes) / Decimal(60)
+
+
+def kw_from_kwh_block(kwh: Decimal, minutes: int = 15) -> Decimal:
+    """Average power in a block from its energy: kWh ÷ hours."""
+    return kwh * Decimal(60) / Decimal(minutes)
