@@ -355,3 +355,10 @@ The person asked for one application from two: this repository's flow and engine
 - **The person asked to remove sign-in for the whole app and the MCP connector** (asked in the session, choosing "Whole app and MCP" after being told what it exposes). Built as `ERGPLAN_OPEN_ACCESS` (off by default), switched on in the server's `.env`: every visitor of the web app and of `/mcp` without a token is the analyst `visitor (open access)`, so the audit log tells them apart. A token offered on `/mcp` is still checked.
 - **Approving a rule version or a state rule book still needs an analyst's own sign-in** (invariant 3: approval is a named person's act): `platform.auth.named_analyst` refuses the open visitor on both approve routes. Drafts can be proposed and edited by anyone with the address.
 
+## 26 Nov 2026 — the second round
+
+- **Register figures are grounded by text-layer search and never changed** (Stage 12); a sum, a quotient, an unprinted nil or a figure printed twice keeps the register ref. A person-written list in the catalogue supplies pages and anchors only. Fetched PDFs are kept only on a SHA-256 match.
+- **A run with no plan in time completes with today's supply**, labelled as such and never recommended, rather than failing. Runs made before 26 Nov replay with live site reads and without `consumer_kind`.
+- **The rule book states the landed-cost screen's upper bound** (every unit banked) beside its own landed cost before banking.
+- **Ended MCP sign-ins are deleted a day after their last token ends; a client 30 days after registration once it has no tokens.** Only unusable rows are deleted.
+
