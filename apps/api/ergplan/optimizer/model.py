@@ -126,6 +126,13 @@ class Thermal:
     initially_on: bool = False
 
 
+# Two entries of `Problem.limits` that are the client's ask, not a regulation (Stage 15, the
+# transition plan): the least share of the year's consumption not drawn from the DISCOM, and a price
+# on every unit drawn from it used to find the most the rules allow
+MIN_SHARE = "min_share_not_from_grid_pct"
+GRID_PENALTY = "grid_penalty_inr_per_kwh"
+
+
 @dataclass(frozen=True)
 class Limit:
     """A regulatory or client limit; `ref` travels to the binding-constraint list."""
@@ -604,6 +611,10 @@ def build(p: Problem) -> pyo.ConcreteModel:
             add(cd >= lim.value * m.oa_on, tag)
         elif lim.kind in ("max_kw", "max_rooftop_kw") and lim.target in m.cap:
             add(m.cap[lim.target] <= lim.value, tag)
+        elif lim.kind == MIN_SHARE and p.fixed is None and p.start is None:
+            # a target, not a regulation: the year's drawal from the DISCOM is at most what the
+            # share asked for leaves (whole-year sizing only; a month's dispatch has sizes fixed)
+            add(sum(m.grid[g] for g in m.grid) <= (1 - lim.value / 100) * sum(p.load_kwh), tag)
 
     # objective
     obj: Any = 0
@@ -629,6 +640,12 @@ def build(p: Problem) -> pyo.ConcreteModel:
         obj += gr.demand_rate.get(mo, 0.0) * m.bd[mo] + gr.excess_rate.get(mo, 0.0) * m.ex[mo]
     if gr.cd_step_kva and p.fixed is None:
         obj += gr.cd_change_inr_per_kva_year * (m.cd_up + m.cd_dn)
+    for lim in p.limits:
+        if lim.kind == GRID_PENALTY:
+            # the search for the most the rules allow: every unit drawn from the DISCOM is priced far
+            # above any tariff, so the solver replaces all it can and, among such plans, takes the
+            # cheapest. The judge prices the result at the real rates (optimizer.resettle)
+            obj += lim.value * sum(m.grid[g] for g in m.grid)
     m.obj = pyo.Objective(expr=obj, sense=pyo.minimize)
     m.cons_names = names
     return m

@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { PlanBuilder } from "@/components/plan/PlanBuilder";
 import { StatedAnswers } from "@/components/plan/StatedAnswers";
+import { TransitionPlanner } from "@/components/plan/TransitionPlanner";
 import { apiOrNull } from "@/lib/api";
 import type { PlanOut } from "@/lib/plan";
+import type { TransitionOut } from "@/lib/transition";
 
 // Share and audit: the client's plan as the shared page will show it, with the link and the PDF.
 export default async function ReportPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const { c } = await searchParams;
   const plan = c ? await apiOrNull<PlanOut>(`/connections/${c}/plan`) : null;
+  // the transition plan: null until the client asks for one
+  const transition = c ? await apiOrNull<TransitionOut>(`/connections/${c}/transition-plan`) : null;
   if (!c || !plan) {
     return (
       <section className="eg-card ep-panel">
@@ -26,6 +30,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
       </div>
       <PlanBuilder connectionId={c} initial={plan} />
       <StatedAnswers answers={plan.answers ?? []} profileWords={plan.profile_words} editHref={`/plan/questions?c=${c}`} />
+      <TransitionPlanner connectionId={c} initial={transition} />
     </>
   );
 }

@@ -9,6 +9,7 @@ import multiprocessing as mp
 import time
 
 from ..core.settings import get_settings
+from . import transition
 from .runs import claim_next, execute
 
 log = logging.getLogger("ergplan.worker")
@@ -19,6 +20,7 @@ def drain() -> int:
     while (run_id := claim_next()) is not None:
         status = execute(run_id)
         log.info("run %s: %s", run_id, status)
+        transition.on_run_finished(run_id)  # a run of a transition plan: make the plan's next runs
         n += 1
     return n
 

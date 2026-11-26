@@ -36,6 +36,7 @@ APP_TABLES = [
     "bill_confirmations",
     "generation_profiles",
     "site_answers",
+    "transition_plans",
     "load_profiles",
     "assets",
     "bills",

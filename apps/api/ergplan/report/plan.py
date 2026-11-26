@@ -24,6 +24,9 @@ from ..db.models import (
 )
 from ..intake import questions as site_questions
 
+# scenarios of a transition plan (platform.transition.PREFIX): its phases, not options of the plan
+TRANSITION_PREFIX = "Transition plan "
+
 
 class PlanNotFound(LookupError):
     pass
@@ -88,6 +91,8 @@ def build(s: Session, connection_id: str, analyst: bool = False) -> dict[str, An
     for sc in s.scalars(
         select(Scenario).where(Scenario.connection_id == conn.id).order_by(Scenario.created_at)
     ):
+        if sc.name.startswith(TRANSITION_PREFIX):
+            continue  # a phase of the transition plan, shown there, not an option of its own
         got = _latest_done(s, sc.id)
         open_runs = s.scalars(
             select(Run).where(Run.scenario_id == sc.id, Run.status.in_(("queued", "running")))
