@@ -436,6 +436,7 @@ export function Inputs({ run, chain }: { run: RunOut; chain: Chain | null }) {
         <ul className="ep-list ep-small">
           <li>Load profile: {s.provenance.load_profile} <RefChips refs={s.provenance.profile_ref.source_refs} max={1} /></li>
           {s.provenance.prices.length > 0 && <li>Exchange prices: IEX vintages {s.provenance.prices.join(", ")}</li>}
+          {(s.provenance.generation ?? []).map((g) => <li key={g} style={{ overflowWrap: "anywhere" }}>Generation profile you supplied, {g}</li>)}
           <li>Resolution: {run.resolution_min === 60 ? "hourly (8,760 blocks)" : "15 minutes (35,040 blocks)"}; solver {run.solver.status ?? "—"}{run.solver.seconds ? ` in ${Math.round(run.solver.seconds)} s` : ""}{run.solver.gap !== undefined && run.solver.gap !== null ? `, gap ${(Number(run.solver.gap) * 100).toFixed(2)}%` : ""}</li>
           <li>Settled {run.finished_at ? new Date(run.finished_at).toLocaleString("en-IN") : ""}; run {run.id.slice(0, 8)} is reproducible from its pinned rules, prices and profile.</li>
           {s.notes.map((n, i) => <li key={i}>{n}</li>)}
