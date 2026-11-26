@@ -38,6 +38,7 @@ PUBLIC = {
     "/p/{token}/pdf",
     "/p/{token}/whatif",
     "/p/{token}/explain",
+    "/p/{token}/transition-plan",
     "/documents",
     "/documents/{document_id}",
     "/documents/{document_id}/meta",

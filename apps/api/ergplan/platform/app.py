@@ -33,6 +33,7 @@ from .routers import (
     search,
     settle,
     statebooks,
+    transition,
     voice,
 )
 from .routers import auth as auth_routes
@@ -118,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(mix.router)
     app.include_router(evaluate.router)
     app.include_router(statebooks.router)
+    app.include_router(transition.router)
     return app
 
 

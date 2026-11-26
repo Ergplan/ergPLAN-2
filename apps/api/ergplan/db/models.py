@@ -675,3 +675,30 @@ class RuleProposal(Base):
     __table_args__ = (
         CheckConstraint("status in ('open','accepted','rejected')", name="rule_proposals_status"),
     )
+
+
+# ---------------------------------------------------------------- Stage 15: the transition plan
+
+
+class TransitionPlan(Base):
+    """A connection's transition plan: the target asked for and the runs that make its phases (each an
+    ordinary run with its own pins, so the plan replays). The figures are read from the runs' results
+    when the plan is shown; nothing is stored here that a run does not hold."""
+
+    __tablename__ = "transition_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    connection_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("connections.id", name="transition_plans_connection_fk"), index=True
+    )
+    target: Mapped[dict[str, Any]] = mapped_column(JSONType)  # the request (report.transition.Target)
+    status: Mapped[str] = mapped_column(String(16), default="running")
+    # the runs made so far, in order: {key, role, route, level_pct, scenario_id, run_id}
+    steps: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list)
+    created_by: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint("status in ('running','done','failed')", name="transition_plans_status"),
+    )
