@@ -20,6 +20,7 @@ FAMILIES = (
     "regulatory_limit",
     "ists_waiver",
     "net_metering",
+    "exchange_purchase",
 )
 
 

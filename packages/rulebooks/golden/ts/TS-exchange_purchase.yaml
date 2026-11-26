@@ -1,0 +1,35 @@
+# Golden cases for the exchange-purchase drafts read from the stored documents (Stage 18).
+# They apply to versions of origin exchange_reader; an analyst who completes the rule from the
+# open access regulations writes the cases for the completed version.
+jurisdiction: TS
+family: exchange_purchase
+origin: exchange_reader
+tests:
+- name: whether the purchase is permitted is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /permitted/status
+  expect:
+    value: not_stated
+- name: the shape of schedule is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /schedule/status
+  expect:
+    value: not_stated
+- name: standby is stated as the order words it
+  given:
+    context:
+      source: iex
+    field: /standby/basis
+  expect:
+    value: as_worded
+  source_ref:
+    kind: order
+    document_id: 0c84182f-4a13-5915-9fcb-b98639b59622
+    page: 170
+    quote: The Standby Charges shall be 10% over and above of the applicable tariff only to the extent of the energy
+      drawn in excess of CMD by an open access consumer. However, in case if an advance notice of 24 hrs is given
+      by the OA consumer to the licensee, then such standby charges cannot be levied.

@@ -11,14 +11,18 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from ...db.base import session_scope
 from ...db.models import Connection, PriceVintage, Run, Scenario
 from ...engine import lcoe
 from ...engine.landed_cost import SOURCE_BY_ID
 from ...optimizer.scenarios import SIZEABLE, CandidateSpec, FinanceSpec, ScenarioSpec
+from ...rulebook.repository import approved_rules
+from .. import exchange_plan
 from .. import runs as svc
 from ..auth import Caller, caller, owned_connection
+from .cost import _facts
 from .landed import DEFAULT_PRICE
 
 router = APIRouter(tags=["mix"])
@@ -141,12 +145,31 @@ def mix_options_any() -> list[SourceOption]:
 def mix_options(connection_id: str, who: Annotated[Caller, Depends(caller)]) -> list[SourceOption]:
     with session_scope(actor=who.actor) as s:
         owned_connection(s, who, connection_id)
-        if s.get(Connection, connection_id) is None:
+        conn = s.get(Connection, connection_id)
+        if conn is None:
             raise HTTPException(404, "connection not found")
-    return _options()
+        barred = _exchange_barred(s, conn, date.today())
+    return _options(barred)
 
 
-def _options() -> list[SourceOption]:
+def _exchange_barred(s: Session, conn: Connection, on: date) -> dict[str, str]:
+    """Exchange markets this connection is not offered (Stage 18), each with the state's verdict in
+    words: no approved rule on exchange purchase, or one that bars it. Approved rules only."""
+    try:
+        facts = _facts(s, conn)
+    except HTTPException:  # no tariff category or voltage yet: nothing can be sized either
+        return {}
+    out: dict[str, str] = {}
+    for kind in SIZEABLE:
+        src = SOURCE_BY_ID[kind]
+        if src.price_kind == "iex" and src.iex_segment:
+            v = exchange_plan.verdict_for(s, facts, on, approved_rules, src.iex_segment)
+            if not v.offers:
+                out[src.iex_segment] = v.words
+    return out
+
+
+def _options(barred: dict[str, str] | None = None) -> list[SourceOption]:
     loaded = _segments_loaded()
     out = []
     for kind in SIZEABLE:
@@ -157,6 +180,8 @@ def _options() -> list[SourceOption]:
         if src.price_kind == "iex" and src.iex_segment not in loaded:
             available = False
             reason = f"no {str(src.iex_segment).upper()} clearing prices uploaded yet"
+        elif src.price_kind == "iex" and barred and src.iex_segment in barred:
+            available, reason = False, barred[src.iex_segment]
         out.append(
             SourceOption(
                 kind=kind,
@@ -200,6 +225,11 @@ def size_mix(
         conn = s.get(Connection, connection_id)
         if conn is None:
             raise HTTPException(404, "connection not found")
+        barred = _exchange_barred(s, conn, spec.as_of or date.today())
+        for c in body.sources:
+            seg = SOURCE_BY_ID[c.kind].iex_segment
+            if SOURCE_BY_ID[c.kind].price_kind == "iex" and seg in barred:
+                raise HTTPException(422, barred[seg])
         sc = s.scalars(
             select(Scenario).where(Scenario.connection_id == conn.id, Scenario.name == body.name)
         ).first()

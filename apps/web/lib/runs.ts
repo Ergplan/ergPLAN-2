@@ -1,10 +1,11 @@
+import type { ExchangeDetail, ExchangeVerdict } from "./exchange";
 import type { Ref, SourcedValue } from "./intake";
 
 export type SizeOut = {
   id: string; kind: string; label: string; kw: SourcedValue; kwh: SourcedValue | null; delivered_kwh: SourcedValue | null;
   setoff_kwh: SourcedValue | null; energy_cost: SourcedValue | null; banked_kwh: SourcedValue | null; unbanked_kwh: SourcedValue | null;
   waterfall: Record<string, SourcedValue[]>; gaps: string[]; ownership?: string | null;
-  exchange?: { segment: string; blocks_bought: number; hours_bought: string; avg_landed: SourcedValue; share_of_load: SourcedValue } | null;
+  exchange?: ({ segment: string; blocks_bought: number; hours_bought: string; avg_landed: SourcedValue; share_of_load: SourcedValue } & ExchangeDetail) | null;
 };
 export type MonthMix = { month: string; load_kwh: SourcedValue; grid_kwh: SourcedValue; withdrawn_kwh: SourcedValue; sources: Record<string, SourcedValue> };
 export type SourceOption = {
@@ -36,6 +37,7 @@ export function levyRows(levies: LevyOut[] | undefined): { code: string; label: 
 }
 export type SummaryOut = {
   sizes: SizeOut[];
+  exchange?: ExchangeVerdict[]; // Stage 18: the state's verdict for each exchange source asked for
   annual: { before: SourcedValue; after: SourcedValue; saving: SourcedValue; capex: SourcedValue };
   // on the capital of the client's own (owned_capital says against which saving); null when the plan has none
   payback_years: SourcedValue | null; irr_pct: SourcedValue | null;

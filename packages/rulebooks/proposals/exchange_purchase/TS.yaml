@@ -1,0 +1,90 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: TS
+title: Exchange purchase by an open-access consumer · Telangana · as read from the stored documents, 26 Nov 2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents:
+  0c84182f-4a13-5915-9fcb-b98639b59622:
+    sha256: 1d76cba9d979bef236b02b3ed98a386dac37c63bf2824338eb71c9adf73baf74
+    title: Order on Revised ARR & Retail Supply Tariffs for FY 2026-27 for Retail Supply Business and CSS for FY
+      2026-27, dated 30.03.2026
+    regulator: TGERC
+    url_public: https://tgnpdcl.com/DocView/ANNOUNCEMENT/322
+    pages: 371
+rows:
+- label: Telangana · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments; the Telangana SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments; the Telangana SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    sldc_clearance:
+      status: not_stated
+      obtain: the Telangana SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments; the Telangana SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments; the Telangana SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments; the Telangana SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: stated
+      basis: as_worded
+      condition: Standby charges are 10% over and above the applicable tariff, only on energy drawn in excess of
+        the contracted maximum demand by an open-access consumer, and are not levied when 24 hours' advance notice
+        is given to the licensee (order for FY 2026-27, para 3.25.4).
+    deviation_under:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments, and TGERC's deviation
+        settlement regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments, and TGERC's deviation
+        settlement regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for TGSPDCL and TGNPDCL
+    additional_surcharge:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for TGSPDCL and TGNPDCL
+    banking:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments; the Telangana SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: TGERC's intra-state open access regulations in force, with their amendments; the Telangana SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notes: Read from the tariff order stored for Telangana. The order does not state whether an open-access consumer
+      may buy on the exchange or how the purchase must be scheduled, so the verdict stays 'not yet sourced' until
+      the open access regulations and the SLDC procedure are stored and read.
+  source_ref: &id001
+    kind: order
+    document_id: 0c84182f-4a13-5915-9fcb-b98639b59622
+    page: 170
+    quote: The Standby Charges shall be 10% over and above of the applicable tariff only to the extent of the energy
+      drawn in excess of CMD by an open access consumer. However, in case if an advance notice of 24 hrs is given
+      by the OA consumer to the licensee, then such standby charges cannot be levied.
+  field_refs:
+    /standby: *id001

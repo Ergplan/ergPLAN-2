@@ -11,6 +11,7 @@ import { isoFromSizes } from "@/lib/iso";
 import { clientFetch, type ConnectionOut } from "@/lib/intake";
 import type { PlanOut } from "@/lib/plan";
 import type { DispatchOut, RunOut, ScenarioOut } from "@/lib/runs";
+import { ExchangeVerdicts } from "./ExchangeVerdicts";
 import { Constraints, CostTable, DispatchChart, Inputs, Lifecycle, Settlement, Sizes, OwnedCapital, Summary, YearMix } from "./parts";
 
 type ShareOut = { token: string; path: string; url: string };
@@ -161,6 +162,7 @@ export function Results({ connectionId, scenarioId }: { connectionId: string; sc
               <IsoSite parts={isoFromSizes(run.summary.sizes, targets, { factory: conn?.site.name, discom: conn?.discom_id.toUpperCase(), state: conn?.site.state })}
                 caption="The system the optimizer chose, against the targets you gave. Solid components are in the plan; faded ones were left out." />
               <Sizes s={run.summary} chain={chain} />
+              <ExchangeVerdicts s={run.summary} />
               {chain && chain.sources.some((x) => x.landed.length) && (
                 <p className="ep-small"><Link href={`/plan/audit?c=${connectionId}&s=${current}`}>See the full chain of charges and losses behind each landed cost →</Link></p>
               )}

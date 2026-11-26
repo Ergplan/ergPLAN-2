@@ -1,0 +1,29 @@
+# IEX prices copied from the TenderOS repository (a read-only input, operating rule 7).
+# Nothing here is fetched or imported at run time: the two JSON files in this folder are the copies,
+# and `python -m ergplan.intake.iex_vintage` loads them into price_series after checking the
+# SHA-256 of each against this file. To take a newer build: copy the two files again, change the
+# commit and the three hashes here, and run the loader (the old vintages stay for the runs that
+# pinned them).
+repository: Ergplan/tenderos2
+branch: claude/laughing-pascal-7akw12
+commit: 23d0afc22ff1017f30e1d97233f3e3532b17fbfb
+copied_on: '2026-11-26'
+unit: Rs/MWh
+series:
+  path: web/public/market/iex_15min_prices.json
+  file: iex_15min_prices.json
+  sha256: 04216c9928d11e531718c26f152b319c64deab39b18f4758acab38d5e65a269d
+cross_check:
+  path: web/public/market/iex_hourly_prices.json
+  file: iex_hourly_prices.json
+  sha256: 03f6a16a96d78bef09ca7b90b1aab210f6bfe179b455dea0ea13653dd25805d4
+builder:
+  path: tools/build_iex_prices.py
+  sha256: aa6e92430185272c1df11d05db9b112cadd7b4b21ff14a76bbcfe07a0205eb8a
+  note: >-
+    Builds both files from IEX's 15-minute market exports (GDAM, DAM, RTM; sheet "15min", column
+    "MCP (₹/MWh)"), which are not in the repository. A calendar year of 365 days, each day taken
+    from the latest year with data (29 February left out); a block with no price takes the same
+    block of the nearest day that has one (counted in blocksFilled). The 15-minute file rounds each
+    price to Rs 0.1/MWh; the hourly file is the mean of each hour's four unrounded blocks, rounded
+    to Rs 1/MWh.

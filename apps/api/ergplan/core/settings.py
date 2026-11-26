@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # are solved on the worker, and a mix of several sources needs minutes, not seconds
     ergplan_optimizer_time_limit_s: float = 300.0
     ergplan_optimizer_mip_gap: float = 0.001
+    # exchange purchases (Stage 18): how far the consumer's drawal is taken to differ from its
+    # day-ahead schedule, each way, as a percentage of the schedule; an assumption shown as one and
+    # pinned by every run, used to price the deviation risk the state's rule creates
+    ergplan_exchange_deviation_pct: Decimal = Decimal("5")
     ergplan_worker_concurrency: int = 1  # runs solved at once by `python -m ergplan.platform.worker`
 
     billx_url: str = "http://localhost:8080"

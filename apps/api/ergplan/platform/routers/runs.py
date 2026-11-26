@@ -17,6 +17,7 @@ from ...db.models import Connection, Run, RunResult, Scenario, Site
 from ...optimizer.scenarios import ScenarioSpec
 from .. import runs as svc
 from ..auth import Caller, analyst, caller
+from .exchange import VerdictOut as ExchangeVerdictOut
 
 router = APIRouter(tags=["scenarios and runs"])
 
@@ -50,6 +51,27 @@ class ScenarioIn(BaseModel):
     spec: ScenarioSpec
 
 
+class ExchangeMonthOut(BaseModel):
+    """Exchange energy bought in one calendar month, against the DISCOM's rate in the same blocks."""
+
+    month: int
+    name: str
+    kwh: SourcedValue = _f()
+    avg_landed: SourcedValue = _f()
+    avg_grid: SourcedValue = _f()
+    saved: SourcedValue = _f()
+
+
+class ExchangeDeviationOut(BaseModel):
+    """The deviation risk the state's rule creates, priced into the source's energy cost."""
+
+    cost: SourcedValue = _f()
+    assumed_pct: SourcedValue = _f(
+        "settings.ergplan_exchange_deviation_pct (pinned in runs.pins)", ["assumption"]
+    )
+    refs: list[SourceRef] = Field(default_factory=list)
+
+
 class ExchangeOut(BaseModel):
     """An exchange purchase: the consumer buys block by block at the clearing price (never sells)."""
 
@@ -58,6 +80,15 @@ class ExchangeOut(BaseModel):
     hours_bought: str
     avg_landed: SourcedValue = _f()
     share_of_load: SourcedValue = _f()
+    # Stage 18: when the exchange lowered the cost (in words, by month, by hour of the day), the
+    # state's verdict it is offered under with its conditions, and the deviation risk priced
+    words: str | None = None
+    by_month: list[ExchangeMonthOut] = Field(default_factory=list)
+    by_hour_kwh: list[SourcedValue] = Field(
+        default_factory=list, json_schema_extra={"owner": OWNER, "ref_kinds": KINDS}
+    )
+    verdict: ExchangeVerdictOut | None = None
+    deviation: ExchangeDeviationOut | None = None
 
 
 class LifecycleYearOut(BaseModel):
@@ -253,6 +284,8 @@ class SummaryOut(BaseModel):
     monthly: list[MonthMixOut] = Field(default_factory=list)
     lifecycle: LifecycleOut | None = None
     levies: list[LevyOut] = Field(default_factory=list)
+    # exchange sources asked for (Stage 18): the state's verdict for each, offered or left out
+    exchange: list[ExchangeVerdictOut] = Field(default_factory=list)
 
 
 class RunOut(BaseModel):

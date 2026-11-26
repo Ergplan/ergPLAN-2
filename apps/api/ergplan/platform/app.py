@@ -22,6 +22,7 @@ from .routers import (
     cost,
     documents,
     evaluate,
+    exchange,
     generation,
     intake,
     landed,
@@ -122,6 +123,7 @@ def create_app() -> FastAPI:
     app.include_router(statebooks.router)
     app.include_router(generation.router)
     app.include_router(questions_routes.router)  # Stage 15: what the bills do not say
+    app.include_router(exchange.router)
     return app
 
 

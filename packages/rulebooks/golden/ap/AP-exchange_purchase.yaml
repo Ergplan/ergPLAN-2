@@ -1,0 +1,35 @@
+# Golden cases for the exchange-purchase drafts read from the stored documents (Stage 18).
+# They apply to versions of origin exchange_reader; an analyst who completes the rule from the
+# open access regulations writes the cases for the completed version.
+jurisdiction: AP
+family: exchange_purchase
+origin: exchange_reader
+tests:
+- name: whether the purchase is permitted is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /permitted/status
+  expect:
+    value: not_stated
+- name: the shape of schedule is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /schedule/status
+  expect:
+    value: not_stated
+- name: standby is stated as the order words it
+  given:
+    context:
+      source: iex
+    field: /standby/basis
+  expect:
+    value: as_worded
+  source_ref:
+    kind: order
+    document_id: 025abb86-0b27-520e-8503-a4b6f7eb0adf
+    page: 247
+    quote: The standby charges shall apply only to Long-term OA consumers who request a standby arrangement from
+      the DISCOM for demand in excess of their CMD, either at the time of entering into the Open Access agreement
+      or subsequently.

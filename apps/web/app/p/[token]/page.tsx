@@ -4,6 +4,7 @@ import { AnalystView } from "@/components/plan/AnalystView";
 import { Explain } from "@/components/plan/Explain";
 import { StatedAnswers } from "@/components/plan/StatedAnswers";
 import { WhatIf } from "@/components/plan/WhatIf";
+import { ExchangeVerdicts } from "@/components/results/ExchangeVerdicts";
 import { CostTable, DispatchChart, Levies, Lifecycle, Settlement, YearMix } from "@/components/results/parts";
 import { VoicePanel } from "@/components/voice/VoicePanel";
 import { apiOrNull } from "@/lib/api";
@@ -94,6 +95,7 @@ export default async function LivePlan({ params, searchParams }: { params: Promi
             </table>
             <p className="eg-muted ep-small">{head?.basis}{head?.absent && head.absent !== head.basis ? ` ${head.absent}` : ""}</p>
             <Levies levies={s.levies} />
+            <ExchangeVerdicts s={s} />
             {s.notes.map((n) => <p key={n} className="eg-muted ep-small">{n}</p>)}
             {s.sizes.some((z) => z.gaps.length > 0) && (
               <p className="ep-small"><span className="eg-chip eg-chip--warning">not yet sourced</span> {[...new Set(s.sizes.flatMap((z) => z.gaps))].join(", ").replaceAll("_", " ")} — these charges are left out until the order or regulation is read, so the saving may be overstated.</p>

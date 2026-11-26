@@ -1,0 +1,88 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: MP
+title: Exchange purchase by an open-access consumer · Madhya Pradesh · as read from the stored documents, 26 Nov
+  2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents:
+  13469f1b-52bc-5de6-9c27-a0301ec22367:
+    sha256: 77ffe9d2e48277354348b32ab3a90d74639a4b406757ae8e658197bd79f91afb
+    title: Tariff Order FY-2026-27 26/03/2026 Tariff order 2026-27
+    regulator: MPERC
+    url_public: https://mperc.in/uploads/petition_order_document/MPERC_Pno_140_2025_State_DISCOMs_ARR_RST__ORDER_FY_2026_27_FINAL_ORDER.pdf
+    pages: 255
+rows:
+- label: Madhya Pradesh · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments; the Madhya Pradesh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments; the Madhya Pradesh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    sldc_clearance:
+      status: not_stated
+      obtain: the Madhya Pradesh SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments; the Madhya Pradesh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments; the Madhya Pradesh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments; the Madhya Pradesh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for the Madhya Pradesh DISCOMs
+    deviation_under:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments, and MPERC's deviation
+        settlement regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments, and MPERC's deviation
+        settlement regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for the Madhya Pradesh DISCOMs
+    additional_surcharge:
+      status: stated
+      payable: 'yes'
+      condition: Levied on power drawn through open access, in addition to the cross-subsidy surcharge (order for
+        FY 2026-27, para 3.37); the order does not single out exchange power.
+    banking:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments; the Madhya Pradesh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: MPERC's intra-state open access regulations in force, with their amendments; the Madhya Pradesh SLDC's
+        procedure for short-term open access and power-exchange (collective) transactions
+    notes: Read from the tariff order stored for Madhya Pradesh. The order does not state whether an open-access
+      consumer may buy on the exchange or how the purchase must be scheduled, so the verdict stays 'not yet sourced'
+      until the open access regulations and the SLDC procedure are stored and read.
+  source_ref: &id001
+    kind: order
+    document_id: 13469f1b-52bc-5de6-9c27-a0301ec22367
+    page: 138
+    quote: The Additional Surcharge determined by the Commission shall be levied in addition to Cross Subsidy Surcharge
+      determined by the Commission in accordance with the Tariff Policy, 2016
+  field_refs:
+    /additional_surcharge: *id001

@@ -23,6 +23,9 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 SEGMENTS = ("dam", "rtm", "gdam", "gtam", "hpdam", "tam")
+# who stores the year copied from Ergplan/tenderos2 (`intake.iex_vintage`): an analyst's upload
+# neither overlaps nor supersedes those vintages, it is read for the months where it is newer
+COPIED_BY = "iex-vintage@ergplan"
 
 
 class PriceFileError(ValueError):
@@ -220,10 +223,13 @@ def store(
     actor: str,
     replace: bool = False,
     source_note: str | None = None,
+    alongside: bool = False,
 ) -> Any:
     """One vintage per file. A file whose dates overlap a live vintage of the same segment is
     refused unless `replace`, which marks the old vintages superseded (their rows stay, so runs
-    that pinned them replay identically)."""
+    that pinned them replay identically). `alongside` (the copied year of `intake.iex_vintage`):
+    stored beside the live vintages, superseding none; where two hold the same calendar month the
+    newer data is read (`intake.price_series`)."""
     from sqlalchemy import insert, select
 
     from ..db.models import PricePoint, PriceVintage
@@ -237,13 +243,18 @@ def store(
     ).first()
     if same is not None:
         return same
-    live = list(
-        session.scalars(
-            select(PriceVintage).where(
-                PriceVintage.segment == parsed.segment,
-                PriceVintage.superseded_by.is_(None),
-                PriceVintage.date_from <= parsed.date_to,
-                PriceVintage.date_to >= parsed.date_from,
+    live = (
+        []
+        if alongside
+        else list(
+            session.scalars(
+                select(PriceVintage).where(
+                    PriceVintage.segment == parsed.segment,
+                    PriceVintage.superseded_by.is_(None),
+                    PriceVintage.uploaded_by != COPIED_BY,  # the copied year is never superseded
+                    PriceVintage.date_from <= parsed.date_to,
+                    PriceVintage.date_to >= parsed.date_from,
+                )
             )
         )
     )

@@ -1,0 +1,35 @@
+# Golden cases for the exchange-purchase drafts read from the stored documents (Stage 18).
+# They apply to versions of origin exchange_reader; an analyst who completes the rule from the
+# open access regulations writes the cases for the completed version.
+jurisdiction: HR
+family: exchange_purchase
+origin: exchange_reader
+tests:
+- name: whether the purchase is permitted is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /permitted/status
+  expect:
+    value: not_stated
+- name: the shape of schedule is not stated by a stored regulation
+  given:
+    context:
+      source: iex
+    field: /schedule/status
+  expect:
+    value: not_stated
+- name: cross-subsidy surcharge is payable
+  given:
+    context:
+      source: iex
+    field: /cross_subsidy_surcharge/payable
+  expect:
+    value: 'yes'
+  source_ref:
+    kind: order
+    document_id: 4317a069-f05f-536d-965a-8e3264f0d6f5
+    page: 333
+    quote: the cross-subsidy surcharge shall be payable by all intra-State open access consumers, except those persons
+      who have established captive generating station, and are availing open access for carrying the electricity
+      to a destination for their own use.

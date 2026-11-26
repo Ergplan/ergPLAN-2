@@ -1,0 +1,89 @@
+# A DRAFT proposal, never approved by the builder. Loaded by
+#   python -m ergplan.regreader.exchange_drafts
+# which checks every quote against the stored page before it proposes the draft through
+# rulebook.service. An analyst reviews, completes and approves it in the rulebook screens.
+family: exchange_purchase
+jurisdiction: HR
+title: Exchange purchase by an open-access consumer · Haryana · as read from the stored documents, 26 Nov 2026
+effective_from: '2026-04-01'
+origin: exchange_reader
+documents:
+  4317a069-f05f-536d-965a-8e3264f0d6f5:
+    sha256: 799a4a6c948fb968028bde549b74287ac69b5667ac33688b5bff45a081d783a7
+    title: 'Commission''s Order in HERC Petition 94 & 95 of 2025: True-up FY2024-25, Mid-Year Review FY2025-26 and
+      ARR of FY2026-27, UHBVNL and DHBVNL (25.03.2026)'
+    regulator: HERC
+    url_public: https://uhbvn.org.in/staticContent/documents/HERC/2026/02_APR_2025_26_01GC.pdf
+    pages: 592
+rows:
+- label: Haryana · buying on the power exchange through open access
+  scope:
+    source:
+    - iex
+  body:
+    permitted:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments; the Haryana SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    eligibility:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments; the Haryana SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    sldc_clearance:
+      status: not_stated
+      obtain: the Haryana SLDC's procedure for short-term open access and power-exchange (collective) transactions,
+        and its format and validity for the no-objection or standing clearance required by CERC's open access regulations
+        for inter-State transmission
+    schedule:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments; the Haryana SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notice:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments; the Haryana SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    contract_demand:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments; the Haryana SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    standby:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for UHBVNL and DHBVNL
+    deviation_under:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments, and HERC's deviation settlement
+        regulations as they apply to open-access consumers
+    deviation_over:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments, and HERC's deviation settlement
+        regulations as they apply to open-access consumers
+    cross_subsidy_surcharge:
+      status: stated
+      payable: 'yes'
+      condition: Payable by every open-access consumer who is not carrying power from its own captive plant, and
+        also by a consumer availing open access only on the inter-State system (order for FY 2026-27, section 7.2).
+    additional_surcharge:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments, and the retail tariff
+        order in force for UHBVNL and DHBVNL
+    banking:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments; the Haryana SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    lock_in:
+      status: not_stated
+      obtain: HERC's intra-state open access regulations in force, with their amendments; the Haryana SLDC's procedure
+        for short-term open access and power-exchange (collective) transactions
+    notes: Read from the tariff order stored for Haryana. The order does not state whether an open-access consumer
+      may buy on the exchange or how the purchase must be scheduled, so the verdict stays 'not yet sourced' until
+      the open access regulations and the SLDC procedure are stored and read.
+  source_ref: &id001
+    kind: order
+    document_id: 4317a069-f05f-536d-965a-8e3264f0d6f5
+    page: 333
+    quote: the cross-subsidy surcharge shall be payable by all intra-State open access consumers, except those persons
+      who have established captive generating station, and are availing open access for carrying the electricity
+      to a destination for their own use.
+  field_refs:
+    /cross_subsidy_surcharge: *id001
