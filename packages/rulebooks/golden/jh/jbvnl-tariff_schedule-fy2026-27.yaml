@@ -1,0 +1,26 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JSERC order on JBVNL's true-up, APR, MYT and tariff for FY 2026-27, dated 25 March 2026 (ARR Network order 111,
+# sha256 0391dd27…, 372 pages). Chapter 13 Tariff Schedule "APPLICABLE FROM 01.04.2026" (PDF page 326). Ceiling tariffs
+# (the licensee may supply at lower rates). Tariff tables with the unit and the rate in columns of their own:
+# DS-HT Rs/kVA/Month 150, Rs/kVAh 7.20 (p. 328); CS-HT 400, 8.00 (p. 333); LTIS 150, 6.60 (p. 334);
+# HTS 400, 6.40 and HTSS 400, 5.80 (HT Services, p. 336); HTIS 400, 6.50 (p. 339). IAS is per hp: not imported.
+# Billing demand (max of recorded demand and 75% of contract demand for HTS) and the voltage rebates (3% at 33 kV,
+# 5% at 132 kV, p. 345) are not imported.
+jurisdiction: jbvnl
+family: tariff_schedule
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "JH FY 2026-27 · HTS · energy", given: {context: {category: HTS, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "6.40"}}
+  - {name: "JH FY 2026-27 · HTS · demand", given: {context: {category: HTS, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "JH FY 2026-27 · HTS · demand per kVA", given: {context: {category: HTS, voltage_kv: 33}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  - {name: "JH FY 2026-27 · HTS · billed in kVAh", given: {context: {category: HTS, voltage_kv: 33}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "JH FY 2026-27 · HTS at 132 kV · the same energy charge (rebate not imported)", given: {context: {category: HTS, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "6.40"}}
+  - {name: "JH FY 2026-27 · HTSS · energy", given: {context: {category: HTSS, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "5.80"}}
+  - {name: "JH FY 2026-27 · HTSS · demand", given: {context: {category: HTSS, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "JH FY 2026-27 · LTIS · energy", given: {context: {category: LTIS, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "6.60"}}
+  - {name: "JH FY 2026-27 · LTIS · demand", given: {context: {category: LTIS, voltage_kv: 0.4}, field: /demand_charge/value}, expect: {value: "150"}}
+  - {name: "JH FY 2026-27 · HTIS · energy", given: {context: {category: HTIS, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.50"}}
+  - {name: "JH FY 2026-27 · CS-HT · energy", given: {context: {category: CS-HT, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "8.00"}}
+  - {name: "JH FY 2026-27 · DS-HT · demand", given: {context: {category: DS-HT, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "150"}}
+  - {name: "JH FY 2026-27 · IAS (per hp) is not imported", given: {context: {category: IAS, voltage_kv: 0.4}}, expect: {absent: true}}

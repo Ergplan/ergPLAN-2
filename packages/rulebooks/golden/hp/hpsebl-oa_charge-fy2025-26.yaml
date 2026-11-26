@@ -1,0 +1,10 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# HPERC tariff order for FY 2025-26 (ARR Network order 10, sha256 964c9ea8…): Table 297 "Additional Surcharge Approved by
+# the Commission for FY26 (Paisa/Unit)", PDF page 362: 67 paisa per unit, "applicable prospectively from 1st April,
+# 2025 till the determination of the fresh rate" (para 13.4.4).
+jurisdiction: hpsebl
+family: oa_charge
+effective_on: '2025-08-01'
+origin: arr_network
+tests:
+  - {name: "HP FY 2025-26 · additional surcharge", given: {context: {connection: intra_state, voltage_kv: 132}, where: {/component: additional_surcharge}, field: /value}, expect: {value: "0.67"}}

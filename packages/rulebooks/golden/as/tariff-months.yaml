@@ -1,0 +1,34 @@
+# A month of a consumer's bill worked by hand from the order page (rates read from the text layer of the PDF,
+# independently of the importer), for the version imported from the ARR Network. Evaluated through rulebook.sandbox on
+# the drafts in force at the end of the month and engine.tariff_eval (apps/api/tests/regreader/test_arr_hp_jh_as_ga_py.py).
+# The recorded demand is set equal to the contract demand.
+#
+# AERC FY 2026-27 (order 176): HT Category V (B) HT-I Industries with its ToD, PDF page 268; HT Category V (C) HT-II
+# Industries Option-2 (no ToD), PDF page 269.
+origin: arr_network
+state: AS
+cases:
+  - name: APDCL HT-I Industries at 11 kV, 120 kVA contract, August 2026 (FY 2026-27 order), with ToD
+    # fixed 120 kVA x 200 = 24,000; energy 50,000 kWh x 7.69 = 384,500;
+    # solar hours -20% x 18,000 x 7.69 = -27,684; peak +20% x 12,000 x 7.69 = +18,456; ToD -9,228
+    discom: apdcl
+    category: "HT Category V (B)-HT-I Industries"
+    voltage_kv: 11
+    month: 2026-08
+    contract_kva: 120
+    max_kva: 120
+    units: 50000
+    by_slot: {"22:00 to 09:00 (Normal Hours)": 20000, "09:00 to 17:00 hours (Solar Hours)": 18000, "17:00 to 22:00 hours (Peak Hours)": 12000}
+    expect: {tariff_year: FY2026-27, billing_basis: kwh, demand_charge: "24000.00", energy_charge: "384500.00", tod_adjustment: "-9228.00", total: "399272.00"}
+  - name: APDCL HT-II Industries Option-2 at 33 kV, 1,000 kVA contract, August 2026 (FY 2026-27 order)
+    # fixed 1,000 kVA x 360 = 360,000; energy 400,000 kWh x 7.69 = 3,076,000; no ToD under Option-2
+    discom: apdcl
+    category: "HT Category V (C): HT-II Industries"
+    rate_block: Option -2
+    voltage_kv: 33
+    month: 2026-08
+    contract_kva: 1000
+    max_kva: 1000
+    units: 400000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kwh, demand_charge: "360000.00", energy_charge: "3076000.00", tod_adjustment: "0.00", total: "3436000.00"}

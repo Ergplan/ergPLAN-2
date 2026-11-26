@@ -1,0 +1,28 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# HPERC tariff order for FY 2026-27 (ARR Network order 9, sha256 0f3d9e9d…, 525 pages). Schedule of Tariff in force
+# from 1 April 2026 (Annexure, Part I General Conditions, A, PDF page 491). Chapter 11, Table 281 "Existing and Approved
+# Tariff for Large Industrial Power Supply Category", PDF page 424 (the same figures in the Schedule LIPS, p. 509):
+# EHT 220 kV and above 5.45 Rs/kVAh, 132 kV 5.50, 66 kV 5.55, demand 425.00 Rs/kVA/month; HT-1 (up to 1 MVA) 5.85 and
+# 250.00; HT-2 (more than 1 MVA) 5.60 and 400.00. Table 282 Bulk Supply (p. 425): HT 5.67 / 350.00, EHT 5.47 / 350.00.
+# Table 288 Railway Traction (p. 427): 6.29 / 400.00.
+jurisdiction: hpsebl
+family: tariff_schedule
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "HP FY 2026-27 · LIPS at 132 kV · energy", given: {context: {category: Large Industrial Power Supply, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "5.50"}}
+  - {name: "HP FY 2026-27 · LIPS at 132 kV · demand", given: {context: {category: Large Industrial Power Supply, voltage_kv: 132}, field: /demand_charge/value}, expect: {value: "425"}}
+  - {name: "HP FY 2026-27 · LIPS demand charge per kVA", given: {context: {category: Large Industrial Power Supply, voltage_kv: 132}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  - {name: "HP FY 2026-27 · LIPS billed in kVAh", given: {context: {category: Large Industrial Power Supply, voltage_kv: 132}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "HP FY 2026-27 · LIPS at 220 kV · energy", given: {context: {category: Large Industrial Power Supply, voltage_kv: 220}, field: /energy_charge/base}, expect: {value: "5.45"}}
+  - {name: "HP FY 2026-27 · LIPS at 400 kV · energy (220 kV and above)", given: {context: {category: Large Industrial Power Supply, voltage_kv: 400}, field: /energy_charge/base}, expect: {value: "5.45"}}
+  - {name: "HP FY 2026-27 · LIPS at 66 kV · energy", given: {context: {category: Large Industrial Power Supply, voltage_kv: 66}, field: /energy_charge/base}, expect: {value: "5.55"}}
+  - {name: "HP FY 2026-27 · LIPS HT-1 · energy", given: {context: {category: Large Industrial Power Supply, rate_block: "HT-1 (up to 1 MVA)", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.85"}}
+  - {name: "HP FY 2026-27 · LIPS HT-1 · demand", given: {context: {category: Large Industrial Power Supply, rate_block: "HT-1 (up to 1 MVA)", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "250"}}
+  - {name: "HP FY 2026-27 · LIPS HT-2 · energy", given: {context: {category: Large Industrial Power Supply, rate_block: "HT-2 (More than 1 MVA)", voltage_kv: 22}, field: /energy_charge/base}, expect: {value: "5.60"}}
+  - {name: "HP FY 2026-27 · LIPS HT-2 · demand", given: {context: {category: Large Industrial Power Supply, rate_block: "HT-2 (More than 1 MVA)", voltage_kv: 22}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "HP FY 2026-27 · Bulk Supply HT · energy", given: {context: {category: Bulk Supply, rate_block: HT, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "5.67"}}
+  - {name: "HP FY 2026-27 · Bulk Supply EHT · demand", given: {context: {category: Bulk Supply, rate_block: EHT, voltage_kv: 66}, field: /demand_charge/value}, expect: {value: "350"}}
+  - {name: "HP FY 2026-27 · Railway Traction · energy", given: {context: {category: Railway Traction, voltage_kv: 132}, field: /energy_charge/base}, expect: {value: "6.29"}}
+  # Domestic is printed in consumption slabs (Table 274, p. 420): no row
+  - {name: "HP FY 2026-27 · Domestic slabs are not imported", given: {context: {category: Domestic, voltage_kv: 0.4}}, expect: {absent: true}}

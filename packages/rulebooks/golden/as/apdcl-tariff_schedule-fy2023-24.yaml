@@ -1,0 +1,16 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# AERC tariff order of 29 March 2023 for APDCL, FY 2023-24 (ARR Network order 177, sha256 dcbe0382…, 227 pages); tariffs
+# "effective from April 1, 2023 and shall continue until replaced" (PDF page 19, para 12). The next tariff order (for
+# FY 2024-25) is dated 27 June 2024 (named in order 176, para 4.7.13 and Table of loss levels) and is not on the ARR
+# Network: the draft is held until 26 June 2024. Tariff schedule, PDF pages 209-211: HT Category V (B) HT-I Industries
+# Rs 6.65/kWh, Rs 200/kVA/month; HT Category V (C) HT-II Industries Option-1 7.05 and 280, Option-2 6.65 and 360.
+jurisdiction: apdcl
+family: tariff_schedule
+effective_on: '2023-08-01'
+origin: arr_network
+tests:
+  - {name: "AS FY 2023-24 · HT-II Option-1 · energy", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -1, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "7.05"}}
+  - {name: "AS FY 2023-24 · HT-II Option-1 · fixed", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -1, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "280"}}
+  - {name: "AS FY 2023-24 · HT-II Option-2 · energy", given: {context: {category: "HT Category V (C): HT-II Industries", rate_block: Option -2, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "6.65"}}
+  - {name: "AS FY 2023-24 · HT-I · energy", given: {context: {category: "HT Category V (B)-HT-I Industries", voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.65"}}
+  - {name: "AS FY 2023-24 · HT-I · fixed", given: {context: {category: "HT Category V (B)-HT-I Industries", voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "200"}}

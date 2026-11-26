@@ -1,0 +1,23 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JSERC order for FY 2026-27 (ARR Network order 111, sha256 0391dd27…). Table 152 "Wheeling Tariff as approved by the
+# Commission", PDF pages 308-309 (the paragraph above it, 10.12, says "for FY 2025-26"; the table stands in the FY 2026-27
+# order's chapter on wheeling): LT 2.06, 11 kV 0.65, 33 kV and above 0.25 Rs/kWh. Table 154 "Voltage-wise loss as
+# approved by the Commission", pp. 311-312: 33 kV 3.00%, 11 kV 8.00%, LT 15.05% (the order grosses these up with
+# transmission losses of 2.23% for the CSS, para 10.30). Table 159 "Cross Subsidy Surcharge approved by the Commission
+# (Rs/kWh)", p. 314 (para 10.32 "CSS approved by the Commission for FY 2026-27"): HT Services 11 kV 1.95, 33 kV and above
+# 1.95.
+jurisdiction: jbvnl
+family: oa_charge
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "JH FY 2026-27 · wheeling at 33 kV", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling}, field: /value}, expect: {value: "0.25"}}
+  - {name: "JH FY 2026-27 · wheeling at 132 kV (33 kV and above)", given: {context: {connection: intra_state, voltage_kv: 132}, where: {/component: wheeling}, field: /value}, expect: {value: "0.25"}}
+  - {name: "JH FY 2026-27 · wheeling at 11 kV", given: {context: {connection: intra_state, voltage_kv: 11}, where: {/component: wheeling}, field: /value}, expect: {value: "0.65"}}
+  - {name: "JH FY 2026-27 · wheeling at LT", given: {context: {connection: intra_state, consumer_kind: lt, voltage_kv: 0.4}, where: {/component: wheeling}, field: /value}, expect: {value: "2.06"}}
+  - {name: "JH FY 2026-27 · wheeling per kWh", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling}, field: /basis}, expect: {value: inr_per_kwh}}
+  - {name: "JH FY 2026-27 · loss at 33 kV", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "3.00"}}
+  - {name: "JH FY 2026-27 · loss at 11 kV", given: {context: {connection: intra_state, voltage_kv: 11}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "8.00"}}
+  - {name: "JH FY 2026-27 · loss in kind", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling_losses}, field: /basis}, expect: {value: percent_in_kind}}
+  - {name: "JH FY 2026-27 · CSS at 11 kV", given: {context: {connection: intra_state, voltage_kv: 11}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.95"}}
+  - {name: "JH FY 2026-27 · CSS at 33 kV", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}, field: /value}, expect: {value: "1.95"}}

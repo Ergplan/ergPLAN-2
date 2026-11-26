@@ -1,0 +1,11 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# AERC FY 2023-24 (ARR Network order 177, sha256 dcbe0382…), PDF page 190: Table 105 "Wheeling Charges approved by the
+# Commission for FY 2023-24", 33 kV/11 kV voltage level Rs 0.36/kWh; Table 106 "Wheeling Losses approved": at 33 kV
+# level 5%, at 11 kV level 11%.
+jurisdiction: apdcl
+family: oa_charge
+effective_on: '2023-08-01'
+origin: arr_network
+tests:
+  - {name: "AS FY 2023-24 · wheeling charge", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling}, field: /value}, expect: {value: "0.36"}}
+  - {name: "AS FY 2023-24 · wheeling loss at 11 kV", given: {context: {connection: intra_state, voltage_kv: 11}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "11"}}

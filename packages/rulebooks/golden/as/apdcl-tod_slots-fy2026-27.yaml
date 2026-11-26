@@ -1,0 +1,23 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# AERC FY 2026-27 (ARR Network order 176, sha256 db6b0e31…): ToD for HT Category V (B) HT-I Industries "shall be
+# applicable", PDF page 268: 22:00 to 09:00 normal, 09:00 to 17:00 (solar hours) 80% of the normal energy charge,
+# 17:00 to 22:00 (peak) 120% (also para 7.3.1-7.3.3, Table 112). For HT-II the ToD applies to Option-1 only ("No TOD
+# Tariff will be applicable for consumers who opt for Option-2", p. 269); the ARR Network gives that table no caption
+# of its own (the sentence that says it applies is on p. 268), so no row is imported. Where the order makes the ToD
+# optional (HT Domestic, HT Commercial, Public Water Works, Bulk Supply, HT Small Industries, pp. 264-267) no row is
+# imported either.
+jurisdiction: apdcl
+family: tod_slots
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "AS FY 2026-27 · HT-I ToD · one row", given: {context: {category: "HT Category V (B)-HT-I Industries"}}, expect: {count: 1}}
+  - {name: "AS FY 2026-27 · HT-I ToD · normal hours from 22:00", given: {context: {category: "HT Category V (B)-HT-I Industries"}, field: /slots/0/start}, expect: {value: "22:00"}}
+  - {name: "AS FY 2026-27 · HT-I ToD · solar hours from 09:00", given: {context: {category: "HT Category V (B)-HT-I Industries"}, field: /slots/1/start}, expect: {value: "09:00"}}
+  - {name: "AS FY 2026-27 · HT-I ToD · solar hours to 17:00", given: {context: {category: "HT Category V (B)-HT-I Industries"}, field: /slots/1/end}, expect: {value: "17:00"}}
+  - {name: "AS FY 2026-27 · HT-I ToD · solar rebate 20%", given: {context: {category: "HT Category V (B)-HT-I Industries"}, field: /slots/1/rebate_pct}, expect: {value: "20"}}
+  - {name: "AS FY 2026-27 · HT-I ToD · peak to 22:00", given: {context: {category: "HT Category V (B)-HT-I Industries"}, field: /slots/2/end}, expect: {value: "22:00"}}
+  - {name: "AS FY 2026-27 · HT-I ToD · peak surcharge 20%", given: {context: {category: "HT Category V (B)-HT-I Industries"}, field: /slots/2/surcharge_pct}, expect: {value: "20"}}
+  - {name: "AS FY 2026-27 · Oil and Coal ToD · peak surcharge 20%", given: {context: {category: "HT Category VII: Oil and Coal"}, field: /slots/2/surcharge_pct}, expect: {value: "20"}}
+  - {name: "AS FY 2026-27 · no ToD row for HT-II (Option-2 has none)", given: {context: {category: "HT Category V (C): HT-II Industries"}}, expect: {absent: true}}
+  - {name: "AS FY 2026-27 · no ToD row where it is optional (HT Domestic)", given: {context: {category: "HT Category I: HT Domestic"}}, expect: {absent: true}}

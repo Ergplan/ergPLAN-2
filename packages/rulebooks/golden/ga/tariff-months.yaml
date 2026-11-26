@@ -1,0 +1,31 @@
+# A month of a consumer's bill worked by hand from the order page (rates read from the text layer of the PDF,
+# independently of the importer), for the version imported from the ARR Network. Evaluated through rulebook.sandbox on
+# the draft in force at the end of the month and engine.tariff_eval (apps/api/tests/regreader/test_arr_hp_jh_as_ga_py.py).
+# The recorded demand is set equal to the contract demand.
+#
+# JERC Goa MYT order (order 23), Table 187, HTS-IV, PDF page 229.
+origin: arr_network
+state: GA
+cases:
+  - name: Goa ED HTS-IV at 11 kV, 1,500 kVA contract, November 2025 (FY 2025-26 rates)
+    # fixed 1,500 kVA x 280.00 = 420,000; energy 600,000 kVAh x 5.30 = 3,180,000
+    discom: goa_ed
+    category: HTS-IV
+    voltage_kv: 11
+    month: 2025-11
+    contract_kva: 1500
+    max_kva: 1500
+    units: 600000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, billing_basis: kvah, demand_charge: "420000.00", energy_charge: "3180000.00", tod_adjustment: "0.00", total: "3600000.00"}
+  - name: Goa ED HTS-IV at 33 kV, 4,000 kVA contract, August 2026 (FY 2026-27 rates)
+    # fixed 4,000 kVA x 280.00 = 1,120,000; energy 2,000,000 kVAh x 5.60 = 11,200,000
+    discom: goa_ed
+    category: HTS-IV
+    voltage_kv: 33
+    month: 2026-08
+    contract_kva: 4000
+    max_kva: 4000
+    units: 2000000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kvah, demand_charge: "1120000.00", energy_charge: "11200000.00", tod_adjustment: "0.00", total: "12320000.00"}

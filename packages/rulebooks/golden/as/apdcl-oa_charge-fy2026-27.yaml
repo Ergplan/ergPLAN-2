@@ -1,0 +1,14 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# AERC FY 2026-27 (ARR Network order 176, sha256 db6b0e31…), PDF page 236: Table 120 "Wheeling Charges approved by the
+# Commission for FY 2026-27", wheeling charges for 33 kV/11 kV voltage level Rs 0.27/kWh (para 8.3.3: for open access
+# at 33 kV/11 kV); Table 121 "Wheeling Losses approved": at 33 kV level 5%, at 11 kV level 11%. The category-wise CSS of
+# Table 123 (p. 239) prints no unit: not imported.
+jurisdiction: apdcl
+family: oa_charge
+effective_on: '2026-08-01'
+origin: arr_network
+tests:
+  - {name: "AS FY 2026-27 · wheeling charge", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling}, field: /value}, expect: {value: "0.27"}}
+  - {name: "AS FY 2026-27 · wheeling loss at 33 kV", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "5"}}
+  - {name: "AS FY 2026-27 · wheeling loss at 11 kV", given: {context: {connection: intra_state, voltage_kv: 11}, where: {/component: wheeling_losses}, field: /value}, expect: {value: "11"}}
+  - {name: "AS FY 2026-27 · no CSS imported", given: {context: {connection: intra_state, voltage_kv: 33}, where: {/component: cross_subsidy_surcharge}}, expect: {absent: true}}

@@ -1,0 +1,22 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JERC (Goa and UTs) MYT order for the Electricity Department of Puducherry, 4th control period FY 2025-26 to
+# FY 2029-30, dated 24 September 2025 (ARR Network order 28, sha256 ad0725e6…, 281 pages): "This Order shall come into
+# force with effect from 1st October 2025" (PDF page 20, para 11; also para 6.2.3). Table 9-1 "Tariff schedule approved
+# by the Commission for FY 2025-26", PDF pages 241-242: HTS-IV (Industries) Demand Based Rs. 450.00/kVA or part thereof
+# per month and Rs. 6.25/kVAh; HTS-I (Domestic) 450.00 and 6.05; EHTS-II (Industries) 500.00 and 6.10; EHTS-III
+# (PU services) 500.00 and 6.40; LTAS-III (Cottage Ind.) 30.00 and 5.95.
+jurisdiction: ped_py
+family: tariff_schedule
+effective_on: '2025-11-01'
+origin: arr_network
+tests:
+  - {name: "PY FY 2025-26 · HTS-IV · energy", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.25"}}
+  - {name: "PY FY 2025-26 · HTS-IV · fixed", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /demand_charge/value}, expect: {value: "450"}}
+  - {name: "PY FY 2025-26 · HTS-IV · fixed per kVA", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /demand_charge/basis}, expect: {value: inr_per_kva_month}}
+  - {name: "PY FY 2025-26 · HTS-IV · billed in kVAh", given: {context: {category: HTS-IV, voltage_kv: 11}, field: /billing_basis}, expect: {value: kvah}}
+  - {name: "PY FY 2025-26 · EHTS-II · energy", given: {context: {category: EHTS-II, voltage_kv: 110}, field: /energy_charge/base}, expect: {value: "6.10"}}
+  - {name: "PY FY 2025-26 · EHTS-II · fixed", given: {context: {category: EHTS-II, voltage_kv: 110}, field: /demand_charge/value}, expect: {value: "500"}}
+  - {name: "PY FY 2025-26 · HTS-I · energy", given: {context: {category: HTS-I, voltage_kv: 11}, field: /energy_charge/base}, expect: {value: "6.05"}}
+  - {name: "PY FY 2025-26 · LTAS-III · energy", given: {context: {category: LTAS-III, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "5.95"}}
+  # LTIS-I is printed in consumption slabs (0-500 units, …): no row
+  - {name: "PY FY 2025-26 · LTIS-I slabs are not imported", given: {context: {category: LTIS-I, voltage_kv: 0.4}}, expect: {absent: true}}

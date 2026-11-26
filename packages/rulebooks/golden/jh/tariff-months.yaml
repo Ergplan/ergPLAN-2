@@ -1,0 +1,33 @@
+# A month of a consumer's bill worked by hand from the order page (rates read from the text layer of the PDF,
+# independently of the importer), for the version imported from the ARR Network. Evaluated through rulebook.sandbox on
+# the draft in force at the end of the month and engine.tariff_eval (apps/api/tests/regreader/test_arr_hp_jh_as_ga_py.py).
+# JSERC bills HTS on the higher of the recorded demand and 75% of the contract demand; the recorded demand is set equal
+# to the contract demand here, so both readings give the same charge. The voltage rebate (3% at 33 kV) is not imported
+# and not applied.
+#
+# JSERC FY 2026-27 (order 111): HT Services, HTS, PDF page 336. FY 2025-26 (order 37): HTS, PDF page 265.
+origin: arr_network
+state: JH
+cases:
+  - name: JBVNL HTS at 33 kV, 2,000 kVA contract, August 2026 (FY 2026-27 order)
+    # demand 2,000 kVA x 400 = 800,000; energy 900,000 kVAh x 6.40 = 5,760,000
+    discom: jbvnl
+    category: HTS
+    voltage_kv: 33
+    month: 2026-08
+    contract_kva: 2000
+    max_kva: 2000
+    units: 900000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kvah, demand_charge: "800000.00", energy_charge: "5760000.00", tod_adjustment: "0.00", total: "6560000.00"}
+  - name: JBVNL HTS at 11 kV, 1,000 kVA contract, August 2025 (FY 2025-26 order)
+    # demand 1,000 kVA x 400 = 400,000; energy 400,000 kVAh x 5.90 = 2,360,000
+    discom: jbvnl
+    category: HTS
+    voltage_kv: 11
+    month: 2025-08
+    contract_kva: 1000
+    max_kva: 1000
+    units: 400000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, billing_basis: kvah, demand_charge: "400000.00", energy_charge: "2360000.00", tod_adjustment: "0.00", total: "2760000.00"}

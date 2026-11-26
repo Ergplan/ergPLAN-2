@@ -1,0 +1,31 @@
+# A month of a consumer's bill worked by hand from the order page (rates read from the text layer of the PDF,
+# independently of the importer), for the version imported from the ARR Network. Evaluated through rulebook.sandbox on
+# the draft in force at the end of the month and engine.tariff_eval (apps/api/tests/regreader/test_arr_hp_jh_as_ga_py.py).
+# The recorded demand is set equal to the contract demand.
+#
+# JERC Puducherry MYT order (order 28): Table 9-1, HTS-IV (Industries), PDF page 242; Table 9-2, EHTS-II, p. 244.
+origin: arr_network
+state: PY
+cases:
+  - name: Puducherry ED HTS-IV at 11 kV, 800 kVA contract, November 2025 (FY 2025-26 rates)
+    # fixed 800 kVA x 450.00 = 360,000; energy 300,000 kVAh x 6.25 = 1,875,000
+    discom: ped_py
+    category: HTS-IV
+    voltage_kv: 11
+    month: 2025-11
+    contract_kva: 800
+    max_kva: 800
+    units: 300000
+    by_slot: {}
+    expect: {tariff_year: FY2025-26, billing_basis: kvah, demand_charge: "360000.00", energy_charge: "1875000.00", tod_adjustment: "0.00", total: "2235000.00"}
+  - name: Puducherry ED EHTS-II at 110 kV, 8,000 kVA contract, August 2026 (FY 2026-27 rates)
+    # fixed 8,000 kVA x 500.00 = 4,000,000; energy 4,000,000 kVAh x 6.10 = 24,400,000
+    discom: ped_py
+    category: EHTS-II
+    voltage_kv: 110
+    month: 2026-08
+    contract_kva: 8000
+    max_kva: 8000
+    units: 4000000
+    by_slot: {}
+    expect: {tariff_year: FY2026-27, billing_basis: kvah, demand_charge: "4000000.00", energy_charge: "24400000.00", tod_adjustment: "0.00", total: "28400000.00"}

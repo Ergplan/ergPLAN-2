@@ -1,0 +1,15 @@
+# Written by reading the order's text layer, independently of the importer's output.
+# JSERC order on JBVNL's true-up for FY 2023-24, APR for FY 2024-25 and ARR and tariff for FY 2025-26 (ARR Network
+# order 37, sha256 76909d16…, 315 pages). Chapter 12 Tariff Schedule "APPLICABLE FROM 01.05.2025" (PDF page 256); in
+# force until the FY 2026-27 schedule of 1 April 2026. LTIS Rs/kVA/Month 150, Rs/kVAh 6.10 (p. 263); HTS 400, 5.90 and
+# HTSS 400, 5.25 (p. 265).
+jurisdiction: jbvnl
+family: tariff_schedule
+effective_on: '2025-08-01'
+origin: arr_network
+tests:
+  - {name: "JH FY 2025-26 · HTS · energy", given: {context: {category: HTS, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "5.90"}}
+  - {name: "JH FY 2025-26 · HTS · demand", given: {context: {category: HTS, voltage_kv: 33}, field: /demand_charge/value}, expect: {value: "400"}}
+  - {name: "JH FY 2025-26 · HTSS · energy", given: {context: {category: HTSS, voltage_kv: 33}, field: /energy_charge/base}, expect: {value: "5.25"}}
+  - {name: "JH FY 2025-26 · LTIS · energy", given: {context: {category: LTIS, voltage_kv: 0.4}, field: /energy_charge/base}, expect: {value: "6.10"}}
+  - {name: "JH FY 2025-26 · LTIS · billed in kVAh", given: {context: {category: LTIS, voltage_kv: 0.4}, field: /billing_basis}, expect: {value: kvah}}
