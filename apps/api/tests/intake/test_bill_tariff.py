@@ -66,6 +66,20 @@ def test_slot_classes_keep_the_two_class_reading_and_add_the_category() -> None:
     assert slot_classes({"name": "x", "category": "peak"}) == {"off_peak", "cat:peak"}
 
 
+def test_slot_classes_read_rupee_adjustments() -> None:
+    """Stage 17 (Gujarat): GERC's peak adder (+₹0.85) and 11-17 discount (−₹0.60) are rupees per unit;
+    read as no adjustment, every slot was `normal` and banked day-time energy served the evening peak."""
+    peak = {"name": "Peak 07:00-11:00", "rate_delta_inr_per_kwh": "0.45", "rate_delta_by_billing_demand": [{"above_kva": "500", "rate_delta_inr_per_kwh": "0.85"}]}  # fmt: skip
+    assert slot_classes(peak) == {"peak", "cat:peak"}
+    assert slot_classes({"name": "Day", "rate_delta_inr_per_kwh": "-0.60"}) == {"off_peak", "cat:off_peak"}
+    assert slot_classes({"name": "Normal", "rate_delta_inr_per_kwh": "0"}) == {"off_peak", "cat:normal"}
+    banded = {
+        "name": "b",
+        "rate_delta_by_billing_demand": [{"above_kva": "500", "rate_delta_inr_per_kwh": "1"}],
+    }
+    assert slot_classes(banded) == {"peak", "cat:peak"}
+
+
 def _facts(tariff: dict[str, object] | None) -> escope.ConnectionFacts:
     return escope.ConnectionFacts(
         discom="jdvvnl", state="RJ", category="HT-5", voltage_kv=Decimal(33), connection_kind="ht",
