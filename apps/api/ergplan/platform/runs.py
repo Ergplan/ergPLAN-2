@@ -42,7 +42,7 @@ from ..intake import generation, profile_synthesis
 from ..optimizer import model as om
 from ..optimizer.highs_solve import Solution, SolveFailed, solve
 from ..optimizer.resettle import INR, Resettled, resettle, status_quo
-from ..optimizer.scenarios import CandidateSpec, ScenarioSpec, reprice, unproven_note
+from ..optimizer.scenarios import MOST_RENEWABLE_PRICE, CandidateSpec, ScenarioSpec, reprice, unproven_note
 from ..rulebook.models import RuleView
 from ..rulebook.repository import Reader
 from ..rulebook.scope import matches
@@ -953,6 +953,30 @@ def assemble(
                     "Floor",
                 ),
             ],
+        )
+    # Stage 15: the client's target share and the search for the most the rules allow (neither is a
+    # regulation: each says in words what it is, with a client-stated or assumed ref)
+    if spec.min_share_pct is not None:
+        limits.append(om.Limit(om.MIN_SHARE, _f(spec.min_share_pct), "target share", {}, None))
+        limit_words[f"limit:{om.MIN_SHARE}:"] = (
+            f"The target you set: at least {spec.min_share_pct}% of the year's consumption not drawn "
+            "from the DISCOM. The plan is the cheapest that reaches it",
+            [
+                _sv(
+                    spec.min_share_pct,
+                    Unit.PERCENT,
+                    SourceRef(kind=RefKind.CLIENT_STATED, note="target share of renewable energy"),
+                    "Target share",
+                )
+            ],
+        )
+    if spec.most_renewable:
+        limits.append(om.Limit(om.GRID_PENALTY, _f(MOST_RENEWABLE_PRICE), "most renewable", {}, None))
+        notes.append(
+            "This plan is sized for the most the rules allow, not for the lowest cost: the search "
+            f"priced every unit drawn from the DISCOM at ₹{MOST_RENEWABLE_PRICE}/kWh (an assumption, far "
+            "above any tariff) so that every unit that can be replaced is. Its cost and saving are at "
+            "the real rates"
         )
     thermals = _thermals(s, site.id, hours, notes)
     if duty_own is not None and thermals:

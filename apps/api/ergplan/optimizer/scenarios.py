@@ -102,6 +102,17 @@ class ScenarioSpec(BaseModel):
     lapse_price_inr_per_kwh: Decimal | None = Field(default=None, ge=0)
     grid_factor_t_per_mwh: Decimal | None = Field(default=None, gt=0)
     sensitivities: list[Sensitivity] = Field(default_factory=list, max_length=6)
+    # Stage 15 (the transition plan). The least share of the year's consumption that must not be
+    # drawn from the DISCOM (the client's target: the least-cost plan that reaches it), and
+    # `most_renewable`: size for the most the rules allow, whatever it costs (the end of the cost
+    # curve), by pricing every unit drawn from the DISCOM at MOST_RENEWABLE_PRICE
+    min_share_pct: Decimal | None = Field(default=None, ge=0, le=100)
+    most_renewable: bool = False
+
+
+# INR per kWh drawn from the DISCOM in a `most_renewable` search: far above any tariff or any cost of
+# replacing a unit, so the search replaces every unit the rules let it
+MOST_RENEWABLE_PRICE = Decimal(1000)
 
 
 def unproven_note(status: str, gap: float | None) -> str | None:
