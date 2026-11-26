@@ -17,6 +17,12 @@ contract_demand_kva: "3000"
 as_of: "2026-11-01"
 month: 11
 slot: all
+calculator:
+  solar: {ppa_tariff_inr_per_kwh: '3.10', capex_inr_per_kw: '42000', om_pct_of_capex: '1.5', cuf_pct: '22',
+          degradation_pct: '0.5', life_years: 25, equity_cost_inr_per_kwh: '0.25'}
+  wind: {ppa_tariff_inr_per_kwh: '3.60', capex_inr_per_kw: '68000', om_pct_of_capex: '2', cuf_pct: '28',
+         degradation_pct: '0', life_years: 25, equity_cost_inr_per_kwh: '0.25'}
+  connection: intra_state
 sources:
   td_charge: {value: "0.09", document: ORDER, page: 152, where: "3.21.22, TGSPDCL 33 kV, Rs/kWh (doubtful as a wheeling charge: an input to the CSS formula; Table 3-43 uses D = 0.21 at 33 kV)"}
   css: {value: "1.73", document: ORDER, page: 152, where: "Table 3-43, HT-I Industry at 33 kV, allowable CSS"}
@@ -25,23 +31,29 @@ routes:
     source: solar
     lines: {generation: "2.8950", td_charge: "0.0900", css: "0.0000", equity: "0.0000"}
     total: {value: "2.9850", note: "generation is the plant's levelised cost (assumption); CSS exempt (captive)"}
+    banking: null
   - route: captive
     source: wind
     lines: {generation: "3.6087", td_charge: "0.0900", css: "0.0000", equity: "0.0000"}
     total: {value: "3.6987", note: "generation is the plant's levelised cost (assumption); CSS exempt (captive)"}
+    banking: null
   - route: group_captive
     source: solar
     lines: {generation: "3.1000", td_charge: "0.0900", css: "0.0000", equity: "0.2500"}
     total: {value: "3.4400", note: "CSS exempt (group captive)"}
+    banking: null
   - route: group_captive
     source: wind
     lines: {generation: "3.6000", td_charge: "0.0900", css: "0.0000", equity: "0.2500"}
     total: {value: "3.9400", note: "CSS exempt (group captive)"}
+    banking: null
   - route: third_party
     source: solar
     lines: {generation: "3.1000", td_charge: "0.0900", css: "1.7300", equity: "0.0000"}
     total: {value: "4.9200"}
+    banking: null
   - route: third_party
     source: wind
     lines: {generation: "3.6000", td_charge: "0.0900", css: "1.7300", equity: "0.0000"}
     total: {value: "5.4200"}
+    banking: null

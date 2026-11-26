@@ -260,7 +260,12 @@ def test_pb_full_run() -> None:
             assert q4(dec(loss)) == q4(hand["losses_in_kind"])
             bank = next(v for k, v in by.items() if k.startswith("Banking charge"))
             assert q4(dec(bank)) == q4(hand["banking_upper_bound"])  # fixed in Stage 17 (CSS not grossed up)
-            landed_out.append({"route": route, "source": s, **{k: q4(v) for k, v in hand.items()}})
+            ex = q4(
+                hand["total"] - hand["banking_upper_bound"]
+            )  # Stage 19 compares the landed cost without it
+            landed_out.append(
+                {"route": route, "source": s, **{k: q4(v) for k, v in hand.items()}, "total_ex_banking": ex}
+            )
     found["landed"] = landed_out
     run.save("08_landed_hand", landed_out)
 
@@ -302,4 +307,7 @@ def test_pb_full_run() -> None:
     data = yaml.safe_load((Path(__file__).parent / "landed_hand" / "pb.yaml").read_text())
     for row in landed_out:
         saved = next(x for x in data["routes"] if x["route"] == row["route"] and x["source"] == row["source"])
-        assert D(str(saved["total"]["value"])) == row["total"], (row, saved["total"])
+        # the file states the landed cost without the banking charge (Stage 19's shape) and with it
+        assert D(str(saved["total"]["with_banking_upper_bound"])) == row["total"], (row, saved["total"])
+        assert D(str(saved["total"]["value"])) == row["total_ex_banking"], (row, saved["total"])
+        assert D(str(saved["banking"]["value"])) == row["banking_upper_bound"]
