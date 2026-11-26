@@ -350,3 +350,8 @@ The person asked for one application from two: this repository's flow and engine
 - **The exchange's landed cost is withheld from clients and visitors unless the state's approved verdict offers the purchase**; an analyst sees it marked as the analyst's figure (rule 13, invariant 2).
 - **The all-states table prices each DISCOM on its own reference HT industrial category**, because category names are the DISCOM's own.
 
+## 26 Nov 2026 — no sign-in, at the person's request
+
+- **The person asked to remove sign-in for the whole app and the MCP connector** (asked in the session, choosing "Whole app and MCP" after being told what it exposes). Built as `ERGPLAN_OPEN_ACCESS` (off by default), switched on in the server's `.env`: every visitor of the web app and of `/mcp` without a token is the analyst `visitor (open access)`, so the audit log tells them apart. A token offered on `/mcp` is still checked.
+- **Approving a rule version or a state rule book still needs an analyst's own sign-in** (invariant 3: approval is a named person's act): `platform.auth.named_analyst` refuses the open visitor on both approve routes. Drafts can be proposed and edited by anyone with the address.
+

@@ -25,6 +25,9 @@ from ..db.models import AuthSession, Bill, Client, Connection, Run, Scenario, Si
 
 COOKIE = "ergplan_session"
 ANONYMOUS = "anonymous"
+# who a visitor is when ERGPLAN_OPEN_ACCESS is on (no sign-in): an analyst, named so the audit log
+# and the approval gate can tell them from a person who signed in
+OPEN_ACTOR = "visitor (open access)"
 
 # Route templates open without signing in (production).
 PUBLIC = {
@@ -110,6 +113,8 @@ def caller(
     if found is not None:
         return found
     if production():
+        if get_settings().ergplan_open_access:
+            return Caller(actor=OPEN_ACTOR, role="analyst")
         return Caller(actor=ANONYMOUS, role="client")
     return Caller(
         actor=(x_ergplan_actor or ANONYMOUS).strip()[:128], role=(x_ergplan_role or "client").strip()
@@ -204,3 +209,11 @@ def owned_bills(s: Session, who: Caller, ids: list[str]) -> None:
 def owned_connection(s: Session, who: Caller, connection_id: str | None) -> None:
     if production() and connection_id and not may_reach(s, who, "connection_id", connection_id):
         raise HTTPException(403, "this belongs to another client")
+
+
+def named_analyst(c: Annotated[Caller, Depends(analyst)]) -> Caller:
+    """An analyst who signed in as themselves: approving a rule is a named person's act (invariant
+    3), never an open-access visitor's."""
+    if c.actor == OPEN_ACTOR:
+        raise HTTPException(403, "approving a rule needs an analyst's own sign-in, not open access")
+    return c

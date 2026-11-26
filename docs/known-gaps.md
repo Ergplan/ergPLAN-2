@@ -192,4 +192,4 @@ A replayed bill line that differs from the approved tariff is "explained" only b
 | Tax on sale (Maharashtra) and state duty acts are in no part of today's cost; the rule book's landed cost leaves out the banking upper bound the landed-cost screen includes | Next round |
 | A sizing pass that ends on its time limit with no feasible solution fails the run rather than falling back to the grid-only plan | Next round (optimizer) |
 | The calculator: no approved rule in any state states a minimum contract demand for open access (the bar is tested on fixtures only); a signed-in user cannot save a calculation; duty and additional surcharge for a reference consumer are "not yet sourced" | Analyst / next round |
-
+| With `ERGPLAN_OPEN_ACCESS` on, anyone with the address can upload bills, see every client's plans, edit drafts and run sizings (approving still needs a named sign-in); rate limits on sign-in and bill upload still apply | Person (switch it off in `.env`) |

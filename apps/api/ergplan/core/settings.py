@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     # default: opening the app to visitors is the person's decision, never the builder's; when off,
     # the calculator needs sign-in like every other screen. Per-address limit on its routes.
     ergplan_public_calculator: bool = False
+    # the person's decision of 26 Nov 2026: no sign-in at all. Every visitor of the web app and of
+    # the MCP connector is taken as the analyst `OPEN_ACTOR`; only approving or superseding a rule
+    # still needs a named analyst's sign-in (invariant 3). Off by default
+    ergplan_open_access: bool = False
     ergplan_calculator_rate_limit: int = 30
     ergplan_calculator_rate_window_s: int = 60
 

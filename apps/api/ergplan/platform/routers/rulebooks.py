@@ -16,10 +16,11 @@ from ...db.base import session_scope
 from ...db.models import Jurisdiction, Rule, RulebookVersion, RuleTest, RuleTestRun
 from ...rulebook import golden, service
 from ...rulebook.schemas import FAMILIES, UnknownFamily, family_schema
-from ..auth import Caller, analyst
+from ..auth import Caller, analyst, named_analyst
 
 router = APIRouter(prefix="/rulebooks", tags=["rulebooks"])
 Analyst = Annotated[Caller, Depends(analyst)]
+NamedAnalyst = Annotated[Caller, Depends(named_analyst)]  # approval: never an open-access visitor
 
 
 class JurisdictionOut(BaseModel):
@@ -310,7 +311,7 @@ def run_golden(vid: str, who: Analyst) -> VersionDetail:
 
 
 @router.post("/versions/{vid}/approve", response_model=VersionDetail)
-def approve(vid: str, who: Analyst) -> VersionDetail:
+def approve(vid: str, who: NamedAnalyst) -> VersionDetail:
     try:
         with session_scope(actor=who.actor, role=who.role) as s:
             golden.sync_tests(s)

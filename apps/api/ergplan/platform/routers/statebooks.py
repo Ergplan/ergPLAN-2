@@ -22,10 +22,11 @@ from ...db.models import Connection, StateRulebook
 from ...documents import service as documents
 from ...report import statebook
 from ...rulebook.service import UnknownJurisdiction
-from ..auth import Caller, analyst, caller, owned_connection
+from ..auth import Caller, analyst, caller, named_analyst, owned_connection
 
 router = APIRouter(tags=["state rule books"])
 Analyst = Annotated[Caller, Depends(analyst)]
+NamedAnalyst = Annotated[Caller, Depends(named_analyst)]  # approval: never an open-access visitor
 Anyone = Annotated[Caller, Depends(caller)]
 
 
@@ -210,7 +211,7 @@ def _status(e: statebook.BookError) -> int:
 
 
 @router.post("/statebooks/{book_id}/approve", response_model=BookDetail)
-def approve(book_id: str, body: ReviewIn, who: Analyst) -> BookDetail:
+def approve(book_id: str, body: ReviewIn, who: NamedAnalyst) -> BookDetail:
     with session_scope(actor=who.actor, role=who.role) as s:
         try:
             return BookDetail.of(

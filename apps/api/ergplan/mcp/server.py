@@ -23,7 +23,8 @@ from mcp.types import ToolAnnotations
 from starlette.concurrency import run_in_threadpool
 from starlette.types import Receive, Scope, Send
 
-from ..platform.auth import Caller
+from ..core.settings import get_settings
+from ..platform.auth import OPEN_ACTOR, Caller
 from . import oauth, tools
 from .registry import CALLER, TOOLS
 
@@ -116,6 +117,9 @@ class _Exchange(Response):
 
 @router.api_route("/mcp", methods=["GET", "POST", "DELETE"])
 async def endpoint(request: Request) -> Response:
+    if get_settings().ergplan_open_access and not request.headers.get("authorization"):
+        # the person's decision (ERGPLAN_OPEN_ACCESS): the connector needs no sign-in
+        return _Exchange(Caller(actor=OPEN_ACTOR, role="analyst"))
     grant = await run_in_threadpool(oauth.bearer, request.headers.get("authorization"))
     if isinstance(grant, oauth.Refusal):
         return oauth.unauthorized(grant)

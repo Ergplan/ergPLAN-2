@@ -150,3 +150,11 @@ Left empty, or on a server not served over https, password sign-in stays off and
 
 Once password sign-in is on (above), add **`https://<host>/mcp`** as a custom connector in claude.ai (Settings, Connectors), or in Claude Code: `claude mcp add --transport http ergplan https://<host>/mcp`. Claude opens the sign-in page; type the administrator's username and password and choose "Sign in and allow". With password sign-in off, the connector refuses everyone and says why. A connector may send the sign-in back only to the hosts in `ERGPLAN_MCP_REDIRECT_HOSTS` (claude.ai, claude.com) or to localhost. A bill reaches a tool by the one-time upload link `read_bill` returns.
 
+## No sign-in (`ERGPLAN_OPEN_ACCESS`)
+
+`ERGPLAN_OPEN_ACCESS=true` in `.env`, then `tools/dev/vm.sh up -d api worker web`: the app and the MCP connector open without sign-in (every visitor is the analyst `visitor (open access)`); approving a rule still needs an analyst's emailed-link or password sign-in. Delete the line (or set it to `false`) and restart to close it again.
+
+## The OpenAI key
+
+`tools/dev/set-openai-key.sh` asks for the key with hidden typing and writes it as both `OPENAI_API_KEY` and `BILLX_OPENAI_API_KEY`; then `tools/dev/vm.sh up -d` so the api, worker and billx read it.
+
