@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { RefChips } from "@/components/cost/RefChips";
 import { AnalystView } from "@/components/plan/AnalystView";
 import { Explain } from "@/components/plan/Explain";
+import { StatedAnswers } from "@/components/plan/StatedAnswers";
 import { WhatIf } from "@/components/plan/WhatIf";
 import { CostTable, DispatchChart, Levies, Lifecycle, Settlement, YearMix } from "@/components/results/parts";
 import { VoicePanel } from "@/components/voice/VoicePanel";
@@ -191,6 +192,7 @@ export default async function LivePlan({ params, searchParams }: { params: Promi
           {!printing && d.token && <AnalystView token={d.token} />}
         </>
       )}
+      <StatedAnswers answers={d.answers ?? []} profileWords={d.profile_words} />
 
       {printing && cites.notes.length > 0 && (
         <section className="ep-panel">

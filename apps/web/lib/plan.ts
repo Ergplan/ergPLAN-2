@@ -1,4 +1,5 @@
 import type { Ref, SourcedValue } from "./intake";
+import type { StatedAnswer } from "./questions";
 import type { SummaryOut } from "./runs";
 
 export type ScenarioPlan = { scenario_id: string; name: string; run_id: string; resolution_min: number; finished_at: string | null; summary: SummaryOut; analyst?: Record<string, unknown> | null };
@@ -9,6 +10,8 @@ export type PlanOut = {
   assumptions: { note: string; ref: Ref; label?: string; value?: string; unit?: string }[];
   editable: { tool: string; source: string | null; label: string; value: SourcedValue }[];
   analyst_view: boolean;
+  // Stage 15: what the client stated about the plant (client-stated chips), and where the load profile comes from
+  answers?: StatedAnswer[]; profile_provenance?: string | null; profile_words?: string | null;
 };
 export type WhatIfOut = { described: string; sentence: string; resolution_min: number; annual: Record<string, SourcedValue>; base_saving: SourcedValue };
 

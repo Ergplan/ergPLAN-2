@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PlanBuilder } from "@/components/plan/PlanBuilder";
+import { StatedAnswers } from "@/components/plan/StatedAnswers";
 import { apiOrNull } from "@/lib/api";
 import type { PlanOut } from "@/lib/plan";
 
@@ -24,6 +25,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         <p className="eg-muted ep-lede">{plan.client} · {plan.site} · {plan.discom.toUpperCase()}. Share a link that opens without a login, with voice what-if and a PDF; audit the chain of charges behind every landed cost. <Link href={`/results?c=${c}`}>Back to the full results</Link>.</p>
       </div>
       <PlanBuilder connectionId={c} initial={plan} />
+      <StatedAnswers answers={plan.answers ?? []} profileWords={plan.profile_words} editHref={`/plan/questions?c=${c}`} />
     </>
   );
 }
