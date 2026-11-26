@@ -88,8 +88,8 @@ def test_up_transition_plan_to_half_renewable(monkeypatch: pytest.MonkeyPatch) -
 
     # today: the twelve assumed bills' year, as tests/e2e/test_up_assumed.py's own run states it
     today = d["today"]
-    assert today["annual_cost"]["value"] == "191476310.78"
-    assert today["load_kwh"]["value"] == "22606225.914"
+    assert today["annual_cost"]["value"] == "191476310.52"
+    assert today["load_kwh"]["value"] == "22606226.151"
     before, load = val(today["annual_cost"]), val(today["load_kwh"])
 
     roof, oa, store = phases
@@ -99,8 +99,8 @@ def test_up_transition_plan_to_half_renewable(monkeypatch: pytest.MonkeyPatch) -
     assert pv["kind"] == "rooftop_pv" and pv["capacity"]["value"] == "5000.000"
     assert pv["added"]["value"] == "5000.000" and pv["capital"]["value"] == "200000000.00"
     assert pv["capital"]["source_refs"][0]["kind"] == "assumption" and pv["tariff"] is None
-    assert roof["annual_cost"]["value"] == "164733922.20"
-    assert roof["annual_saving"]["value"] == "26742388.58"
+    assert roof["annual_cost"]["value"] == "164037174.90"
+    assert roof["annual_saving"]["value"] == "27439135.62"
     assert any(b["name"] == "max_kw:rooftop_pv" and "assumption" in b["words"] for b in roof["binding"])
     assert roof["route"] is None and roof["status"] == "taken"
 
@@ -111,11 +111,11 @@ def test_up_transition_plan_to_half_renewable(monkeypatch: pytest.MonkeyPatch) -
         by["rooftop_pv"]["capacity"]["value"] == "5000.000" and by["rooftop_pv"]["added"]["value"] == "0.000"
     )
     assert by["oa_wind_intra"]["ownership"] == "captive"
-    assert val(by["oa_wind_intra"]["capacity"]) == pytest.approx(D("4609.550"), abs=D("0.5"))
+    assert val(by["oa_wind_intra"]["capacity"]) == pytest.approx(D("4585.418"), abs=D("0.5"))
     assert val(by["oa_solar_intra"]["capacity"]) == 0  # wind lands in more of the factory's hours
     assert by["oa_wind_intra"]["capital"] is not None and by["oa_wind_intra"]["tariff"] is None
     # to the rupee (the last paise move with the solver's path; the replay below is to the paisa)
-    assert val(oa["annual_cost"]) == pytest.approx(D("139609716"), abs=D("1"))
+    assert val(oa["annual_cost"]) == pytest.approx(D("138927925"), abs=D("1"))
 
     # phase 3, storage: at today's battery cost the cheapest plan takes none, and the page says so
     assert store["status"] == "adds_nothing" and store["status_words"] and store["actions"] == []
@@ -139,8 +139,8 @@ def test_up_transition_plan_to_half_renewable(monkeypatch: pytest.MonkeyPatch) -
         made = val(e["setoff_kwh"]) + val(e["withdrawn_kwh"]) + val(e["grid_kwh"])
         assert abs(made - load) < D("1")
         prev_saving, prev_capital, prev_share = saving, val(p["capital"]), val(p["share"])
-    assert roof["share"]["value"] == "31.88"
-    assert val(oa["share"]) == pytest.approx(D("80.16"), abs=D("0.01"))
+    assert roof["share"]["value"] == "32.30"
+    assert val(oa["share"]) == pytest.approx(D("80.41"), abs=D("0.01"))
 
     # the target: 50% is the client's own figure, and it is reached in phase 2
     t = d["target"]

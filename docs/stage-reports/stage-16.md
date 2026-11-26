@@ -55,6 +55,10 @@ The twelve assumed PVVNL HV-2 bills of `tests/e2e/test_up_assumed.py` go in thro
 | `pytest -m slow` and the last CI run | `tests/e2e/test_mcp_up.py` passed on the merged tree; the rest of the slow suite is rerun with Stage 17's merge (Stage 17's power-factor fix moves the Uttar Pradesh figures); CI: CI_RESULT |
 | Reviewer clean | Not run: no OpenAI key |
 
+## On the live server
+
+Redeployed at `0367971` (migration 0020), Caddy restarted so it reads the new Caddyfile. Without a token, `POST https://ergplan.joulewise.tech/mcp` answers 401 with `WWW-Authenticate: Bearer resource_metadata="https://ergplan.joulewise.tech/.well-known/oauth-protected-resource/mcp"`; the metadata is served; registering an `https://evil.example` redirect is refused (400). `tools/dev/vm-check.py`: every check passed. Password sign-in is off there, so nobody can sign in yet.
+
 ## Deviations from the master prompt
 
 - Two tools beyond the brief's twelve: `build_site` (the brief has no step from confirmed bills to a site) and `sizing_status` (the status tool `run_sizing` names).

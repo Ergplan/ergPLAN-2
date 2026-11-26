@@ -41,7 +41,7 @@ Project `replanner-513407`, Debian 13, 4 vCPU, 16 GB, static address `replan2-ip
 | To | Run |
 | --- | --- |
 | See the services | `tools/dev/vm.sh ps` · `tools/dev/vm.sh logs -f api` |
-| Update to the latest code | `git pull && tools/dev/vm.sh up -d --build` (migrations run when the API starts) |
+| Update to the latest code | `git pull && tools/dev/vm.sh up -d --build` (migrations run when the API starts); if `docker/caddy/Caddyfile` changed, also `tools/dev/vm.sh restart caddy` (the file is mounted alone, and a pull replaces it, so the running Caddy keeps the old one) |
 | Let a person in (no mail account yet) | `tools/dev/vm.sh exec api python -m ergplan.platform.signin name@company.in` — hand over the link it prints; it works once, for 15 minutes. Emails at `ERGPLAN_ANALYST_DOMAIN` or listed in `ERGPLAN_ANALYST_EMAILS` are analysts |
 | Check the deployment end to end | `python3 tools/dev/vm-check.py` (services, published ports, certificate, sign-in by link, a rule-book figure opening its stored page) |
 | Change a setting or a key | edit `.env` (mode 600; never print it), then `tools/dev/vm.sh up -d` |
@@ -145,3 +145,8 @@ open a shared plan from a private window (it opens without sign-in).
 3. Check: `https://<host>/api/auth/me` shows `"password_sign_in": true`; the sign-in page shows the username and password form; the API log has no weak-password line; `python3 tools/dev/secrets-check.py` says OK.
 
 Left empty, or on a server not served over https, password sign-in stays off and the emailed link is the only way in. Five wrong attempts lock that address for fifteen minutes; attempts are in the table `signin_attempts` and in the API log under `ergplan.signin`.
+
+## The MCP connector (Stage 16)
+
+Once password sign-in is on (above), add **`https://<host>/mcp`** as a custom connector in claude.ai (Settings, Connectors), or in Claude Code: `claude mcp add --transport http ergplan https://<host>/mcp`. Claude opens the sign-in page; type the administrator's username and password and choose "Sign in and allow". With password sign-in off, the connector refuses everyone and says why. A connector may send the sign-in back only to the hosts in `ERGPLAN_MCP_REDIRECT_HOSTS` (claude.ai, claude.com) or to localhost. A bill reaches a tool by the one-time upload link `read_bill` returns.
+
