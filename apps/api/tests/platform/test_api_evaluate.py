@@ -193,6 +193,10 @@ def test_a_typed_site_is_saved_costed_and_listed() -> None:
     assert f.status_code == 200 and f.headers["content-type"].startswith("text/csv")
     rows = list(csv.reader(io.StringIO(f.text)))
     assert rows[0][:2] == ["time", "slot"] and len(rows) == 8761
+    # the file's DISCOM kWh add up to the run's (Stage 17: at 0.001 kWh a block they did not)
+    g = rows[0].index("grid_kwh")
+    in_file = sum((Decimal(r[g]) for r in rows[1:]), Decimal(0))
+    assert abs(in_file - Decimal(out["summary"]["settlement"]["grid_kwh"]["value"])) <= Decimal("0.01")
     assert rows[1][0].startswith(out["summary"]["year_start"][:4]) if "year_start" in out["summary"] else True
     # invariant 2 for the new client endpoints: a draft with an absurd energy charge changes nothing
     discoms_before = client.get("/intake/discoms", headers=CL).json()
