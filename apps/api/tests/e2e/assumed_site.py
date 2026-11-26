@@ -177,10 +177,14 @@ def landed_lines(
     price and the charges paid on injected energy (wheeling, transmission), grossed up for the energy
     lost on the way (`keep` the share delivered); the charges at drawal (cross-subsidy and additional
     surcharge); the banking charge in kind as if every unit were banked (it costs bank/(100-bank) of
-    all the above); the electricity duty; the equity cost of a 26%-equity plant (given per kWh
-    generated, so per kWh at the meter it is grossed up for the energy lost like the price is)."""
+    the energy's cost to the drawal point: the generation, the injection charges and the losses; the
+    energy lost in kind is never drawn, so the drawal charges, paid on units drawn, are not grossed
+    up); the electricity duty; the equity cost of a 26%-equity plant (given per kWh generated, so per
+    kWh at the meter it is grossed up for the energy lost like the price is).
+    `calculator_total` is what the landed-cost calculator shows a visitor who has no bills: without
+    the duty (no bill rate to take it from) and without the banking charge (shown beside it)."""
     lost = (generation + injection) * (1 / keep - 1)
-    bank = D(0) if not bank_pct else (generation + injection + lost + drawal) * bank_pct / (100 - bank_pct)
+    bank = D(0) if not bank_pct else (generation + injection + lost) * bank_pct / (100 - bank_pct)
     lines = {
         "generation": generation,
         "injection_charges": injection,
@@ -188,13 +192,47 @@ def landed_lines(
         "drawal_charges": drawal,
         "banking_upper_bound": bank,
         "duty_assumed": duty,
-        "equity_cost": equity / keep,
+        "equity_cost": (equity / keep).quantize(D("0.0001")),
     }
     lines["total"] = sum(lines.values(), D(0))
     # the rule book shows the banking charge apart, "on banked units only", and leaves it out of the
     # landed cost it prints; the landed-cost screen's total holds it (as the upper bound)
     lines["total_excluding_banking_upper_bound"] = lines["total"] - bank
+    lines["calculator_total"] = lines["total_excluding_banking_upper_bound"] - duty
     return lines
+
+
+def calculator_input(plant: dict[str, dict[str, Any]], ppa: dict[str, D], equity_pct: D) -> dict[str, Any]:
+    """The landed-cost calculator's input (report.calculator.CalculatorIn) that the hand figures rest
+    on: the PPA tariffs and the plant figures stated, the equity share; intra-state."""
+    out: dict[str, Any] = {}
+    for source, p in plant.items():
+        out[source] = {
+            "ppa_tariff_inr_per_kwh": str(ppa[source]),
+            "capex_inr_per_kw": str(p["capex"]),
+            "om_pct_of_capex": str(p["om"]),
+            "cuf_pct": str(p["cuf"]),
+            "degradation_pct": str(p["deg"]),
+            "life_years": p["life"],
+        }
+    out["equity_share_pct"] = str(equity_pct)
+    out["connection"] = "intra_state"
+    return out
+
+
+def route_entry(route: str, source: str, approved: dict[str, D], order: dict[str, D]) -> dict[str, Any]:
+    """One route of a landed_hand file: what the calculator must show (`total` without the banking
+    charge and without the bills' duty, `banking` on a banked unit), and the state test's figures
+    for the site with its bills (`site_approved_rulebook`) and from the order's own figures (`order`)."""
+    q4 = D("0.0001")
+    return {
+        "route": route,
+        "source": source,
+        "total": str(approved["calculator_total"].quantize(q4)),
+        "banking": str(approved["banking_upper_bound"].quantize(q4)),
+        "site_approved_rulebook": {k: str(x.quantize(q4)) for k, x in approved.items()},
+        "order": {k: str(x.quantize(q4)) for k, x in order.items()},
+    }
 
 
 CUF_DIR = Path(__file__).resolve().parents[4] / "packages" / "profiles" / "cuf"

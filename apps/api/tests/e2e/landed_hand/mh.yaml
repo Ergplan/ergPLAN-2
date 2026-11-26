@@ -7,7 +7,27 @@ state: MH
 discom: msedcl
 category: HT I (A)
 voltage_kv: '22'
+contract_demand_kva: '2000'
+as_of: '2026-11-01'
 month: 2026-11
+slot: all
+calculator:
+  solar:
+    ppa_tariff_inr_per_kwh: '3.10'
+    capex_inr_per_kw: '42000'
+    om_pct_of_capex: '1.5'
+    cuf_pct: '21'
+    degradation_pct: '0.5'
+    life_years: 25
+  wind:
+    ppa_tariff_inr_per_kwh: '3.60'
+    capex_inr_per_kw: '68000'
+    om_pct_of_capex: '2'
+    cuf_pct: '28'
+    degradation_pct: '0'
+    life_years: 25
+  equity_share_pct: '26'
+  connection: intra_state
 tod_slot: all (the same in every slot)
 sources:
   generation: PPA tariff stated (solar 3.10, wind 3.60); for a captive plant its levelised cost from the plant figures
@@ -18,8 +38,9 @@ sources:
     approved rule book'
   drawal_charges: 'cross-subsidy surcharge 2.11 Rs./kWh, HT I (A) (i) at 33/22/11 kV: Case 75/2025 p. 106; nil for
     captive and 26%-equity users (Electricity Act s. 42(2), fourth proviso)'
-  banking_upper_bound: 8% in kind on energy banked (approved rule MSEDCL settlement v4, a register field; the order
-    does not state it), as if every unit were banked
+  banking_upper_bound: '8% in kind on energy banked (approved rule MSEDCL settlement v4, a register field; the order
+    does not state it), as if every unit were banked: 8/92 of the generation, injection charges and losses (the
+    drawal charges fall on units drawn, so are not grossed up)'
   duty_assumed: electricity duty at the twelve bills' average per kWh (7.5% of the bill's charges); in no order;
     an assumption
   equity_cost: 26% of the plant's capital x capital recovery factor (10%, 25 years) / average yearly kWh per kW
@@ -28,7 +49,9 @@ sources:
 routes:
 - route: captive
   source: solar
-  approved_rulebook:
+  total: '3.0329'
+  banking: '0.2637'
+  site_approved_rulebook:
     generation: '3.0329'
     injection_charges: '0.0000'
     losses: '0.0000'
@@ -37,7 +60,8 @@ routes:
     duty_assumed: '0.8415'
     equity_cost: '0.0000'
     total: '4.1382'
-    total_excluding_banking_upper_bound: '3.8745'
+    total_excluding_banking_upper_bound: '3.8744'
+    calculator_total: '3.0329'
   order:
     generation: '3.0329'
     injection_charges: '0.8100'
@@ -48,9 +72,12 @@ routes:
     equity_cost: '0.0000'
     total: '5.5095'
     total_excluding_banking_upper_bound: '5.1360'
+    calculator_total: '4.2945'
 - route: group_captive
   source: solar
-  approved_rulebook:
+  total: '3.7941'
+  banking: '0.2696'
+  site_approved_rulebook:
     generation: '3.1000'
     injection_charges: '0.0000'
     losses: '0.0000'
@@ -60,6 +87,7 @@ routes:
     equity_cost: '0.6941'
     total: '4.9052'
     total_excluding_banking_upper_bound: '4.6356'
+    calculator_total: '3.7941'
   order:
     generation: '3.1000'
     injection_charges: '0.8100'
@@ -70,31 +98,38 @@ routes:
     equity_cost: '0.7756'
     total: '6.3666'
     total_excluding_banking_upper_bound: '5.9866'
+    calculator_total: '5.1451'
 - route: third_party
   source: solar
-  approved_rulebook:
+  total: '5.2100'
+  banking: '0.2696'
+  site_approved_rulebook:
     generation: '3.1000'
     injection_charges: '0.0000'
     losses: '0.0000'
     drawal_charges: '2.1100'
-    banking_upper_bound: '0.4530'
+    banking_upper_bound: '0.2696'
     duty_assumed: '0.8415'
     equity_cost: '0.0000'
-    total: '6.5046'
+    total: '6.3211'
     total_excluding_banking_upper_bound: '6.0515'
+    calculator_total: '5.2100'
   order:
     generation: '3.1000'
     injection_charges: '0.8100'
     losses: '0.4595'
     drawal_charges: '2.1100'
-    banking_upper_bound: '0.5634'
+    banking_upper_bound: '0.3800'
     duty_assumed: '0.8415'
     equity_cost: '0.0000'
-    total: '7.8845'
+    total: '7.7010'
     total_excluding_banking_upper_bound: '7.3210'
+    calculator_total: '6.4795'
 - route: captive
   source: wind
-  approved_rulebook:
+  total: '3.6087'
+  banking: '0.3138'
+  site_approved_rulebook:
     generation: '3.6087'
     injection_charges: '0.0000'
     losses: '0.0000'
@@ -102,8 +137,9 @@ routes:
     banking_upper_bound: '0.3138'
     duty_assumed: '0.8415'
     equity_cost: '0.0000'
-    total: '4.7641'
-    total_excluding_banking_upper_bound: '4.4503'
+    total: '4.7640'
+    total_excluding_banking_upper_bound: '4.4502'
+    calculator_total: '3.6087'
   order:
     generation: '3.6087'
     injection_charges: '0.8100'
@@ -114,9 +150,12 @@ routes:
     equity_cost: '0.0000'
     total: '6.2089'
     total_excluding_banking_upper_bound: '5.7795'
+    calculator_total: '4.9380'
 - route: group_captive
   source: wind
-  approved_rulebook:
+  total: '4.3941'
+  banking: '0.3130'
+  site_approved_rulebook:
     generation: '3.6000'
     injection_charges: '0.0000'
     losses: '0.0000'
@@ -126,6 +165,7 @@ routes:
     equity_cost: '0.7941'
     total: '5.5487'
     total_excluding_banking_upper_bound: '5.2356'
+    calculator_total: '4.3941'
   order:
     generation: '3.6000'
     injection_charges: '0.8100'
@@ -136,25 +176,30 @@ routes:
     equity_cost: '0.8874'
     total: '7.0857'
     total_excluding_banking_upper_bound: '6.6572'
+    calculator_total: '5.8156'
 - route: third_party
   source: wind
-  approved_rulebook:
+  total: '5.7100'
+  banking: '0.3130'
+  site_approved_rulebook:
     generation: '3.6000'
     injection_charges: '0.0000'
     losses: '0.0000'
     drawal_charges: '2.1100'
-    banking_upper_bound: '0.4965'
+    banking_upper_bound: '0.3130'
     duty_assumed: '0.8415'
     equity_cost: '0.0000'
-    total: '7.0481'
+    total: '6.8646'
     total_excluding_banking_upper_bound: '6.5515'
+    calculator_total: '5.7100'
   order:
     generation: '3.6000'
     injection_charges: '0.8100'
     losses: '0.5182'
     drawal_charges: '2.1100'
-    banking_upper_bound: '0.6120'
+    banking_upper_bound: '0.4285'
     duty_assumed: '0.8415'
     equity_cost: '0.0000'
-    total: '8.4918'
+    total: '8.3083'
     total_excluding_banking_upper_bound: '7.8798'
+    calculator_total: '7.0382'
