@@ -38,7 +38,7 @@ from urllib.parse import unquote, urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from sqlalchemy import update
+from sqlalchemy import case, delete, exists, func, select, update
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -61,6 +61,11 @@ AUTH_METHODS = ("none", "client_secret_post", "client_secret_basic")
 _VERIFIER = re.compile(r"^[A-Za-z0-9\-._~]{43,128}$")
 _CHALLENGE = re.compile(r"^[A-Za-z0-9\-_]{43}$")  # base64url of a SHA-256, unpadded
 _LOOPBACK = ("localhost", "127.0.0.1", "::1")
+# pruning: a sign-in's tokens are deleted a day after the last of them ended (expired or revoked), so a
+# spent token presented again within that day is still recognised; a client with no token left is
+# deleted thirty days after it registered
+PRUNE_GRACE = timedelta(days=1)
+CLIENT_IDLE = timedelta(days=30)
 
 
 # ---------------------------------------------------------------- addresses
@@ -277,6 +282,7 @@ async def register(request: Request) -> JSONResponse:
 
     def store() -> datetime:
         with session_scope(actor="mcp-oauth") as s:
+            prune(s, datetime.now(UTC))
             row = McpClient(
                 client_id=client_id,
                 secret_sha256=sha(secret) if secret else None,
@@ -520,6 +526,23 @@ def _client(s: Session, form: dict[str, str], authorization: str | None) -> McpC
     return client
 
 
+def prune(s: Session, now: datetime) -> tuple[int, int]:
+    """Delete what no one can use any more: every token of a sign-in (grant) whose tokens have all
+    ended, expired or revoked, more than PRUNE_GRACE ago; then every client registered more than
+    CLIENT_IDLE ago that has no token left. A grant with any token still good, or ended within the
+    grace, keeps all its rows. Returns (tokens, clients) deleted. Two statements on small tables:
+    run at every registration and every token issued."""
+    ended = case(
+        (McpToken.revoked_at.is_not(None), func.least(McpToken.revoked_at, McpToken.expires_at)),
+        else_=McpToken.expires_at,
+    )
+    dead = select(McpToken.grant_id).group_by(McpToken.grant_id).having(func.max(ended) < now - PRUNE_GRACE)
+    tokens = s.execute(delete(McpToken).where(McpToken.grant_id.in_(dead)))
+    holds = exists().where(McpToken.client_id == McpClient.client_id)
+    clients = s.execute(delete(McpClient).where(McpClient.created_at < now - CLIENT_IDLE, ~holds))
+    return int(getattr(tokens, "rowcount", 0) or 0), int(getattr(clients, "rowcount", 0) or 0)
+
+
 def _revoke_grant(s: Session, grant_id: str, now: datetime) -> None:
     s.execute(
         update(McpToken)
@@ -529,6 +552,7 @@ def _revoke_grant(s: Session, grant_id: str, now: datetime) -> None:
 
 
 def _issue(s: Session, parent: McpToken, client: McpClient, now: datetime) -> dict[str, Any]:
+    prune(s, now)  # the parent's grant is good (its token was just checked), so it is kept
     access = secrets.token_urlsafe(32)
     common = {
         "grant_id": parent.grant_id,
