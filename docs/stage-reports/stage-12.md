@@ -62,8 +62,8 @@ Redeployed at `14cfcef`; the twelve fetched orders (SHA-256 matched to the catal
 | Every row that could not be grounded is listed with the reason | Above, and in the command's output and `--json` |
 | Golden tests pass for each re-issued version | Andhra Pradesh 9/9, Bihar 7/7, Chhattisgarh 7/7, Haryana 7/7, Madhya Pradesh 7/7, Odisha 8/8, Tamil Nadu 10/10, Uttarakhand 7/7: the approved versions' own cases, unscoped |
 | An analyst approves each state's new version in the app | Left for your analyst (never the builder's act) |
-| Watcher green | WATCHER |
-| Reviewer clean | REVIEWER |
+| Watcher green | Green (pass ended 26 Nov 17:41 UTC, on the tree after `6f41c9f`; `971f8f5` changed only `tools/dev/vm-check.py`); CI green on `971f8f5` |
+| Reviewer clean | Not run yet: the OpenAI key is not yet in `.env` (questions 1); it runs as soon as the key is typed in |
 
 ## Readings
 

@@ -7,7 +7,7 @@ One line per stage. Times are UTC. Questions and the readings taken are in `docs
 | 11 | A.1 | Built 25 Nov, tagged `stage-11-built` | Live at `https://ergplan.joulewise.tech`. Not `-done`: reviewer and accepted billx read need the OpenAI keys; reboot test left undone (questions 1, 2). Report: `docs/stage-reports/stage-11.md` |
 | 11 | A.2 full-test findings | Done 25 Nov 20:15 | Findings 1, 2, 3, 4, 5, 8 to 12 fixed, each with a test (`0b6bbfd`, `f6b8c03`); 6 and 7 are with the analyst (questions 5, 6) |
 | 11 | A.3 rerun | Done 25 Nov | Uttar Pradesh test, slow tests and CI read; the figure-by-figure table is in the stage report |
-| 12 | — | Second round, in progress since 26 Nov 14:40 | One worker: register figures to stored pages, as drafts |
+| 12 | — (second round) | Built 26 Nov, tagged `stage-12-built` | Eight states' open-access charges re-issued as drafts citing their order pages; figures unchanged; golden green; none approved (questions 37). Report: `docs/stage-reports/stage-12.md` |
 | 13 | B | Built 25 Nov, tagged `stage-13-built` | Administrator sign-in built and tested; **switched off on the live server** until the two variables are typed into `.env` (questions 16). Report: `docs/stage-reports/stage-13.md` |
 | 14 | C | Built 26 Nov, tagged `stage-14-built` | 60 draft versions from 24 orders in twelve states, in the live database, none approved (the analyst's act); Andhra Pradesh and MSEDCL not imported (questions 19 to 25). Report: `docs/stage-reports/stage-14.md` |
 | 15 | D | Built 26 Nov, tagged `stage-15-built` | Generation profiles, the questions the bills do not answer, the transition plan (UP to 50%: rooftop 5,000 kW, then captive wind 4,610 kW, ₹5.19 cr a year saved). Questions 27 to 29. Report: `docs/stage-reports/stage-15.md` |
@@ -19,4 +19,8 @@ One line per stage. Times are UTC. Questions and the readings taken are in `docs
 To resume after an interruption: type "continue the brief".
 
 
-**Second round** (from 26 Nov 14:40): Stage 12; the seven ARR Network states not yet imported (GA, HP, JH, PY, AS, WB, DL); code gaps (a run pins the roof typed with the inputs, a time-limited sizing falls back instead of failing, plain words for solver statuses, Bihar's ToD scope, MCP token pruning). Then the multi-state tests again.
+**Second round** (26 Nov 14:40 to 17:35): done and live. Stage 12; five more states imported as drafts (HP, JH, AS, GA, PY; WB and DL not importable, questions 36); code gaps closed (a run pins the roof typed with the inputs, a time-limited sizing falls back labelled, plain words for solver statuses, Bihar's ToD scope, MCP token pruning, the banking upper bound). The multi-state tests were rerun on the merged tree and pass. Live drafts: 101; the 72 approved versions unchanged.
+
+**Since, at your request** (26 Nov): sign-in removed from the app and the MCP connector (`ERGPLAN_OPEN_ACCESS=true`); approving still needs an analyst's own sign-in (questions 35). A DISCOM tariffs tab at `/tariffs`.
+
+**Waiting on you:** the OpenAI key (`tools/dev/set-openai-key.sh` in tmux window `key`). Then: the reviewer for every built stage, and billx reading one bill.
