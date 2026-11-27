@@ -278,7 +278,7 @@ def schedule_figures(rule: RuleView) -> list[Figure]:
             _fig(
                 rule,
                 "/minimum_charge/min_units_per_kva_month",
-                Unit.KWH,
+                Unit.KWH_PER_KVA_MONTH,
                 "Minimum units billed per kVA per month",
             ),
         )

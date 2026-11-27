@@ -24,6 +24,7 @@ class Unit(StrEnum):
     PAISE_PER_KVAH = "paise/kVAh"
     PERCENT = "percent"
     KWH = "kWh"
+    KWH_PER_KVA_MONTH = "kWh/kVA/month"
     KVAH = "kVAh"
     MWH = "MWh"
     KW = "kW"

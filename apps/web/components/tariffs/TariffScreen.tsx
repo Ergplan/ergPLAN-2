@@ -37,6 +37,7 @@ const UNIT_WORDS: Record<string, string> = {
   "INR/MW/day": "₹/MW/day",
   "INR/MWh": "₹/MWh",
   "INR/year": "₹/year",
+  "kWh/kVA/month": "kWh per kVA a month",
   percent: "%",
   ratio: "×",
 };

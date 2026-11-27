@@ -42,7 +42,7 @@ def test_schedule_units_follow_the_billing_basis() -> None:
         },
         "energy_charge": {"base": "8.44", "by_slot": {"peak": "9.10"}},
         "retail_wheeling_charge": "0.81",
-        "minimum_charge": {"inr_per_kva_month": "100"},
+        "minimum_charge": {"inr_per_kva_month": "100", "min_units_per_kva_month": "75"},
     }
     f = by_key(tb.schedule_figures(view("tariff_schedule", body)))
     assert f["/energy_charge/base"].value.unit == Unit.INR_PER_KVAH
@@ -52,6 +52,7 @@ def test_schedule_units_follow_the_billing_basis() -> None:
     assert f["/demand_charge/value"].value.unit == Unit.INR_PER_KVA_MONTH
     assert f["/demand_charge/billing_demand_rule/min_pct_of_contract_demand"].value.unit == Unit.PERCENT
     assert f["/minimum_charge/inr_per_kva_month"].value.value == Decimal("100")
+    assert f["/minimum_charge/min_units_per_kva_month"].value.unit == Unit.KWH_PER_KVA_MONTH
     # every figure cites the row (no field refs here), with the rule id
     for x in f.values():
         (r,) = x.value.source_refs
